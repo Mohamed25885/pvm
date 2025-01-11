@@ -27,8 +27,8 @@ class GitIgnore {
       final lines = file.openRead().transform(utf8.decoder).transform(LineSplitter());
 
       // Process each line
-      await for (final line in lines) {
-        if (line == Utils.directoryName) {
+      await for (final fLine in lines) {
+        if (fLine == Utils.directoryName) {
           return;
         }
       }
