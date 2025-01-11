@@ -1,0 +1,15 @@
+name: pvm
+description: A sample command-line application.
+version: 1.0.0
+# repository: https://github.com/my_org/my_repo
+
+environment:
+  sdk: ^3.4.0
+
+# Add regular dependencies here.
+dependencies:
+  args: ^2.6.0
+  # path: ^1.8.0
+
+dev_dependencies:
+  lints: ^4.0.0
