@@ -1,5 +1,5 @@
-### PVM (PHP Version Manager)
-# A simple tool to manage multiple PHP verion as it gives you the ability to have multiple PHP version running simultaneously
+# PVM (PHP Version Manager)
+### A simple tool to manage multiple PHP verion as it gives you the ability to have multiple PHP version running simultaneously
 
 #### To create global PHP version
 `
