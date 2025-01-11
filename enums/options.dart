@@ -1,5 +1,5 @@
 enum Options {
-  version,
+  global,
   use,
   php,
 }
@@ -7,8 +7,8 @@ enum Options {
 extension OptionsExtension on Options {
   String get name {
     switch (this) {
-      case Options.version:
-        return 'version';
+      case Options.global:
+        return 'global';
       case Options.use:
         return 'use';
       case Options.php:

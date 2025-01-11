@@ -9,7 +9,7 @@ import 'utils/php_proxy.dart';
 void main(List<String> arguments) async {
   final parser = ArgParser()
     //..addCommand(Options.php.name)
-    ..addOption(Options.version.name, abbr: 'v')
+    ..addCommand(Options.global.name)
     ..addCommand(Options.use.name);
   List<String> phpArguments = [];
 
@@ -29,28 +29,17 @@ void main(List<String> arguments) async {
   }
 
   final options = argResults;
-  String? version = options.option(Options.version.name);
-  String? useVersion = argResults.command?.rest.firstOrNull;
+  String? version = argResults.command?.rest.firstOrNull;
+  String commandName = argResults.command?.name ?? Options.global.name;
 
-  if (version != null && useVersion != null) {
-    print("can't use --version and --use together");
-    exitCode = 1;
-    return;
-  }
-
-  if (options.command?.name == Options.use.name && useVersion == null) {
-    print("select a version");
-    exitCode = 1;
-    return;
-  }
-  version ??= useVersion ?? "81";
+  version ??= version ?? "81";
   if (!['82', '81', '80'].contains(version)) {
     print("VERSION INCORRECT");
     exitCode = 1;
     return;
   }
 
-  if (options.command?.name == Options.use.name) {
+  if (commandName == Options.use.name) {
     try {
       final res = await OptionCreator.createLocal(version);
       print('Local link created successfully: ${res.to} -> ${res.from}');
