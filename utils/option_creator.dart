@@ -17,7 +17,7 @@ class OptionCreator {
       }
     }
 
-    return await SymlinkCreator.createSymLink(version, "${programDirectory.path}\\versions\\php${version}",
+    return await SymlinkCreator.createSymLink(version, "${programDirectory.path}\\versions\\${version}",
         "${Directory.current.path}\\${Utils.directoryName}");
   }
 
@@ -26,6 +26,6 @@ class OptionCreator {
     final programDirectory = File(Platform.script.toFilePath()).parent;
 
     return await SymlinkCreator.createSymLink(
-        version, "${programDirectory.path}\\versions\\php${version}", "$homeDir\\${Utils.directoryName}");
+        version, "${programDirectory.path}\\versions\\${version}", "$homeDir\\${Utils.directoryName}");
   }
 }

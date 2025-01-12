@@ -5,6 +5,7 @@ import 'package:args/args.dart';
 import 'enums/options.dart';
 import 'utils/option_creator.dart';
 import 'utils/php_proxy.dart';
+import 'utils/utils.dart';
 
 void main(List<String> arguments) async {
   final parser = ArgParser()
@@ -28,13 +29,19 @@ void main(List<String> arguments) async {
     return;
   }
 
-  final options = argResults;
   String? version = argResults.command?.rest.firstOrNull;
-  String commandName = argResults.command?.name ?? Options.global.name;
+  String? commandName = argResults.command?.name;
+  
+  List<String> availableVersions = await Utils.availableVersions;
 
-  version ??= version ?? "81";
-  if (!['82', '81', '80'].contains(version)) {
+  version ??= version ?? availableVersions.firstOrNull;
+  if (!availableVersions.contains(version)) {
     print("VERSION INCORRECT");
+    exitCode = 1;
+    return;
+  }
+  if (version == null) {
+    print("No versions provided");
     exitCode = 1;
     return;
   }
@@ -49,7 +56,7 @@ void main(List<String> arguments) async {
     }
   } else if (phpArguments.isNotEmpty) {
     await PhpProxy.create(phpArguments);
-  } else {
+  } else if (commandName == Options.global.name) {
     try {
       var res = await OptionCreator.createGlobal(version);
       print('Global link created successfully: ${res.to} -> ${res.from}');
@@ -57,6 +64,9 @@ void main(List<String> arguments) async {
       print(e.toString());
       exitCode = 1;
     }
+  } else {
+    print("Use one of the options");
+    exitCode = 1;
   }
   return;
 }
