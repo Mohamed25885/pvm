@@ -6,8 +6,7 @@ import 'utils.dart';
 
 class OptionCreator {
   static Future<({String from, String to})> createLocal(String version) async {
-    final programDirectory = File(Platform.script.toFilePath()).parent;
-    final gitIgnore = GitIgnore(programDirectory.path);
+    final gitIgnore = GitIgnore(Utils.programDirectory.path);
 
     if (await gitIgnore.checkExistence()) {
       print("Do you want to add .pvm to gitignore? (y\\n)");
@@ -17,15 +16,13 @@ class OptionCreator {
       }
     }
 
-    return await SymlinkCreator.createSymLink(version, "${programDirectory.path}\\versions\\${version}",
-        "${Directory.current.path}\\${Utils.directoryName}");
+    return await SymlinkCreator.createSymLink(version, "${Utils.phpVersionsPath}\\${version}", Utils.localPath);
   }
 
   static Future<({String from, String to})> createGlobal(String version) async {
     final homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-    final programDirectory = File(Platform.script.toFilePath()).parent;
 
     return await SymlinkCreator.createSymLink(
-        version, "${programDirectory.path}\\versions\\${version}", "$homeDir\\${Utils.directoryName}");
+        version, "${Utils.phpVersionsPath}\\${version}", "$homeDir\\${Utils.directoryName}");
   }
 }

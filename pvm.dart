@@ -9,7 +9,8 @@ import 'utils/utils.dart';
 
 void main(List<String> arguments) async {
   final parser = ArgParser()
-    //..addCommand(Options.php.name)
+    ..addFlag(Options.help.name, abbr: "h")
+    ..addCommand(Options.list.name)
     ..addCommand(Options.global.name)
     ..addCommand(Options.use.name);
   List<String> phpArguments = [];
@@ -31,7 +32,13 @@ void main(List<String> arguments) async {
 
   String? version = argResults.command?.rest.firstOrNull;
   String? commandName = argResults.command?.name;
-  
+
+  if (argResults.flag(Options.help.name)) {
+    print(
+        "'use' to create local version, 'global' to create global version, 'php' to start proxy, 'list' to list available versions");
+    return;
+  }
+
   List<String> availableVersions = await Utils.availableVersions;
 
   version ??= version ?? availableVersions.firstOrNull;
@@ -54,6 +61,8 @@ void main(List<String> arguments) async {
       print(e.toString());
       exitCode = 1;
     }
+  } else if (commandName == Options.list.name) {
+    print(availableVersions.join('\t'));
   } else if (phpArguments.isNotEmpty) {
     await PhpProxy.create(phpArguments);
   } else if (commandName == Options.global.name) {

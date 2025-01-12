@@ -5,7 +5,7 @@ import 'utils.dart';
 
 class PhpProxy {
   static Future<void> create(List<String> args) async {
-    final phpPath = "${Directory.current.path}\\${Utils.directoryName}";
+    final phpPath = Utils.localPath;
     if (!(await Directory(phpPath).exists())) {
       throw Exception("No local version exists");
     }
