@@ -13,7 +13,7 @@ class Utils {
   }  
 
   static List<String> get  availableVersions {
-    return Utils._getDirectories("${Directory.current.path}\\versions", recursive: false);
+    return Utils._getDirectories("${Utils.phpVersionsPath}", recursive: false);
   }
 
   static List<String> _getDirectories(String path, {bool recursive = false}) {
