@@ -1,7 +1,6 @@
 import 'dart:io';
-import 'package:path/path.dart' as p;
 
-import '../interfaces/os_manager.dart';
+import '../core/os_manager.dart';
 
 class WindowsOSManager implements IOSManager {
   @override
@@ -74,44 +73,7 @@ class WindowsOSManager implements IOSManager {
     return Directory(versionsPath)
         .listSync()
         .where((FileSystemEntity entity) => entity is Directory)
-        .map((FileSystemEntity entity) => p.basename(entity.path))
+        .map((FileSystemEntity entity) => entity.path.split(Platform.pathSeparator).last)
         .toList();
-  }
-}
-
-class WindowsProcessManager implements IProcessManager {
-  @override
-  Future<int> runPhp(List<String> args, String phpPath) async {
-    final phpExe = '$phpPath\\php.exe';
-
-    if (!(await File(phpExe).exists())) {
-      throw Exception("No PHP executable found at: $phpExe");
-    }
-
-    final process = await Process.start(
-      phpExe,
-      args,
-      mode: ProcessStartMode.inheritStdio,
-    );
-
-    return await process.exitCode;
-  }
-
-  @override
-  Future<({int pid, int exitCode})> startProcess(
-      String executable, List<String> args) async {
-    final process = await Process.start(
-      executable,
-      args,
-      mode: ProcessStartMode.inheritStdio,
-    );
-
-    final exitCode = await process.exitCode;
-    return (pid: process.pid, exitCode: exitCode);
-  }
-
-  @override
-  Future<void> killProcessTree(int pid) async {
-    await Process.run('taskkill', ['/pid', pid.toString(), '/t', '/f']);
   }
 }

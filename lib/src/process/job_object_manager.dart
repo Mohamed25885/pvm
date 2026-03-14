@@ -6,7 +6,8 @@ import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
 
 final assignProcessToJobObject = DynamicLibrary.open('kernel32.dll')
-    .lookupFunction<IntPtr Function(IntPtr, IntPtr), int Function(int, int)>('AssignProcessToJobObject');
+    .lookupFunction<IntPtr Function(IntPtr, IntPtr), int Function(int, int)>(
+        'AssignProcessToJobObject');
 
 final class JOBOBJECT_BASIC_LIMIT_INFORMATION extends Struct {
   @Int64()
@@ -119,7 +120,8 @@ class JobObjectManager {
 
     try {
       // calloc zero-initialises memory — only set the flag that matters.
-      pInfo.ref.BasicLimitInformation.LimitFlags = JobObjectLimits.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+      pInfo.ref.BasicLimitInformation.LimitFlags =
+          JobObjectLimits.JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
 
       final result = SetInformationJobObject(
         _jobHandle,
@@ -149,7 +151,8 @@ class JobObjectManager {
     if (processHandle == 0) {
       // Process already exited before we could open a handle — benign race.
       final err = GetLastError();
-      stderr.writeln('[warn] OpenProcess($processId) failed (err=$err) — process may have already exited');
+      stderr.writeln(
+          '[warn] OpenProcess($processId) failed (err=$err) — process may have already exited');
       return false;
     }
 
@@ -169,7 +172,8 @@ class JobObjectManager {
       }
 
       // Unexpected error — surface it clearly.
-      stderr.writeln('[warn] AssignProcessToJobObject($processId) failed unexpectedly (err=$err)');
+      stderr.writeln(
+          '[warn] AssignProcessToJobObject($processId) failed unexpectedly (err=$err)');
       return false;
     }
 
@@ -199,6 +203,8 @@ class ManagedProcessRunner {
   JobObjectManager? _jobManager;
   Process? _process;
   StreamSubscription? _signalSubscription;
+  StreamSubscription? _stdoutSubscription;
+  StreamSubscription? _stderrSubscription;
   bool _running = false;
 
   Future<int> run(String executablePath, List<String> args) async {
@@ -211,14 +217,15 @@ class ManagedProcessRunner {
       _jobManager = JobObjectManager();
 
       if (!_jobManager!.create()) {
-        stderr.writeln('[warn] Failed to create Job Object — child processes may outlive parent');
+        stderr.writeln(
+            '[warn] Failed to create Job Object — child processes may outlive parent');
         _jobManager = null;
       }
 
       _process = await _startWithRetry(executablePath, args);
 
-      _process!.stdout.listen((data) => stdout.add(data));
-      _process!.stderr.listen((data) => stderr.add(data));
+      _stdoutSubscription = _process!.stdout.listen((data) => stdout.add(data));
+      _stderrSubscription = _process!.stderr.listen((data) => stderr.add(data));
 
       if (_jobManager != null && _jobManager!.isValid) {
         // assignProcess handles the 0xC0000005 race internally —
@@ -276,13 +283,20 @@ class ManagedProcessRunner {
   Future<void> _killProcessTree() async {
     if (_process != null) {
       // Don't null _process here — let _cleanup() own that.
-      await Process.run('taskkill', ['/pid', _process!.pid.toString(), '/t', '/f']);
+      await Process.run(
+          'taskkill', ['/pid', _process!.pid.toString(), '/t', '/f']);
     }
   }
 
   void _cleanup() {
     _signalSubscription?.cancel();
     _signalSubscription = null;
+
+    _stdoutSubscription?.cancel();
+    _stdoutSubscription = null;
+
+    _stderrSubscription?.cancel();
+    _stderrSubscription = null;
 
     _jobManager?.dispose();
     _jobManager = null;

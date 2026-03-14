@@ -1,8 +1,8 @@
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
-import '../interfaces/os_manager.dart';
-import '../utils/job_object_manager.dart';
+import '../core/os_manager.dart';
+import '../process/job_object_manager.dart';
 
 class PhpCommand extends Command<int> {
   @override
@@ -27,7 +27,8 @@ class PhpCommand extends Command<int> {
     final localPath = _osManager.localPath;
 
     if (!await _osManager.directoryExists(localPath)) {
-      print('Error: No local version configured. Run "pvm use <version>" first.');
+      print(
+          'Error: No local version configured. Run "pvm use <version>" first.');
       return 1;
     }
 

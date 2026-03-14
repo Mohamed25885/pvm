@@ -44,10 +44,10 @@ The `.agents` directory contains all resources for agentic coding:
 ### OS Abstraction Layer
 The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on WSL/Linux.
 
-- **`interfaces/os_manager.dart`**: Defines `IOSManager` and `IProcessManager` interfaces.
-- **`utils/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`.
-- **`utils/mock_os_manager.dart`**: Mock implementation for testing on non-Windows platforms.
-- **`utils/job_object_manager.dart`**: Handles process lifecycle and cleanup.
+- **`lib/src/core/os_manager.dart`**: Defines `IOSManager` and `IProcessManager` interfaces.
+- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`.
+- **`lib/src/managers/mock_os_manager.dart`**: Mock implementation for testing on non-Windows platforms.
+- **`lib/src/process/job_object_manager.dart`**: Handles process lifecycle and cleanup.
 
 ### CommandRunner Pattern
 The CLI uses `package:args`'s `CommandRunner` for modular command handling:
@@ -64,11 +64,11 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling:
 - **Fix Lints:** `dart fix --apply`
 
 ### Execution
-- **Run locally:** `dart pvm.dart <command> [arguments]`
-- **Run PHP proxy:** `dart pvm.dart php [arguments]`
+- **Run locally:** `dart bin/pvm.dart <command> [arguments]`
+- **Run PHP proxy:** `dart bin/pvm.dart php [arguments]`
 
 ### Build
-- **Compile Executable:** `dart compile exe pvm.dart -o builds/pvm.exe`
+- **Compile Executable:** `dart compile exe bin/pvm.dart -o builds/pvm.exe`
 
 ### Testing
 - **Run all tests:** `dart test`
@@ -126,17 +126,18 @@ import 'utils/utils.dart';
 
 ## Project Structure
 
-- `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
-- `commands/`: Command files (global_command.dart, use_command.dart, list_command.dart, php_command.dart).
-- `interfaces/`: Contains `os_manager.dart` defining OS abstractions.
-- `enums/`: Contains `Options` enum (legacy, may be removed in future).
-- `utils/`:
-  - `windows_os_manager.dart`: Windows-specific implementation.
-  - `mock_os_manager.dart`: Mock implementation for testing.
-  - `job_object_manager.dart`: Process lifecycle management with Job Objects.
-  - `php_proxy.dart`: Legacy proxy (being phased out).
-  - `symlink_creator.dart`: Legacy symlink logic (being phased out).
-  - `gitngore.dart`: Helper to update `.gitignore` files.
+- `bin/pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
+- `lib/src/`:
+  - `commands/`: Command files (global_command.dart, use_command.dart, list_command.dart, php_command.dart).
+  - `core/`: Contains `os_manager.dart` defining OS abstractions.
+  - `managers/`:
+    - `windows_os_manager.dart`: Windows-specific implementation.
+    - `mock_os_manager.dart`: Mock implementation for testing.
+  - `process/`:
+    - `job_object_manager.dart`: Process lifecycle management with Job Objects.
+    - `php_proxy.dart`: Legacy proxy (being phased out).
+  - `utils/`:
+    - Legacy helpers (symlink_creator.dart, gitngore.dart, option_creator.dart, utils.dart, options.dart).
 - `test/`: Test files (e.g., `mock_test.dart`).
 - `versions/`: (Ignored in git) Contains PHP version subdirectories.
 - `builds/`: Destination for compiled executables.

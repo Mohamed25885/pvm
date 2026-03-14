@@ -1,17 +1,17 @@
 import 'package:args/command_runner.dart';
 
-import '../interfaces/os_manager.dart';
+import '../core/os_manager.dart';
 
-class GlobalCommand extends Command<int> {
+class UseCommand extends Command<int> {
   @override
-  final String name = 'global';
+  final String name = 'use';
 
   @override
-  final String description = 'Set the global PHP version (system-wide)';
+  final String description = 'Set the local PHP version (project-specific)';
 
   final IOSManager _osManager;
 
-  GlobalCommand(this._osManager);
+  UseCommand(this._osManager);
 
   @override
   Future<int> run() async {
@@ -22,7 +22,7 @@ class GlobalCommand extends Command<int> {
     }
 
     if (argResults?.rest.length != 1) {
-      print('Error: Too many arguments. Usage: pvm global <version>');
+      print('Error: Too many arguments. Usage: pvm use <version>');
       return 1;
     }
 
@@ -35,14 +35,12 @@ class GlobalCommand extends Command<int> {
     }
 
     try {
-      final homeDir = _osManager.getHomeDirectory();
-      final globalPath = '$homeDir\\.pvm';
+      final localPath = _osManager.localPath;
       final sourcePath = '${_osManager.phpVersionsPath}\\$version';
 
       final result =
-          await _osManager.createSymLink(version, sourcePath, globalPath);
-      print('Global link created: ${result.to} -> ${result.from}');
-      print('Add "$globalPath" to your PATH to use globally');
+          await _osManager.createSymLink(version, sourcePath, localPath);
+      print('Local link created: ${result.to} -> ${result.from}');
       return 0;
     } catch (e) {
       print('Error: $e');

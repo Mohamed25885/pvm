@@ -1,6 +1,6 @@
 import 'package:args/command_runner.dart';
 
-import '../interfaces/os_manager.dart';
+import '../core/os_manager.dart';
 
 class ListCommand extends Command<int> {
   @override

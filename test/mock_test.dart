@@ -1,5 +1,5 @@
 import 'package:test/test.dart';
-import '../utils/mock_os_manager.dart';
+import '../lib/src/managers/mock_os_manager.dart';
 
 void main() {
   group('IOSManager Interface Tests', () {

@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import 'commands/global_command.dart';
-import 'commands/use_command.dart';
-import 'commands/list_command.dart';
-import 'commands/php_command.dart';
-import 'interfaces/os_manager.dart';
-import 'utils/windows_os_manager.dart';
-import 'utils/job_object_manager.dart';
+import '../lib/src/commands/global_command.dart';
+import '../lib/src/commands/use_command.dart';
+import '../lib/src/commands/list_command.dart';
+import '../lib/src/commands/php_command.dart';
+import '../lib/src/core/os_manager.dart';
+import '../lib/src/managers/windows_os_manager.dart';
+import '../lib/src/process/job_object_manager.dart';
 
 void main(List<String> arguments) async {
   final runner = PvmCommandRunner();
@@ -22,7 +22,7 @@ void main(List<String> arguments) async {
 
 class PvmCommandRunner extends CommandRunner<int> {
   late final IOSManager _osManager;
-  late final ManagedProcessRunner  _phpRunner;
+  late final ManagedProcessRunner _phpRunner;
 
   PvmCommandRunner({IOSManager? osManager})
       : super('pvm',
