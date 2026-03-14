@@ -53,6 +53,7 @@ class MockOSManager implements IOSManager {
     _directoryExistsCache.clear();
     _fileExistsCache.clear();
     
+    mockVersions = [];
     createdSymlinks.clear();
     resetCallCounts();
   }

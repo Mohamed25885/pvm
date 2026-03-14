@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 import '../lib/src/managers/mock_os_manager.dart';
-import '../bin/pvm.dart';
+import '../pvm.dart';
 
 void main() {
   group('Adversarial Tests - Invalid Version Handling', () {

@@ -64,11 +64,11 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling:
 - **Fix Lints:** `dart fix --apply`
 
 ### Execution
-- **Run locally:** `dart bin/pvm.dart <command> [arguments]`
-- **Run PHP proxy:** `dart bin/pvm.dart php [arguments]`
+- **Run locally:** `dart pvm.dart <command> [arguments]`
+- **Run PHP proxy:** `dart pvm.dart php [arguments]`
 
 ### Build
-- **Compile Executable:** `dart compile exe bin/pvm.dart -o builds/pvm.exe`
+- **Compile Executable:** `dart compile exe pvm.dart -o builds/pvm.exe`
 
 ### Testing
 - **Run all tests:** `dart test`
@@ -126,7 +126,7 @@ import 'utils/utils.dart';
 
 ## Project Structure
 
-- `bin/pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
+- `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
 - `lib/src/`:
   - `commands/`: Command files (global_command.dart, use_command.dart, list_command.dart, php_command.dart).
   - `core/`: Contains `os_manager.dart` defining OS abstractions.
@@ -135,9 +135,6 @@ import 'utils/utils.dart';
     - `mock_os_manager.dart`: Mock implementation for testing.
   - `process/`:
     - `job_object_manager.dart`: Process lifecycle management with Job Objects.
-    - `php_proxy.dart`: Legacy proxy (being phased out).
-  - `utils/`:
-    - Legacy helpers (symlink_creator.dart, gitngore.dart, option_creator.dart, utils.dart, options.dart).
 - `test/`: Test files (e.g., `mock_test.dart`).
 - `versions/`: (Ignored in git) Contains PHP version subdirectories.
 - `builds/`: Destination for compiled executables.

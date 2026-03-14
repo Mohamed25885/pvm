@@ -1,6 +1,5 @@
 .dart_tool
 .pvm
-*.php
 builds
 
 # FVM Version Cache

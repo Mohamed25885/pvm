@@ -26,6 +26,12 @@ class GlobalCommand extends Command<int> {
       return 1;
     }
 
+    final versionPattern = RegExp(r'^\d+\.\d+(\.\d+)?$');
+    if (!versionPattern.hasMatch(version)) {
+      print('Error: Invalid version format. Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)');
+      return 1;
+    }
+
     final available =
         _osManager.getAvailableVersions(_osManager.phpVersionsPath);
     if (!available.contains(version)) {

@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:args/command_runner.dart';
 
-import '../lib/src/commands/global_command.dart';
-import '../lib/src/commands/use_command.dart';
-import '../lib/src/commands/list_command.dart';
-import '../lib/src/commands/php_command.dart';
-import '../lib/src/core/os_manager.dart';
-import '../lib/src/managers/windows_os_manager.dart';
-import '../lib/src/process/job_object_manager.dart';
+import 'lib/src/commands/global_command.dart';
+import 'lib/src/commands/use_command.dart';
+import 'lib/src/commands/list_command.dart';
+import 'lib/src/commands/php_command.dart';
+import 'lib/src/core/os_manager.dart';
+import 'lib/src/managers/windows_os_manager.dart';
+import 'lib/src/process/process.dart';
 
 void main(List<String> arguments) async {
   final runner = PvmCommandRunner();
@@ -17,6 +17,8 @@ void main(List<String> arguments) async {
   } catch (e) {
     print(e.toString());
     exitCode = 1;
+  } finally {
+    runner.dispose();
   }
 }
 
@@ -44,5 +46,9 @@ class PvmCommandRunner extends CommandRunner<int> {
       return 0;
     }
     return super.run(args);
+  }
+
+  void dispose() {
+    _phpRunner.dispose();
   }
 }
