@@ -2,3 +2,6 @@
 .pvm
 *.php
 builds
+
+# FVM Version Cache
+.fvm/

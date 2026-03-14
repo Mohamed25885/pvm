@@ -6,7 +6,7 @@ import 'utils.dart';
 
 class OptionCreator {
   static Future<({String from, String to})> createLocal(String version) async {
-    final gitIgnore = GitIgnore(Utils.programDirectory.path);
+    final gitIgnore = GitIgnore(Directory.current.path);
 
     if (await gitIgnore.checkExistence()) {
       print("Do you want to add .pvm to gitignore? (y\\n)");
