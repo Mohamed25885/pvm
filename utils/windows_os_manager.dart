@@ -12,13 +12,13 @@ class WindowsOSManager implements IOSManager {
 
   @override
   String get localPath => "${Directory.current.path}\\.pvm";
-  
+
   String get directoryName => '.pvm';
 
   @override
   String getHomeDirectory() {
-    final home = Platform.environment['USERPROFILE'] ?? 
-                 Platform.environment['HOME'];
+    final home =
+        Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
     if (home == null || home.isEmpty) {
       throw Exception('Could not determine home directory');
     }
@@ -26,7 +26,8 @@ class WindowsOSManager implements IOSManager {
   }
 
   @override
-  Future<({String from, String to})> createSymLink(String version, String from, String to) async {
+  Future<({String from, String to})> createSymLink(
+      String version, String from, String to) async {
     final homeDir = Directory(to).parent;
 
     if (homeDir.path.isEmpty || !(await directoryExists(homeDir.path))) {
@@ -82,7 +83,7 @@ class WindowsProcessManager implements IProcessManager {
   @override
   Future<int> runPhp(List<String> args, String phpPath) async {
     final phpExe = '$phpPath\\php.exe';
-    
+
     if (!(await File(phpExe).exists())) {
       throw Exception("No PHP executable found at: $phpExe");
     }
@@ -97,7 +98,8 @@ class WindowsProcessManager implements IProcessManager {
   }
 
   @override
-  Future<({int pid, int exitCode})> startProcess(String executable, List<String> args) async {
+  Future<({int pid, int exitCode})> startProcess(
+      String executable, List<String> args) async {
     final process = await Process.start(
       executable,
       args,

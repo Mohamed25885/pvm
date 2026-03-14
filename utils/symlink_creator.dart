@@ -1,7 +1,8 @@
 import 'dart:io';
 
 class SymlinkCreator {
-  static Future<({String from, String to})> createSymLink(String version, String from, String to) async {
+  static Future<({String from, String to})> createSymLink(
+      String version, String from, String to) async {
     final linkPath = to;
     final targetPath = from;
 

@@ -52,7 +52,7 @@ Refactor the PVM (PHP Version Manager) codebase to improve maintainability, test
    - Implement `MockProcessManager` for testing
 
 4. Create `utils/job_object_manager.dart`:
-   - Implement `PhpProcessRunner` class using `ProcessStartMode.inheritStdio` for high-performance piping
+   - Implement `ManagedProcessRunner ` class using `ProcessStartMode.inheritStdio` for high-performance piping
 
 ---
 
@@ -86,7 +86,7 @@ Refactor the PVM (PHP Version Manager) codebase to improve maintainability, test
 
 **Steps:**
 
-1. In `PhpProcessRunner.run()`:
+1. In `ManagedProcessRunner .run()`:
    - Use `ProcessStartMode.inheritStdio` instead of manual stream piping
    - This allows PHP to communicate directly with terminal
    - Correctly handles interactive prompts and terminal colors

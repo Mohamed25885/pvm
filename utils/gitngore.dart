@@ -24,7 +24,8 @@ class GitIgnore {
     File file = File(directory.path + "\\.gitignore");
     if (file.existsSync()) {
       // Read the file line by line
-      final lines = file.openRead().transform(utf8.decoder).transform(LineSplitter());
+      final lines =
+          file.openRead().transform(utf8.decoder).transform(LineSplitter());
 
       // Process each line
       await for (final fLine in lines) {
@@ -32,7 +33,7 @@ class GitIgnore {
           return;
         }
       }
-      file.writeAsStringSync("\n"+line, mode: FileMode.append);
+      file.writeAsStringSync("\n" + line, mode: FileMode.append);
     } else {
       file.writeAsStringSync(line);
     }

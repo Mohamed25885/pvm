@@ -287,17 +287,17 @@ void main() {
 
     test('concurrent version switches - last one wins', () async {
       osManager.mockVersions = ['8.0', '8.2'];
-      
+
       final exitCode1 = await runner.run(['use', '8.0']);
       expect(exitCode1, equals(0));
-      
+
       final exitCode2 = await runner.run(['use', '8.2']);
       expect(exitCode2, equals(0));
     });
 
     test('rapid switching between versions', () async {
       osManager.mockVersions = ['8.0', '8.2'];
-      
+
       for (var i = 0; i < 10; i++) {
         final exitCode = await runner.run(['use', i % 2 == 0 ? '8.0' : '8.2']);
         expect(exitCode, equals(0));
@@ -369,7 +369,18 @@ void main() {
     });
 
     test('list command with many versions', () async {
-      osManager.mockVersions = ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3'];
+      osManager.mockVersions = [
+        '5.6',
+        '7.0',
+        '7.1',
+        '7.2',
+        '7.3',
+        '7.4',
+        '8.0',
+        '8.1',
+        '8.2',
+        '8.3'
+      ];
       final exitCode = await runner.run(['list']);
       expect(exitCode, equals(0));
     });
@@ -462,7 +473,8 @@ void main() {
       runner = PvmCommandRunner(osManager: osManager);
     });
 
-    test('version with leading dash treated as flag throws exception', () async {
+    test('version with leading dash treated as flag throws exception',
+        () async {
       osManager.mockVersions = ['8.0'];
       expect(
         () => runner.run(['global', '-8.0']),

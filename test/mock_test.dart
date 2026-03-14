@@ -1,5 +1,4 @@
 import 'package:test/test.dart';
-import '../interfaces/os_manager.dart';
 import '../utils/mock_os_manager.dart';
 
 void main() {
@@ -41,7 +40,8 @@ void main() {
       );
     });
 
-    test('directoryExists returns true for paths without nonexistent', () async {
+    test('directoryExists returns true for paths without nonexistent',
+        () async {
       expect(await osManager.directoryExists('/some/path'), isTrue);
     });
 
@@ -66,7 +66,8 @@ void main() {
     });
 
     test('runPhp returns mock exit code', () async {
-      final exitCode = await processManager.runPhp(['--version'], '/path/to/php');
+      final exitCode =
+          await processManager.runPhp(['--version'], '/path/to/php');
       expect(exitCode, equals(0));
     });
 
@@ -79,7 +80,8 @@ void main() {
     });
 
     test('startProcess returns mock pid and exit code', () async {
-      final result = await processManager.startProcess('php.exe', ['--version']);
+      final result =
+          await processManager.startProcess('php.exe', ['--version']);
       expect(result.pid, equals(12345));
       expect(result.exitCode, equals(0));
     });

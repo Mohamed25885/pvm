@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
-import 'dart:isolate';
 
 import 'package:ffi/ffi.dart';
 import 'package:win32/win32.dart';
@@ -50,7 +49,6 @@ class PhpProxy {
     _setupCleanup();
   }
 
- 
   /// Sets up cleanup handlers using a Windows message loop.
   static void _setupCleanup() {
     // Run the Windows message loop on the main thread
@@ -59,8 +57,11 @@ class PhpProxy {
     Timer.periodic(Duration(milliseconds: 100), (_) {
       // Use PeekMessage to check for messages
       if (PeekMessage(msg, 0, 0, 0, PM_REMOVE) != 0) {
-        if (msg.ref.message == WM_CLOSE || msg.ref.message == WM_DESTROY || msg.ref.message == WM_QUIT) {
-          print("WM_CLOSE, WM_DESTROY, or WM_QUIT received. Terminating PHP process tree...");
+        if (msg.ref.message == WM_CLOSE ||
+            msg.ref.message == WM_DESTROY ||
+            msg.ref.message == WM_QUIT) {
+          print(
+              "WM_CLOSE, WM_DESTROY, or WM_QUIT received. Terminating PHP process tree...");
           _killProcessTree();
           PostQuitMessage(0); // Exit the message loop
         }
@@ -80,7 +81,8 @@ class PhpProxy {
   /// Kills the PHP process and its child processes.
   static Future<void> _killProcessTree() async {
     if (_process != null) {
-      await Process.run('taskkill', ['/pid', _process!.pid.toString(), '/t', '/f']);
+      await Process.run(
+          'taskkill', ['/pid', _process!.pid.toString(), '/t', '/f']);
       _process = null;
     }
   }

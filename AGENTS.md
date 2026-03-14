@@ -127,12 +127,13 @@ import 'utils/utils.dart';
 ## Project Structure
 
 - `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
+- `commands/`: Command files (global_command.dart, use_command.dart, list_command.dart, php_command.dart).
 - `interfaces/`: Contains `os_manager.dart` defining OS abstractions.
 - `enums/`: Contains `Options` enum (legacy, may be removed in future).
 - `utils/`:
   - `windows_os_manager.dart`: Windows-specific implementation.
   - `mock_os_manager.dart`: Mock implementation for testing.
-  - `job_object_manager.dart`: Process lifecycle management.
+  - `job_object_manager.dart`: Process lifecycle management with Job Objects.
   - `php_proxy.dart`: Legacy proxy (being phased out).
   - `symlink_creator.dart`: Legacy symlink logic (being phased out).
   - `gitngore.dart`: Helper to update `.gitignore` files.
@@ -156,6 +157,27 @@ import 'utils/utils.dart';
 - Local versions are managed via a `.pvm` directory in the current working directory.
 - Global versions are stored in `%USERPROFILE%\.pvm`.
 
+### Job Objects & Process Management
+
+The `job_object_manager.dart` provides Windows Job Objects for robust process lifecycle management:
+
+- **Custom FFI Bindings**: `AssignProcessToJobObject` is not exposed by the `win32` package, so custom FFI via `DynamicLibrary.open('kernel32.dll')` is used.
+- **Struct Definitions**: Three FFI struct classes define the Windows Job Objects API:
+  - `JOBOBJECT_BASIC_LIMIT_INFORMATION`
+  - `IO_COUNTERS`
+  - `JOBOBJECT_EXTENDED_LIMIT_INFORMATION`
+- **JobObjectManager**: Creates a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag so child processes are terminated when the parent exits.
+- **ManagedProcessRunner**: High-level runner with:
+  - `ProcessStartMode.normal` instead of `inheritStdio` (fixes process hanging on exit - Dart SDK issues #98395, #48439)
+  - Retry logic for transient `CreateProcess` failures (0xC0000005 under rapid spawning)
+  - Benign race handling for `AssignProcessToJobObject` (process may exit during assignment)
+  - SIGINT handler only (Windows doesn't support SIGTERM)
+  - `taskkill /t /f` for process tree cleanup
+
+**Common Windows Error Codes** (used in error handling):
+- `ERROR_ACCESS_DENIED` (5) - Process exited mid-assignment
+- `ERROR_INVALID_HANDLE` (6) - Handle became invalid
+
 ## Common Pitfalls
 
 1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
@@ -168,7 +190,7 @@ Follow standard Dart `lints` package recommendations as configured in `pubspec.y
 
 ## Plan Persistence
 
-When working on significant features or refactoring, create a plan document to track progress:
+When working on significant features or refactoring, create a plan document to track progress.
 
 ### Plan Location
 - Store plans in `.agents/plans/[plan-title].md`
@@ -209,3 +231,99 @@ Future improvements
 3. **Keep updated**: Update status as phases are completed
 4. **Reference**: Use plan as guide but adapt as needed
 5. **Persist**: Always save the plan to `.agents/plans/` before proceeding with implementation
+
+### Progress Log
+Add a progress log section to each plan:
+```markdown
+## Progress Log
+
+### YYYY-MM-DD
+- [Description of work completed]
+- [Another item]
+```
+
+**IMPORTANT**: Always update the plan .md file as you progress through implementation. Include dates and specific changes made.
+
+---
+
+## Plan Mode Guidelines
+
+Plan mode is a read-only mode for research, planning, and exploration before implementation.
+
+### When to Use Plan Mode
+- When the user asks to "plan" something
+- When researching unfamiliar APIs or libraries
+- When breaking down complex tasks into steps
+- When exploring multiple approaches before deciding
+
+### Plan Mode Workflow
+1. Use explore agents or websearch to gather information
+2. Present findings and options to the user
+3. Create/update a plan document with the chosen approach
+4. Wait for user confirmation before implementing
+
+### Fix Plan Format
+When presenting a fix plan, always include:
+```markdown
+### Fix: [Issue Name]
+
+**Status:** [To Do / In Progress / Completed]
+
+**Problem:** [Description of the bug]
+
+**Solution:** [How to fix it]
+
+**File to Modify:** [File path]
+
+**Steps:**
+1. [Step]
+2. [Step]
+
+**Expected Result:** [What should happen after the fix]
+```
+
+---
+
+## Parallel Subagent Execution
+
+When working on complex tasks, identify independent tasks that can run in parallel to speed up research and implementation.
+
+### When to Use Parallel Execution
+- Multiple phases can run independently
+- Researching different aspects of a problem simultaneously
+- Creating multiple files that don't depend on each other
+
+### How to Execute in Parallel
+1. Launch multiple Task tools with explore subagent type
+2. Wait for all results to complete
+3. Combine findings before proceeding
+
+### Example
+```dart
+// Launch 3 explore agents in parallel
+task(description="Research CommandRunner", prompt="...", subagent_type="explore")
+task(description="Research FFI bindings", prompt="...", subagent_type="explore")  
+task(description="Research Job Objects", prompt="...", subagent_type="explore")
+```
+
+---
+
+## Websearch in Plan Mode
+
+Use websearch and codesearch tools extensively in plan mode to gather relevant documentation, examples, and best practices.
+
+### When to Use
+- When researching unfamiliar APIs
+- When needing current documentation
+- When looking for code examples
+- When exploring alternative approaches
+
+### How to Use
+1. Use websearch for general documentation
+2. Use codesearch for code-specific examples
+3. Include relevant findings in the plan document
+
+### Example Queries
+- "Dart CommandRunner subcommand example"
+- "Windows Job Objects FFI dart win32"
+- "dart ffi lookupFunction example"

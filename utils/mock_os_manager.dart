@@ -8,18 +8,19 @@ class MockOSManager implements IOSManager {
   String mockProgramDir = '/mock/pvm';
   String mockLocalPath = '/mock/project/.pvm';
   String mockHomeDir = '/mock/home';
-  
+
   @override
   String get programDirectory => mockProgramDir;
-  
+
   @override
   String get phpVersionsPath => '$mockProgramDir/versions';
-  
+
   @override
   String get localPath => mockLocalPath;
-  
+
   @override
-  Future<({String from, String to})> createSymLink(String version, String from, String to) async {
+  Future<({String from, String to})> createSymLink(
+      String version, String from, String to) async {
     if (shouldThrowOnSymlink) {
       throw Exception('Mock: Failed to create symlink');
     }
@@ -55,7 +56,7 @@ class MockProcessManager implements IProcessManager {
   bool shouldThrowOnRun = false;
   bool shouldThrowOnStart = false;
   int mockExitCode = 0;
-  
+
   @override
   Future<int> runPhp(List<String> args, String phpPath) async {
     if (shouldThrowOnRun) {
@@ -65,7 +66,8 @@ class MockProcessManager implements IProcessManager {
   }
 
   @override
-  Future<({int pid, int exitCode})> startProcess(String executable, List<String> args) async {
+  Future<({int pid, int exitCode})> startProcess(
+      String executable, List<String> args) async {
     if (shouldThrowOnStart) {
       throw Exception('Mock: Failed to start process');
     }
