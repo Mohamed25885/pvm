@@ -29,6 +29,7 @@ void main() {
     });
 
     test('createSymLink returns correct tuple', () async {
+      osManager.symlinkSourceExistsOverride = true;
       final result = await osManager.createSymLink('8.0', '/source', '/target');
       expect(result.from, equals('/source'));
       expect(result.to, equals('/target'));
@@ -42,21 +43,32 @@ void main() {
       );
     });
 
-    test('directoryExists returns true for paths without nonexistent',
+    test('directoryExists returns false by default for non-mock paths',
         () async {
+      // Without override or cache, non-mock paths check real filesystem
+      expect(
+          await osManager.directoryExists('/some/nonexistent/path'), isFalse);
+    });
+
+    test('directoryExists uses cache when set', () async {
+      osManager.setDirectoryExistsResult('/some/path', true);
       expect(await osManager.directoryExists('/some/path'), isTrue);
     });
 
-    test('directoryExists returns false for paths with nonexistent', () async {
-      expect(await osManager.directoryExists('/nonexistent/path'), isFalse);
+    test('directoryExists returns true with symlinkSourceExistsOverride',
+        () async {
+      osManager.symlinkSourceExistsOverride = true;
+      expect(await osManager.directoryExists('/any/path'), isTrue);
     });
 
-    test('fileExists returns true for paths with php.exe', () async {
-      expect(await osManager.fileExists('/path/to/php.exe'), isTrue);
+    test('fileExists returns false by default for non-mock paths', () async {
+      // Without override or cache, non-mock paths check real filesystem
+      expect(await osManager.fileExists('/some/nonexistent/path'), isFalse);
     });
 
-    test('fileExists returns false for paths without php.exe', () async {
-      expect(await osManager.fileExists('/path/to/noexe'), isFalse);
+    test('fileExists uses cache when set', () async {
+      osManager.setFileExistsResult('/some/path', true);
+      expect(await osManager.fileExists('/some/path'), isTrue);
     });
   });
 

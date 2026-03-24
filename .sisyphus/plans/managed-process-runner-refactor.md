@@ -419,6 +419,11 @@ Wave 2: 6) remove legacy Windows runner path, 7) regression and edge-case tests,
 
 - [x] 8. Normalize public imports, mocks, and deferred-cleanup documentation around the new contract
 
+- [ ] 9. Introduce a minimal per-project settings hook (to pave the way for .php-version driven defaults) and capture its interface in the plan
+- [ ] 10. Wire DI in UseCommand to inject a SettingsService and prepare to read .php-version for defaults
+- [ ] 11. Add tests for new per-project settings flow (no env vars; CLI flags override) and ensure no breakage to existing tests
+- [ ] 12. Add plan for a root-level .php-version migration note: alignment with plan docs and evidence tracking
+- [ ] 13. Remove any remaining references to deprecated forceUsingVersion or similar knobs in tests and docs
   **What to do**: Finish the refactor by removing stale references to the old process API from supporting files, keeping the public import surface coherent, and documenting the new non-goal clearly in code/tests: phase 1 does not guarantee parent-exit process-tree cleanup. Ensure all mocks/fakes/tests use `ProcessSpec` and the new result types consistently.
   **Must NOT do**: Do not add a new cleanup mechanism in this task. Do not leave comments or tests implying that tree cleanup is still guaranteed. Do not keep mixed old/new process terminology in public code.
 

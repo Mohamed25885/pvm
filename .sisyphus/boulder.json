@@ -27,8 +27,20 @@
     "ses_2e2daedffffeXwaG44pZie7reU",
     "ses_2e2d9ef9cffeyAmAe6CbgQ8r87",
     "ses_2e2da4a02ffe7gZ7Wa8geg0ZyK",
-    "ses_2e2da3e60ffehF3ZWkhuqXgJrD"
+    "ses_2e2da3e60ffehF3ZWkhuqXgJrD",
+    "ses_2e2ab3515ffe8wt10RyAlqN41O",
+    "ses_2e2ab350bffecm8QNIZ6ptJBoB",
+    "ses_2e2e460c7ffeWLIDVOaAWTs43o",
+    "ses_2e2185bdbffe6tpEJ2U1oDlwco"
   ],
   "plan_name": "managed-process-runner-refactor",
-  "agent": "atlas"
+  "agent": "atlas",
+  "iteration": "php-version-gitignore",
+  "design_decisions": {
+    "cli_overrides_file": true,
+    "prompt_default_yes": true,
+    "non_interactive_auto_apply_no_update": true,
+    "gitignore_auto_on_use": true,
+    "missing_version_prompts_user": true
+  }
 }

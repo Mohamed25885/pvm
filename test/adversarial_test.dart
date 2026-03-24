@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
@@ -34,6 +36,19 @@ Future<int> _executePhpThroughCommandRunner({
 
   final result = await runner.run(['php', ...args]);
   return result ?? 0;
+}
+
+/// Walk up from [dir] and delete any .php-version files found.
+/// This prevents _discoverRootPath from returning a parent directory.
+Future<void> _cleanupPhpVersionInParents(Directory dir) async {
+  while (true) {
+    final phpVersion = File('${dir.path}\\.php-version');
+    if (await phpVersion.exists()) {
+      await phpVersion.delete();
+    }
+    if (dir.parent.path == dir.path) break;
+    dir = dir.parent;
+  }
 }
 
 void main() {
@@ -230,8 +245,14 @@ void main() {
 
     test('php command with extra arguments passes them', () async {
       osManager.mockVersions = ['8.0'];
-      osManager.mockLocalPath = '/mock/project/.pvm';
+      // Set mockCurrentDirectory to isolate from real CWD's .pvm
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
@@ -251,44 +272,77 @@ void main() {
     });
 
     test('php command with no local .pvm directory', () async {
-      osManager.mockLocalPath = '/nonexistent/project/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with .pvm directory but no php.exe', () async {
-      osManager.mockLocalPath = '/mock/project/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with valid path but php process fails', () async {
-      osManager.mockLocalPath = '/path/with/php.exe';
+      // Set mockCurrentDirectory to isolate from real CWD's .pvm
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
       runner = PvmCommandRunner(
         osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
       );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with empty arguments list', () async {
-      osManager.mockLocalPath = '/path/with/php.exe';
+      // Set mockCurrentDirectory to isolate from real CWD's .pvm
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with special characters in arguments', () async {
-      osManager.mockLocalPath = '/path/with/php.exe';
+      // Set mockCurrentDirectory to isolate from real CWD's .pvm
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with path containing spaces', () async {
-      osManager.mockLocalPath = r'C:\Program Files\Project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
+      // Create a temp project dir with .pvm and php.exe for this test
+      final tempDir = await Directory.systemTemp.createTemp('pvm adv spaces-');
+      await Directory('${tempDir.path}\\.pvm').create();
+      await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      // _discoverRootPath walks UP from tempDir looking for .php-version.
+      // Clean up any leftover .php-version in the temp folder tree to ensure
+      // _discoverRootPath returns tempDir.path (the test's project root).
+      await _cleanupPhpVersionInParents(tempDir);
+
+      osManager.mockCurrentDirectory = tempDir.path;
+
+      final expectedPhpExe = '${tempDir.path}\\.pvm\\php.exe';
 
       final processManager =
           _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
@@ -304,14 +358,22 @@ void main() {
           equals(expectedPhpExe));
       expect(
           processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
+
+      await tempDir.delete(recursive: true);
     });
 
     test('php command with very long argument', () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
+      // Create a temp project dir with .pvm and php.exe for this test
+      final tempDir = await Directory.systemTemp.createTemp('pvm adv long-');
+      await Directory('${tempDir.path}\\.pvm').create();
+      await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      // Clean up any leftover .php-version in the temp folder tree
+      await _cleanupPhpVersionInParents(tempDir);
+
+      osManager.mockCurrentDirectory = tempDir.path;
+
+      final expectedPhpExe = '${tempDir.path}\\.pvm\\php.exe';
 
       final processManager = _AdversarialRecordingProcessManager();
       final longArg = 'a' * 10000;
@@ -327,6 +389,8 @@ void main() {
           equals(expectedPhpExe));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
+
+      await tempDir.delete(recursive: true);
     });
   });
 
@@ -336,6 +400,7 @@ void main() {
 
     setUp(() {
       osManager = MockOSManager();
+      osManager.symlinkSourceExistsOverride = true;
       runner = PvmCommandRunner(osManager: osManager);
     });
 
@@ -372,8 +437,13 @@ void main() {
     });
 
     test('directory created between check and use', () async {
-      osManager.mockLocalPath = '/newly/created/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
   });
@@ -396,6 +466,7 @@ void main() {
     test('empty mock home directory', () async {
       osManager.mockHomeDir = '';
       osManager.mockVersions = ['8.0'];
+      osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['global', '8.0']);
       expect(exitCode, equals(0));
     });
@@ -403,6 +474,7 @@ void main() {
     test('empty mock program directory', () async {
       osManager.mockProgramDir = '';
       osManager.mockVersions = ['8.0'];
+      osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['use', '8.0']);
       expect(exitCode, equals(0));
     });
@@ -471,6 +543,7 @@ void main() {
 
     setUp(() {
       osManager = MockOSManager();
+      osManager.symlinkSourceExistsOverride = true;
       runner = PvmCommandRunner(osManager: osManager);
     });
 
@@ -483,26 +556,46 @@ void main() {
     });
 
     test('path with unicode characters', () async {
-      osManager.mockLocalPath = '/路径/项目/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('path with only special characters', () async {
-      osManager.mockLocalPath = '/!@#\$%^&*/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('root directory path', () async {
-      osManager.mockLocalPath = '/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('network path style', () async {
-      osManager.mockLocalPath = '//server/share/.pvm';
+      final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
+      runner = PvmCommandRunner(
+        osManager: osManager,
+        mockCurrentDirectory: tempDir.path,
+      );
       final exitCode = await runner.run(['php']);
+      await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
   });
@@ -617,6 +710,7 @@ void main() {
 
     test('version with uppercase', () async {
       osManager.mockVersions = ['8.0'];
+      osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['global', '8.0']);
       expect(exitCode, equals(0));
     });

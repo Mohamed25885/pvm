@@ -12,6 +12,9 @@ class WindowsOSManager implements IOSManager {
   @override
   String get localPath => "${Directory.current.path}\\.pvm";
 
+  @override
+  String get currentDirectory => Directory.current.path;
+
   String get directoryName => '.pvm';
 
   @override
@@ -73,7 +76,8 @@ class WindowsOSManager implements IOSManager {
     return Directory(versionsPath)
         .listSync()
         .where((FileSystemEntity entity) => entity is Directory)
-        .map((FileSystemEntity entity) => entity.path.split(Platform.pathSeparator).last)
+        .map((FileSystemEntity entity) =>
+            entity.path.split(Platform.pathSeparator).last)
         .toList();
   }
 }

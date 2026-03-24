@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import '../core/os_manager.dart';
 import '../core/process_manager.dart';
 
@@ -12,6 +14,13 @@ class MockOSManager implements IOSManager {
   String mockProgramDir = '/mock/pvm';
   String mockLocalPath = '/mock/project/.pvm';
   String mockHomeDir = '/mock/home';
+
+  /// Override for createSymLink source directory existence check.
+  /// When set, createSymLink uses this value instead of real filesystem check.
+  bool? symlinkSourceExistsOverride;
+
+  /// Override for current directory (used by PhpCommand root discovery).
+  String? mockCurrentDirectory;
 
   String? symlinkErrorMessage;
   String? directoryExistsErrorMessage;
@@ -56,6 +65,8 @@ class MockOSManager implements IOSManager {
 
     mockVersions = [];
     createdSymlinks.clear();
+    symlinkSourceExistsOverride = null;
+    mockCurrentDirectory = null;
     resetCallCounts();
   }
 
@@ -77,12 +88,28 @@ class MockOSManager implements IOSManager {
   String get localPath => mockLocalPath;
 
   @override
+  String get currentDirectory => mockCurrentDirectory ?? Directory.current.path;
+
+  @override
   Future<({String from, String to})> createSymLink(
       String version, String from, String to) async {
     symlinkCallCount++;
 
     if (shouldThrowOnSymlink) {
       throw Exception(symlinkErrorMessage ?? 'Mock: Failed to create symlink');
+    }
+
+    // Allow tests to override the source directory existence check
+    if (symlinkSourceExistsOverride != null) {
+      final sourceExists = symlinkSourceExistsOverride!;
+      if (!sourceExists) {
+        throw Exception('Mock: Source directory does not exist: $from');
+      }
+    } else {
+      // Fall back to real filesystem check
+      if (!Directory(from).existsSync()) {
+        throw Exception('Mock: Source directory does not exist: $from');
+      }
     }
 
     createdSymlinks.add((version: version, from: from, to: to));
@@ -98,11 +125,24 @@ class MockOSManager implements IOSManager {
           directoryExistsErrorMessage ?? 'Mock: Directory check failed');
     }
 
+    // Explicit cache takes priority
     if (_directoryExistsCache.containsKey(path)) {
       return _directoryExistsCache[path]!;
     }
 
-    return !path.contains('nonexistent');
+    // Override makes all paths return the override value
+    if (symlinkSourceExistsOverride != null) {
+      return symlinkSourceExistsOverride!;
+    }
+
+    // For paths outside the mock directory, check the real filesystem.
+    // This handles test-created temp directories.
+    if (!path.contains(mockProgramDir)) {
+      return Directory(path).existsSync();
+    }
+
+    // Default fallback for mock paths: conservative — assume does not exist
+    return false;
   }
 
   @override
@@ -117,6 +157,13 @@ class MockOSManager implements IOSManager {
       return _fileExistsCache[path]!;
     }
 
+    // For paths outside the mock directory, check the real filesystem.
+    // This handles test-created temp directories.
+    if (!path.contains(mockProgramDir)) {
+      return File(path).existsSync();
+    }
+
+    // Default fallback for mock paths: use the php.exe heuristic
     return path.contains('php.exe');
   }
 

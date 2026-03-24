@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
@@ -46,23 +48,41 @@ Future<int> executePhpCommand({
   return result ?? 0;
 }
 
+/// Creates a temp directory with .php-version, .pvm subdir, and optionally php.exe.
+Future<Directory> setupProjectDir({
+  required String version,
+  bool includePhpExe = true,
+}) async {
+  final dir = await Directory.systemTemp.createTemp('pvm-php-test-');
+  await File('${dir.path}\\.php-version').writeAsString('$version\n');
+  await Directory('${dir.path}\\.pvm').create();
+  if (includePhpExe) {
+    await File('${dir.path}\\.pvm\\php.exe').create();
+  }
+  return dir;
+}
+
 void main() {
   group('PhpCommand characterization tests', () {
     late MockOSManager osManager;
     late RecordingProcessManager processManager;
+    late Directory tempDir;
 
     setUp(() {
       osManager = MockOSManager();
       processManager = RecordingProcessManager();
     });
 
+    tearDown(() async {
+      if (await tempDir.exists()) {
+        await tempDir.delete(recursive: true);
+      }
+    });
+
     test('php command forwards resolved executable and args unchanged',
         () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
-
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      tempDir = await setupProjectDir(version: '8.2');
+      osManager.mockCurrentDirectory = tempDir.path;
 
       final forwardedArgs = [
         '--version',
@@ -82,19 +102,16 @@ void main() {
       expect(exitCode, equals(0));
       expect(processManager.runInteractiveCallCount, equals(1));
       expect(processManager.lastInteractiveSpec?.executable,
-          equals(expectedPhpExe));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\php.exe'));
+          endsWith(r'\.pvm\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments,
           orderedEquals(forwardedArgs));
+      expect(processManager.lastInteractiveSpec?.workingDirectory,
+          equals(tempDir.path));
     });
 
     test('php command returns child exit code unchanged', () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
-
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      tempDir = await setupProjectDir(version: '8.2');
+      osManager.mockCurrentDirectory = tempDir.path;
       processManager = RecordingProcessManager(exitCodeToReturn: 73);
 
       final exitCode = await executePhpCommand(
@@ -108,11 +125,12 @@ void main() {
     });
 
     test('php command handles local path containing spaces', () async {
-      osManager.mockLocalPath = r'C:\Program Files\My Project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
+      tempDir = await Directory.systemTemp.createTemp('pvm php test spaces-');
+      await File('${tempDir.path}\\.php-version').writeAsString('8.2\n');
+      await Directory('${tempDir.path}\\.pvm').create();
+      await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      osManager.mockCurrentDirectory = tempDir.path;
 
       final exitCode = await executePhpCommand(
         osManager: osManager,
@@ -122,18 +140,15 @@ void main() {
 
       expect(exitCode, equals(0));
       expect(processManager.lastInteractiveSpec?.executable,
-          equals(expectedPhpExe));
+          endsWith(r'\.pvm\php.exe'));
       expect(
           processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
       expect(processManager.runCapturedCallCount, equals(0));
     });
 
     test('php command forwards very long argument unchanged', () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
-
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      tempDir = await setupProjectDir(version: '8.2');
+      osManager.mockCurrentDirectory = tempDir.path;
 
       final longArg = 'x' * 10000;
 
@@ -145,7 +160,7 @@ void main() {
 
       expect(exitCode, equals(0));
       expect(processManager.lastInteractiveSpec?.executable,
-          equals(expectedPhpExe));
+          endsWith(r'\.pvm\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
       expect(processManager.runCapturedCallCount, equals(0));
@@ -153,11 +168,8 @@ void main() {
 
     test('php command returns 1 when interactive process start fails',
         () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
-
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, true);
+      tempDir = await setupProjectDir(version: '8.2');
+      osManager.mockCurrentDirectory = tempDir.path;
 
       processManager = RecordingProcessManager(
         interactiveErrorToThrow: Exception('process start failed'),
@@ -174,10 +186,14 @@ void main() {
       expect(processManager.runCapturedCallCount, equals(0));
     });
 
-    test('php command returns 1 when local version directory is missing',
+    test('php command returns 1 when local .pvm directory is missing',
         () async {
-      osManager.mockLocalPath = r'C:\missing\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, false);
+      // CWD has no .php-version and no .pvm — PhpCommand should return 1
+      tempDir = await Directory.systemTemp.createTemp('pvm-php-missing-');
+      osManager.mockCurrentDirectory = tempDir.path;
+      // Mock: .pvm directory does not exist
+      osManager.setDirectoryExistsResult('${tempDir.path}\\.pvm', false);
+      // No .php-version, no .pvm
 
       final exitCode = await executePhpCommand(
         osManager: osManager,
@@ -190,11 +206,8 @@ void main() {
 
     test('php command returns 1 when resolved php executable is missing',
         () async {
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.setDirectoryExistsResult(osManager.localPath, true);
-
-      final expectedPhpExe = '${osManager.localPath}\\php.exe';
-      osManager.setFileExistsResult(expectedPhpExe, false);
+      tempDir = await setupProjectDir(version: '8.2', includePhpExe: false);
+      osManager.mockCurrentDirectory = tempDir.path;
 
       final exitCode = await executePhpCommand(
         osManager: osManager,

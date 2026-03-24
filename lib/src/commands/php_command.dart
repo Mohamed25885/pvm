@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
@@ -16,6 +18,24 @@ class PhpCommand extends Command<int> {
 
   PhpCommand(this._osManager, this._processManager);
 
+  /// Walk up from [cwd] looking for .php-version file.
+  /// Its parent directory is the project root.
+  /// Falls back to [cwd] if not found.
+  String _discoverRootPath(String cwd) {
+    var dir = Directory(cwd);
+    while (true) {
+      // Check .php-version in the current directory being examined
+      final phpVersionFile = File('${dir.path}\\.php-version');
+      if (phpVersionFile.existsSync()) {
+        return dir.path;
+      }
+      // Move to parent
+      if (dir.parent.path == dir.path) break; // filesystem root
+      dir = dir.parent;
+    }
+    return cwd;
+  }
+
   @override
   String get invocation => 'pvm php [arguments]';
 
@@ -24,7 +44,9 @@ class PhpCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final localPath = _osManager.localPath;
+    final cwd = _osManager.currentDirectory;
+    final rootPath = _discoverRootPath(cwd);
+    final localPath = '$rootPath\\.pvm';
 
     if (!await _osManager.directoryExists(localPath)) {
       print(
@@ -40,7 +62,11 @@ class PhpCommand extends Command<int> {
 
     try {
       final args = argResults?.rest ?? [];
-      final processSpec = ProcessSpec(executable: phpExe, arguments: args);
+      final processSpec = ProcessSpec(
+        executable: phpExe,
+        arguments: args,
+        workingDirectory: rootPath,
+      );
       final exitCode = await _processManager.runInteractive(processSpec);
       return exitCode;
     } catch (e) {

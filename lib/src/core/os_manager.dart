@@ -7,5 +7,6 @@ abstract class IOSManager {
   String get programDirectory;
   String get phpVersionsPath;
   String get localPath;
+  String get currentDirectory;
   String getHomeDirectory();
 }
