@@ -8,9 +8,6 @@ builds
 # Local project version file (user-specific, not repo)
 .php-version
 
-# Agent workspace (runtime state, not committed)
-.sisyphus/
-
 # IDE
 .vscode/
 .idea/
