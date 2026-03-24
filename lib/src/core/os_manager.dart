@@ -9,4 +9,5 @@ abstract class IOSManager {
   String get localPath;
   String get currentDirectory;
   String getHomeDirectory();
+  Map<String, String> get currentEnvironment;
 }

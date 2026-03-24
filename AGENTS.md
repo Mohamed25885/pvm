@@ -44,17 +44,24 @@ The `.agents` directory contains all resources for agentic coding:
 ### OS Abstraction Layer
 The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on WSL/Linux.
 
-- **`lib/src/core/os_manager.dart`**: Defines `IOSManager` and `IProcessManager` interfaces.
-- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`.
-- **`lib/src/managers/mock_os_manager.dart`**: Mock implementation for testing on non-Windows platforms.
-- **`lib/src/process/job_object_manager.dart`**: Handles process lifecycle and cleanup.
+- **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations) and `IProcessManager` (process execution) interfaces.
+- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`. Provides `currentEnvironment` getter for PATH access.
+- **`lib/src/managers/mock_os_manager.dart`**: Mock implementation for testing on non-Windows platforms. Includes configurable `environment` map for simulating PATH and other environment variables.
+
+### Process Management
+- **`lib/src/core/process_manager.dart`**: Defines `ProcessSpec` (executable, arguments, workingDirectory, environment) and `IProcessManager` interface with `runInteractive` and `runCaptured`.
+- **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation using `Process.start` with `ProcessStartMode.normal` and manual streaming of stdin/stdout/stderr. This approach avoids Dart SDK issues with process hanging on exit.
+
+### Service Layer
+- **`lib/src/services/php_executor.dart`**: Encapsulates PHP execution logic. Provides `runPhp()` for direct PHP invocation and `runScript()` for running PHP scripts (e.g., Composer). Resolves PHP executable from `.pvm` symlink and uses `IProcessManager` for actual execution. This service is used by both `PhpCommand` and `ComposerCommand`.
 
 ### CommandRunner Pattern
 The CLI uses `package:args`'s `CommandRunner` for modular command handling:
 - `GlobalCommand`: Sets system-wide PHP version.
 - `UseCommand`: Sets project-local PHP version.
 - `ListCommand`: Lists available PHP versions.
-- `PhpCommand`: Runs PHP with local configuration using `ProcessStartMode.inheritStdio`.
+- `PhpCommand`: Runs PHP using local version via `PhpExecutor`.
+- `ComposerCommand`: Runs Composer using local PHP and PATH lookup.
 
 ## Critical Commands
 
@@ -66,6 +73,7 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling:
 ### Execution
 - **Run locally:** `dart pvm.dart <command> [arguments]`
 - **Run PHP proxy:** `dart pvm.dart php [arguments]`
+- **Run Composer proxy:** `dart pvm.dart composer [arguments]`
 
 ### Build
 - **Compile Executable:** `dart compile exe pvm.dart -o builds/pvm.exe`
@@ -116,26 +124,47 @@ import 'utils/utils.dart';
 
 ### 6. Path Handling
 - This project specifically targets Windows.
-- While `package:path` is available, existing code often uses string interpolation with backslashes: `"${Utils.programDirectory.path}\\versions"`.
-- When adding new code, prefer `p.join()` for better portability, but maintain consistency with neighboring code if modifying existing logic.
+- **Always use `package:path` (`p.join()`)** for building paths. Avoid hardcoded backslashes or forward slashes. The `path` package handles separators correctly on all platforms and reduces bugs.
+  - ✅ Good: `p.join(rootPath, '.pvm', 'php.exe')`
+  - ❌ Avoid: `'$rootPath\\.pvm\\php.exe'` (platform-dependent string interpolation)
+- Even on Windows, `p.join()` produces correct backslashes and normalizes paths.
+- When modifying existing code that uses hardcoded separators, refactor to use `p.join()` for consistency and maintainability.
+
+### 7. Environment Access
+- The `IOSManager` interface includes a `currentEnvironment` getter that returns `Map<String, String>`. This is used for PATH lookup (e.g., in `ComposerCommand`) and should be preferred over `Platform.environment` directly in production code when testability is needed.
+- In tests, use `MockOSManager.environment` to simulate different PATH configurations.
 
 ### 7. Testing Guidelines
-- **Always test on WSL first**: Use the `MockOSManager` to verify logic without needing Windows.
-- **Test edge cases**: Invalid paths, missing versions, symlink failures.
-- **Regression tests**: When adding new commands, add tests to `test/mock_test.dart`.
+- **Always test on WSL first**: Use the `MockOSManager` (or `FakeOSManager` in tests) to verify logic without needing Windows.
+- **Test edge cases**: Invalid paths, missing versions, symlink failures, absence of Composer in PATH.
+- **Test organization**: Place unit tests in dedicated files matching the feature:
+  - Command tests: `test/commands/<command_name>_test.dart`
+  - Service tests: `test/services/<service_name>_test.dart`
+  - Core component tests: `test/core/`
+  - Process manager tests: `test/process/`
+- **Test doubles**: Use `FakeOSManager` and `FakeProcessManager` from `test/services/` for mocking. They provide configurable behavior and call tracking.
+- **Regression tests**: When modifying existing functionality, ensure all related tests still pass. Add new tests for uncovered edge cases.
 
 ## Project Structure
 
 - `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
 - `lib/src/`:
-  - `commands/`: Command files (global_command.dart, use_command.dart, list_command.dart, php_command.dart).
-  - `core/`: Contains `os_manager.dart` defining OS abstractions.
+  - `commands/`: Command files (`global_command.dart`, `use_command.dart`, `list_command.dart`, `php_command.dart`, `composer_command.dart`).
+  - `core/`: Contains `os_manager.dart` (OS abstractions), `process_manager.dart` (process spec & interface), `php_version_manager.dart`, `gitignore_service.dart`.
   - `managers/`:
     - `windows_os_manager.dart`: Windows-specific implementation.
     - `mock_os_manager.dart`: Mock implementation for testing.
   - `process/`:
-    - `job_object_manager.dart`: Process lifecycle management with Job Objects.
-- `test/`: Test files (e.g., `mock_test.dart`).
+    - `io_process_manager.dart`: Cross-platform process execution using Dart's `Process` API.
+    - `process.dart` (if present)
+  - `services/`:
+    - `php_executor.dart`: Service for executing PHP and PHP scripts with local version.
+- `test/`:
+  - `commands/`: Command tests (`php_command_test.dart`, `composer_command_test.dart`, etc.)
+  - `services/`: Service tests (`php_executor_test.dart`) and test doubles (`fake_os_manager.dart`, `fake_process_manager.dart`)
+  - `core/`: Core component tests
+  - `process/`: Process manager tests
+  - `mock_test.dart`: Mock infrastructure tests
 - `versions/`: (Ignored in git) Contains PHP version subdirectories.
 - `builds/`: Destination for compiled executables.
 
@@ -155,32 +184,19 @@ import 'utils/utils.dart';
 - Local versions are managed via a `.pvm` directory in the current working directory.
 - Global versions are stored in `%USERPROFILE%\.pvm`.
 
-### Job Objects & Process Management
+### Process Execution Details
 
-The `job_object_manager.dart` provides Windows Job Objects for robust process lifecycle management:
+- **`IOProcessManager`**: Uses Dart's `Process.start` with `ProcessStartMode.normal` (not `inheritStdio`) to avoid SDK issues with process termination. Manually pipes stdin from parent (best-effort), and streams stdout/stderr to the console. This ensures long-running processes like `php artisan serve` work reliably.
+- **`IOProcessManager.runCaptured`**: Uses `Process.run` to capture output synchronously for non-interactive commands.
+- **No Job Objects**: The current implementation does not use Windows Job Objects or custom FFI. Process lifecycle management is handled by Dart's standard `Process` API.
 
-- **Custom FFI Bindings**: `AssignProcessToJobObject` is not exposed by the `win32` package, so custom FFI via `DynamicLibrary.open('kernel32.dll')` is used.
-- **Struct Definitions**: Three FFI struct classes define the Windows Job Objects API:
-  - `JOBOBJECT_BASIC_LIMIT_INFORMATION`
-  - `IO_COUNTERS`
-  - `JOBOBJECT_EXTENDED_LIMIT_INFORMATION`
-- **JobObjectManager**: Creates a Job Object with `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` flag so child processes are terminated when the parent exits.
-- **ManagedProcessRunner**: High-level runner with:
-  - `ProcessStartMode.normal` instead of `inheritStdio` (fixes process hanging on exit - Dart SDK issues #98395, #48439)
-  - Retry logic for transient `CreateProcess` failures (0xC0000005 under rapid spawning)
-  - Benign race handling for `AssignProcessToJobObject` (process may exit during assignment)
-  - SIGINT handler only (Windows doesn't support SIGTERM)
-  - `taskkill /t /f` for process tree cleanup
-
-**Common Windows Error Codes** (used in error handling):
-- `ERROR_ACCESS_DENIED` (5) - Process exited mid-assignment
-- `ERROR_INVALID_HANDLE` (6) - Handle became invalid
+**Note**: The previous documentation described a Job Objects system that has since been removed in favor of a simpler cross-platform approach.
 
 ## Common Pitfalls
 
 1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
 2. **WSL Testing**: On WSL, always use `MockOSManager` - never try to run Windows-specific code.
-3. **Path Separators**: Always use `\\` for Windows paths; do not rely on `dart:io` to normalize them automatically in all contexts.
+3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
 
 ## Rule Integration
 
@@ -241,6 +257,31 @@ Add a progress log section to each plan:
 ```
 
 **IMPORTANT**: Always update the plan .md file as you progress through implementation. Include dates and specific changes made.
+
+---
+
+## Git Operations Policy
+
+### CRITICAL RESTRICTION
+
+**AGENTS MUST NEVER PERFORM GIT OPERATIONS WITHOUT EXPLICIT USER PERMISSION.**
+
+This includes but is not limited to:
+- `git add`, `git commit`, `git push`, `git pull`
+- `git rebase`, `git merge`, `git reset`, `git stash`
+- Any git command execution via bash or other tools
+
+**Why**: Git operations are high-impact and can cause data loss, rewrite history, or disrupt collaboration. They require human oversight and decision-making.
+
+**Proper Workflow**:
+1. Agent performs all code changes and testing
+2. Agent reports what changes were made and provides evidence (test outputs, etc.)
+3. User reviews and decides to commit
+4. User (or user explicitly authorizing agent) performs git operations
+
+**Exception**: The `git-master` skill may be invoked *by the user* to assist with commit creation, but even then the final commit command must be explicitly executed with user approval or by the user themselves.
+
+**Violation**: Any agent autonomously executing git commands will be considered a critical failure. Agents that do so will be reported and have their privileges revoked.
 
 ---
 

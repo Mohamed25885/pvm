@@ -4,7 +4,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import '../core/os_manager.dart';
-import '../core/process_manager.dart';
+import '../services/php_executor.dart';
 
 class PhpCommand extends Command<int> {
   @override
@@ -14,9 +14,9 @@ class PhpCommand extends Command<int> {
   final String description = 'Run PHP with the local version configuration';
 
   final IOSManager _osManager;
-  final IProcessManager _processManager;
+  final PhpExecutor _phpExecutor;
 
-  PhpCommand(this._osManager, this._processManager);
+  PhpCommand(this._osManager, this._phpExecutor);
 
   /// Walk up from [cwd] looking for .php-version file.
   /// Its parent directory is the project root.
@@ -46,28 +46,11 @@ class PhpCommand extends Command<int> {
   Future<int> run() async {
     final cwd = _osManager.currentDirectory;
     final rootPath = _discoverRootPath(cwd);
-    final localPath = '$rootPath\\.pvm';
-
-    if (!await _osManager.directoryExists(localPath)) {
-      print(
-          'Error: No local version configured. Run "pvm use <version>" first.');
-      return 1;
-    }
-
-    final phpExe = '$localPath\\php.exe';
-    if (!await _osManager.fileExists(phpExe)) {
-      print('Error: PHP executable not found at $phpExe');
-      return 1;
-    }
 
     try {
       final args = argResults?.rest ?? [];
-      final processSpec = ProcessSpec(
-        executable: phpExe,
-        arguments: args,
-        workingDirectory: rootPath,
-      );
-      final exitCode = await _processManager.runInteractive(processSpec);
+      final exitCode =
+          await _phpExecutor.runPhp(args, workingDirectory: rootPath);
       return exitCode;
     } catch (e) {
       print('Error running PHP: $e');

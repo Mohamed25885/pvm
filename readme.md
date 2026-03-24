@@ -8,10 +8,11 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 - [Installation](#installation)
 - [Commands](#commands)
-  - [`pvm global <version>`](#pvm-global-version)
-  - [`pvm use <version>`](#pvm-use-version)
-  - [`pvm list`](#pvm-list)
-  - [`pvm php [arguments]`](#pvm-php-arguments)
+- [`pvm global <version>`](#pvm-global-version)
+- [`pvm use <version>`](#pvm-use-version)
+- [`pvm list`](#pvm-list)
+- [`pvm php [arguments]`](#pvm-php-arguments)
+- [`pvm composer [arguments]`](#pvm-composer-arguments)
 - [How It Works](#how-it-works)
   - [Directory Structure](#directory-structure)
   - [Project Root Discovery](#project-root-discovery)
@@ -127,6 +128,33 @@ pvm php -d memory_limit=256M script.php
 **Error states:**
 - No `.pvm` directory found → `Error: No local version configured. Run "pvm use <version>" first.`
 - PHP executable missing → `Error: PHP executable not found at <path>`
+
+---
+
+### `pvm composer [arguments]`
+
+Runs Composer using the **local** PHP version configured for the current project. The Composer script is located via the system PATH (supports `composer.bat`, `composer.phar` on Windows; `composer`, `composer.phar` on Unix). All arguments are forwarded unchanged to Composer.
+
+```powershell
+cd C:\Projects\MyApp
+pvm composer --version
+pvm composer install
+pvm composer require laravel/framework
+```
+
+**How it works:**
+
+1. **Project root discovery** — walks up from the current directory looking for a `.php-version` file. Its parent directory is the project root.
+2. **Local symlink check** — looks for `<project-root>\.pvm` pointing to a PHP installation.
+3. **Composer script lookup** — searches the system PATH for an executable named `composer` (or `composer.bat` / `composer.phar` on Windows).
+4. **Executes** Composer using the local PHP interpreter, with `workingDirectory` set to the project root.
+
+**Error states:**
+- No local PHP version configured → `Error: No local version configured. Run "pvm use <version>" first.`
+- Composer script not found in PATH → `Error: Composer not found in PATH. Install Composer globally or ensure it's accessible.`
+- PHP executable missing → `Error: PHP executable not found at <path>`
+
+**Note:** If Composer is installed locally in your project (e.g., `vendor/bin/composer`), use `pvm php vendor/bin/composer` instead. `pvm composer` expects a global Composer installation accessible via PATH.
 
 ---
 

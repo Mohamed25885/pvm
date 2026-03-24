@@ -6,6 +6,7 @@ import 'lib/src/commands/global_command.dart';
 import 'lib/src/commands/use_command.dart';
 import 'lib/src/commands/list_command.dart';
 import 'lib/src/commands/php_command.dart';
+import 'lib/src/commands/composer_command.dart';
 import 'lib/src/core/gitignore_service.dart';
 import 'lib/src/core/os_manager.dart';
 import 'lib/src/core/php_version_manager.dart';
@@ -13,6 +14,7 @@ import 'lib/src/core/process_manager.dart';
 import 'lib/src/managers/mock_os_manager.dart';
 import 'lib/src/managers/windows_os_manager.dart';
 import 'lib/src/process/io_process_manager.dart';
+import 'lib/src/services/php_executor.dart';
 
 void main(List<String> arguments) async {
   final runner = PvmCommandRunner();
@@ -57,7 +59,12 @@ class PvmCommandRunner extends CommandRunner<int> {
     addCommand(GlobalCommand(_osManager));
     addCommand(UseCommand(_osManager, _phpVersionManager, _gitIgnoreService));
     addCommand(ListCommand(_osManager));
-    addCommand(PhpCommand(_osManager, _processManager));
+    final phpExecutor = PhpExecutor(
+      processManager: _processManager,
+      osManager: _osManager,
+    );
+    addCommand(PhpCommand(_osManager, phpExecutor));
+    addCommand(ComposerCommand(_osManager, phpExecutor));
   }
 
   @override

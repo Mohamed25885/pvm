@@ -91,6 +91,9 @@ class MockOSManager implements IOSManager {
   String get currentDirectory => mockCurrentDirectory ?? Directory.current.path;
 
   @override
+  Map<String, String> get currentEnvironment => Platform.environment;
+
+  @override
   Future<({String from, String to})> createSymLink(
       String version, String from, String to) async {
     symlinkCallCount++;

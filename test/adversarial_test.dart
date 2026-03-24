@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import '../lib/src/commands/php_command.dart';
 import '../lib/src/core/process_manager.dart';
 import '../lib/src/managers/mock_os_manager.dart';
+import '../lib/src/services/php_executor.dart';
 import '../pvm.dart';
 
 class _AdversarialRecordingProcessManager implements IProcessManager {
@@ -31,8 +32,12 @@ Future<int> _executePhpThroughCommandRunner({
   required _AdversarialRecordingProcessManager processManager,
   List<String> args = const [],
 }) async {
+  final phpExecutor = PhpExecutor(
+    processManager: processManager,
+    osManager: osManager,
+  );
   final runner = CommandRunner<int>('test', 'test');
-  runner.addCommand(PhpCommand(osManager, processManager));
+  runner.addCommand(PhpCommand(osManager, phpExecutor));
 
   final result = await runner.run(['php', ...args]);
   return result ?? 0;

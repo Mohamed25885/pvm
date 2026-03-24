@@ -15,6 +15,9 @@ class WindowsOSManager implements IOSManager {
   @override
   String get currentDirectory => Directory.current.path;
 
+  @override
+  Map<String, String> get currentEnvironment => Platform.environment;
+
   String get directoryName => '.pvm';
 
   @override
