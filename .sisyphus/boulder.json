@@ -3,7 +3,9 @@
   "started_at": "2026-03-24T16:01:57.602Z",
   "session_ids": [
     "ses_2e2e460c7ffeWLIDVOaAWTs43o",
-    "ses_2df2aa3ebffe2DLD0ZGt7qS8Jc"
+    "ses_2df2aa3ebffe2DLD0ZGt7qS8Jc",
+    "ses_2dec00ddbffed46neaR81W2EkL",
+    "ses_2dec03578ffefv9yLeIM0uMPb6"
   ],
   "plan_name": "add-composer-proxy-command",
   "agent": "atlas",
