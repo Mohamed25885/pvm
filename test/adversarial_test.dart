@@ -1,6 +1,40 @@
+import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
+
+import '../lib/src/commands/php_command.dart';
+import '../lib/src/core/process_manager.dart';
 import '../lib/src/managers/mock_os_manager.dart';
 import '../pvm.dart';
+
+class _AdversarialRecordingProcessManager implements IProcessManager {
+  ProcessSpec? lastInteractiveSpec;
+  final int exitCodeToReturn;
+
+  _AdversarialRecordingProcessManager({this.exitCodeToReturn = 0});
+
+  @override
+  Future<int> runInteractive(ProcessSpec spec) async {
+    lastInteractiveSpec = spec;
+    return exitCodeToReturn;
+  }
+
+  @override
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) {
+    throw UnimplementedError();
+  }
+}
+
+Future<int> _executePhpThroughCommandRunner({
+  required MockOSManager osManager,
+  required _AdversarialRecordingProcessManager processManager,
+  List<String> args = const [],
+}) async {
+  final runner = CommandRunner<int>('test', 'test');
+  runner.addCommand(PhpCommand(osManager, processManager));
+
+  final result = await runner.run(['php', ...args]);
+  return result ?? 0;
+}
 
 void main() {
   group('Adversarial Tests - Invalid Version Handling', () {
@@ -250,16 +284,49 @@ void main() {
     });
 
     test('php command with path containing spaces', () async {
-      osManager.mockLocalPath = '/path with spaces/.pvm/php.exe';
-      final exitCode = await runner.run(['php']);
-      expect(exitCode, equals(1));
+      osManager.mockLocalPath = r'C:\Program Files\Project\.pvm';
+      osManager.setDirectoryExistsResult(osManager.localPath, true);
+
+      final expectedPhpExe = '${osManager.localPath}\\php.exe';
+      osManager.setFileExistsResult(expectedPhpExe, true);
+
+      final processManager =
+          _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
+
+      final exitCode = await _executePhpThroughCommandRunner(
+        osManager: osManager,
+        processManager: processManager,
+        args: const ['-v'],
+      );
+
+      expect(exitCode, equals(37));
+      expect(processManager.lastInteractiveSpec?.executable,
+          equals(expectedPhpExe));
+      expect(
+          processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
     });
 
     test('php command with very long argument', () async {
-      osManager.mockLocalPath = '/path/with/php.exe';
+      osManager.mockLocalPath = r'C:\project\.pvm';
+      osManager.setDirectoryExistsResult(osManager.localPath, true);
+
+      final expectedPhpExe = '${osManager.localPath}\\php.exe';
+      osManager.setFileExistsResult(expectedPhpExe, true);
+
+      final processManager = _AdversarialRecordingProcessManager();
       final longArg = 'a' * 10000;
-      final exitCode = await runner.run(['php', longArg]);
-      expect(exitCode, equals(1));
+
+      final exitCode = await _executePhpThroughCommandRunner(
+        osManager: osManager,
+        processManager: processManager,
+        args: [longArg],
+      );
+
+      expect(exitCode, equals(0));
+      expect(processManager.lastInteractiveSpec?.executable,
+          equals(expectedPhpExe));
+      expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
+      expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
     });
   });
 

@@ -9,10 +9,3 @@ abstract class IOSManager {
   String get localPath;
   String getHomeDirectory();
 }
-
-abstract class IProcessManager {
-  Future<int> runPhp(List<String> args, String phpPath);
-  Future<({int pid, int exitCode})> startProcess(
-      String executable, List<String> args);
-  Future<void> killProcessTree(int pid);
-}

@@ -1,4 +1,5 @@
 import '../core/os_manager.dart';
+import '../core/process_manager.dart';
 
 class MockOSManager implements IOSManager {
   bool shouldThrowOnSymlink = false;
@@ -6,27 +7,27 @@ class MockOSManager implements IOSManager {
   bool shouldThrowOnFileExists = false;
   bool shouldThrowOnGetHomeDirectory = false;
   bool shouldThrowOnGetAvailableVersions = false;
-  
+
   List<String> mockVersions = ['8.0', '8.2'];
   String mockProgramDir = '/mock/pvm';
   String mockLocalPath = '/mock/project/.pvm';
   String mockHomeDir = '/mock/home';
-  
+
   String? symlinkErrorMessage;
   String? directoryExistsErrorMessage;
   String? fileExistsErrorMessage;
   String? getHomeDirectoryErrorMessage;
   String? getAvailableVersionsErrorMessage;
-  
+
   final Map<String, bool> _directoryExistsCache = {};
   final Map<String, bool> _fileExistsCache = {};
-  
+
   int symlinkCallCount = 0;
   int directoryExistsCallCount = 0;
   int fileExistsCallCount = 0;
   int getAvailableVersionsCallCount = 0;
   int getHomeDirectoryCallCount = 0;
-  
+
   final List<({String version, String from, String to})> createdSymlinks = [];
 
   void resetCallCounts() {
@@ -43,16 +44,16 @@ class MockOSManager implements IOSManager {
     shouldThrowOnFileExists = false;
     shouldThrowOnGetHomeDirectory = false;
     shouldThrowOnGetAvailableVersions = false;
-    
+
     symlinkErrorMessage = null;
     directoryExistsErrorMessage = null;
     fileExistsErrorMessage = null;
     getHomeDirectoryErrorMessage = null;
     getAvailableVersionsErrorMessage = null;
-    
+
     _directoryExistsCache.clear();
     _fileExistsCache.clear();
-    
+
     mockVersions = [];
     createdSymlinks.clear();
     resetCallCounts();
@@ -79,11 +80,11 @@ class MockOSManager implements IOSManager {
   Future<({String from, String to})> createSymLink(
       String version, String from, String to) async {
     symlinkCallCount++;
-    
+
     if (shouldThrowOnSymlink) {
       throw Exception(symlinkErrorMessage ?? 'Mock: Failed to create symlink');
     }
-    
+
     createdSymlinks.add((version: version, from: from, to: to));
     return (from: from, to: to);
   }
@@ -91,127 +92,122 @@ class MockOSManager implements IOSManager {
   @override
   Future<bool> directoryExists(String path) async {
     directoryExistsCallCount++;
-    
+
     if (shouldThrowOnDirectoryExists) {
-      throw Exception(directoryExistsErrorMessage ?? 'Mock: Directory check failed');
+      throw Exception(
+          directoryExistsErrorMessage ?? 'Mock: Directory check failed');
     }
-    
+
     if (_directoryExistsCache.containsKey(path)) {
       return _directoryExistsCache[path]!;
     }
-    
+
     return !path.contains('nonexistent');
   }
 
   @override
   Future<bool> fileExists(String path) async {
     fileExistsCallCount++;
-    
+
     if (shouldThrowOnFileExists) {
       throw Exception(fileExistsErrorMessage ?? 'Mock: File check failed');
     }
-    
+
     if (_fileExistsCache.containsKey(path)) {
       return _fileExistsCache[path]!;
     }
-    
+
     return path.contains('php.exe');
   }
 
   @override
   List<String> getAvailableVersions(String versionsPath) {
     getAvailableVersionsCallCount++;
-    
+
     if (shouldThrowOnGetAvailableVersions) {
-      throw Exception(getAvailableVersionsErrorMessage ?? 'Mock: Failed to get available versions');
+      throw Exception(getAvailableVersionsErrorMessage ??
+          'Mock: Failed to get available versions');
     }
-    
+
     return mockVersions;
   }
 
   @override
   String getHomeDirectory() {
     getHomeDirectoryCallCount++;
-    
+
     if (shouldThrowOnGetHomeDirectory) {
-      throw Exception(getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
+      throw Exception(
+          getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
     }
-    
+
     return mockHomeDir;
   }
 }
 
 class MockProcessManager implements IProcessManager {
-  bool shouldThrowOnRun = false;
-  bool shouldThrowOnStart = false;
-  bool shouldThrowOnKill = false;
+  bool shouldThrowOnRunInteractive = false;
+  bool shouldThrowOnRunCaptured = false;
   int mockExitCode = 0;
-  int mockPid = 12345;
-  
-  String? runErrorMessage;
-  String? startErrorMessage;
-  String? killErrorMessage;
-  
-  int runCallCount = 0;
-  int startCallCount = 0;
-  int killCallCount = 0;
-  
-  final List<({List<String> args, String phpPath})> runCalls = [];
-  final List<({String executable, List<String> args})> startCalls = [];
-  final List<int> killedPids = [];
+  String mockStdout = '';
+  String mockStderr = '';
+
+  String? runInteractiveErrorMessage;
+  String? runCapturedErrorMessage;
+
+  int runInteractiveCallCount = 0;
+  int runCapturedCallCount = 0;
+
+  final List<ProcessSpec> interactiveCalls = [];
+  final List<ProcessSpec> capturedCalls = [];
 
   void resetCallCounts() {
-    runCallCount = 0;
-    startCallCount = 0;
-    killCallCount = 0;
+    runInteractiveCallCount = 0;
+    runCapturedCallCount = 0;
   }
 
   void reset() {
-    shouldThrowOnRun = false;
-    shouldThrowOnStart = false;
-    shouldThrowOnKill = false;
-    
-    runErrorMessage = null;
-    startErrorMessage = null;
-    killErrorMessage = null;
-    
-    runCalls.clear();
-    startCalls.clear();
-    killedPids.clear();
-    
+    shouldThrowOnRunInteractive = false;
+    shouldThrowOnRunCaptured = false;
+
+    runInteractiveErrorMessage = null;
+    runCapturedErrorMessage = null;
+
+    interactiveCalls.clear();
+    capturedCalls.clear();
+
     resetCallCounts();
   }
 
   @override
-  Future<int> runPhp(List<String> args, String phpPath) async {
-    runCallCount++;
-    runCalls.add((args: args, phpPath: phpPath));
-    
-    if (shouldThrowOnRun) {
-      throw Exception(runErrorMessage ?? 'Mock: Failed to run PHP');
+  Future<int> runInteractive(ProcessSpec spec) async {
+    runInteractiveCallCount++;
+    interactiveCalls.add(spec);
+
+    if (shouldThrowOnRunInteractive) {
+      throw Exception(
+        runInteractiveErrorMessage ?? 'Mock: Failed to run interactive process',
+      );
     }
+
     return mockExitCode;
   }
 
   @override
-  Future<({int pid, int exitCode})> startProcess(
-      String executable, List<String> args) async {
-    startCallCount++;
-    startCalls.add((executable: executable, args: args));
-    
-    if (shouldThrowOnStart) {
-      throw Exception(startErrorMessage ?? 'Mock: Failed to start process');
-    }
-    return (pid: mockPid, exitCode: mockExitCode);
-  }
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
+    runCapturedCallCount++;
+    capturedCalls.add(spec);
 
-  @override
-  Future<void> killProcessTree(int pid) async {
-    killCallCount++;
-    killedPids.add(pid);
-    
-    if (shouldThrowOnKill) {
-      throw Exception(killErrorMessage ?? 'Mock: Failed to kill process tree');
+    if (shouldThrowOnRunCaptured) {
+      throw Exception(
+        runCapturedErrorMessage ?? 'Mock: Failed to run captured process',
+      );
     }
+
+    return CapturedProcessResult(
+      stdout: mockStdout,
+      stderr: mockStderr,
+      exitCode: mockExitCode,
+    );
   }
 }

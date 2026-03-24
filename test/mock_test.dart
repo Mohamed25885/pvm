@@ -1,4 +1,6 @@
 import 'package:test/test.dart';
+
+import '../lib/src/core/process_manager.dart';
 import '../lib/src/managers/mock_os_manager.dart';
 
 void main() {
@@ -65,37 +67,46 @@ void main() {
       processManager = MockProcessManager();
     });
 
-    test('runPhp returns mock exit code', () async {
-      final exitCode =
-          await processManager.runPhp(['--version'], '/path/to/php');
+    test('runInteractive returns mock exit code', () async {
+      final exitCode = await processManager.runInteractive(
+        ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
+      );
       expect(exitCode, equals(0));
     });
 
-    test('runPhp throws when shouldThrowOnRun is true', () async {
-      processManager.shouldThrowOnRun = true;
+    test('runInteractive throws when shouldThrowOnRunInteractive is true',
+        () async {
+      processManager.shouldThrowOnRunInteractive = true;
       expect(
-        () => processManager.runPhp(['--version'], '/path/to/php'),
+        () => processManager.runInteractive(
+          ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
+        ),
         throwsException,
       );
     });
 
-    test('startProcess returns mock pid and exit code', () async {
-      final result =
-          await processManager.startProcess('php.exe', ['--version']);
-      expect(result.pid, equals(12345));
+    test('runCaptured returns captured stdout, stderr, and exit code',
+        () async {
+      processManager.mockStdout = 'php 8.4.1';
+      processManager.mockStderr = '';
+
+      final result = await processManager.runCaptured(
+        ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
+      );
+
+      expect(result.stdout, equals('php 8.4.1'));
+      expect(result.stderr, equals(''));
       expect(result.exitCode, equals(0));
     });
 
-    test('startProcess throws when shouldThrowOnStart is true', () async {
-      processManager.shouldThrowOnStart = true;
+    test('runCaptured throws when shouldThrowOnRunCaptured is true', () async {
+      processManager.shouldThrowOnRunCaptured = true;
       expect(
-        () => processManager.startProcess('php.exe', ['--version']),
+        () => processManager.runCaptured(
+          ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
+        ),
         throwsException,
       );
-    });
-
-    test('killProcessTree does not throw', () async {
-      await processManager.killProcessTree(12345);
     });
   });
 }

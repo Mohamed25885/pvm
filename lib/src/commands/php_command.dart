@@ -2,7 +2,7 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import '../core/os_manager.dart';
-import '../process/process.dart';
+import '../core/process_manager.dart';
 
 class PhpCommand extends Command<int> {
   @override
@@ -12,9 +12,9 @@ class PhpCommand extends Command<int> {
   final String description = 'Run PHP with the local version configuration';
 
   final IOSManager _osManager;
-  final ManagedProcessRunner _phpRunner;
+  final IProcessManager _processManager;
 
-  PhpCommand(this._osManager, this._phpRunner);
+  PhpCommand(this._osManager, this._processManager);
 
   @override
   String get invocation => 'pvm php [arguments]';
@@ -40,7 +40,8 @@ class PhpCommand extends Command<int> {
 
     try {
       final args = argResults?.rest ?? [];
-      final exitCode = await _phpRunner.run(phpExe, args);
+      final processSpec = ProcessSpec(executable: phpExe, arguments: args);
+      final exitCode = await _processManager.runInteractive(processSpec);
       return exitCode;
     } catch (e) {
       print('Error running PHP: $e');

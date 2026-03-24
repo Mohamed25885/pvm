@@ -7,8 +7,9 @@ import 'lib/src/commands/use_command.dart';
 import 'lib/src/commands/list_command.dart';
 import 'lib/src/commands/php_command.dart';
 import 'lib/src/core/os_manager.dart';
+import 'lib/src/core/process_manager.dart';
 import 'lib/src/managers/windows_os_manager.dart';
-import 'lib/src/process/process.dart';
+import 'lib/src/process/io_process_manager.dart';
 
 void main(List<String> arguments) async {
   final runner = PvmCommandRunner();
@@ -17,25 +18,23 @@ void main(List<String> arguments) async {
   } catch (e) {
     print(e.toString());
     exitCode = 1;
-  } finally {
-    runner.dispose();
   }
 }
 
 class PvmCommandRunner extends CommandRunner<int> {
   late final IOSManager _osManager;
-  late final ManagedProcessRunner _phpRunner;
+  late final IProcessManager _processManager;
 
-  PvmCommandRunner({IOSManager? osManager})
+  PvmCommandRunner({IOSManager? osManager, IProcessManager? processManager})
       : super('pvm',
             'PHP Version Manager - Manage multiple PHP versions on Windows') {
     _osManager = osManager ?? WindowsOSManager();
-    _phpRunner = ManagedProcessRunner();
+    _processManager = processManager ?? IOProcessManager();
 
     addCommand(GlobalCommand(_osManager));
     addCommand(UseCommand(_osManager));
     addCommand(ListCommand(_osManager));
-    addCommand(PhpCommand(_osManager, _phpRunner));
+    addCommand(PhpCommand(_osManager, _processManager));
   }
 
   @override
@@ -46,9 +45,5 @@ class PvmCommandRunner extends CommandRunner<int> {
       return 0;
     }
     return super.run(args);
-  }
-
-  void dispose() {
-    _phpRunner.dispose();
   }
 }
