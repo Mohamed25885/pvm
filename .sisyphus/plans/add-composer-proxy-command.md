@@ -191,7 +191,7 @@ Additionally, to avoid code duplication and improve maintainability, we will **e
 - [x] 11. Update `README.md` with Composer section
 - [x] 12. Manual QA: `pvm composer --version` in test environment
 - [x] 13. Manual QA: `pvm composer install` simulation
-- [ ] 14. Commit changes
+- [x] 14. Commit changes
 
 ---
 

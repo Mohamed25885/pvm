@@ -50,10 +50,11 @@ The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific
 
 ### Process Management
 - **`lib/src/core/process_manager.dart`**: Defines `ProcessSpec` (executable, arguments, workingDirectory, environment) and `IProcessManager` interface with `runInteractive` and `runCaptured`.
-- **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation using `Process.start` with `ProcessStartMode.normal` and manual streaming of stdin/stdout/stderr. This approach avoids Dart SDK issues with process hanging on exit.
+- **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation using `Process.start` with `ProcessStartMode.normal` (not `inheritStdio`) and manual streaming of stdin/stdout/stderr. This approach avoids Dart SDK issues with process hanging on exit and ensures long-running processes work reliably. **Note**: `PhpCommand` uses `inheritStdio` for interactive processes, while `IOProcessManager` uses `normal` for script execution (e.g., Composer version lookup).
 
 ### Service Layer
 - **`lib/src/services/php_executor.dart`**: Encapsulates PHP execution logic. Provides `runPhp()` for direct PHP invocation and `runScript()` for running PHP scripts (e.g., Composer). Resolves PHP executable from `.pvm` symlink and uses `IProcessManager` for actual execution. This service is used by both `PhpCommand` and `ComposerCommand`.
+- **`lib/src/commands/composer_command.dart`**: Implements the `pvm composer` proxy. Finds Composer script by scanning the system PATH (supports `composer`, `composer.bat`, `composer.phar` on Windows). Executes Composer using `PhpExecutor.runScript()` with the local PHP version.
 
 ### CommandRunner Pattern
 The CLI uses `package:args`'s `CommandRunner` for modular command handling:
@@ -132,18 +133,32 @@ import 'utils/utils.dart';
 
 ### 7. Environment Access
 - The `IOSManager` interface includes a `currentEnvironment` getter that returns `Map<String, String>`. This is used for PATH lookup (e.g., in `ComposerCommand`) and should be preferred over `Platform.environment` directly in production code when testability is needed.
-- In tests, use `MockOSManager.environment` to simulate different PATH configurations.
+- In tests, use `MockOSManager` (for command tests) or `FakeOSManager` (for service tests) with configurable `environment` maps to simulate different PATH configurations.
+
+#### 7.1. Mocking Strategy
+- **Production-ready mocks**: `MockOSManager` and `MockProcessManager` in `lib/src/managers/` provide rich configurability, call tracking, and are used in command tests.
+- **Lightweight fakes**: `FakeOSManager` and `FakeProcessManager` in `test/services/` provide simple stubbing for service tests.
+- **Always test on WSL first**: Use the mock/fake implementations to verify logic without needing Windows.
 
 ### 7. Testing Guidelines
-- **Always test on WSL first**: Use the `MockOSManager` (or `FakeOSManager` in tests) to verify logic without needing Windows.
-- **Test edge cases**: Invalid paths, missing versions, symlink failures, absence of Composer in PATH.
+- **Always test on WSL first**: Use `MockOSManager`/`FakeOSManager` to verify logic without needing Windows.
+- **Test edge cases**: Invalid paths, missing versions, symlink failures, absence of Composer in PATH, adversarial inputs.
 - **Test organization**: Place unit tests in dedicated files matching the feature:
-  - Command tests: `test/commands/<command_name>_test.dart`
-  - Service tests: `test/services/<service_name>_test.dart`
-  - Core component tests: `test/core/`
-  - Process manager tests: `test/process/`
-- **Test doubles**: Use `FakeOSManager` and `FakeProcessManager` from `test/services/` for mocking. They provide configurable behavior and call tracking.
+  - Command tests: `test/commands/<command_name>_test.dart` — test CommandRunner integration
+  - Service tests: `test/services/<service_name>_test.dart` — test service classes with fakes
+  - Core component tests: `test/core/` — test core abstractions (GitIgnoreService, PhpVersionManager)
+  - Process manager tests: `test/process/` — test process execution (may use real subprocesses)
+  - Adversarial tests: `test/adversarial_test.dart` — comprehensive edge case/security/race condition tests
+- **Test doubles**:
+  - **MockOSManager/MockProcessManager** (`lib/src/managers/`) — Production-ready mocks with call tracking, used in command tests
+  - **FakeOSManager/FakeProcessManager** (`test/services/`) — Lightweight fakes with configurable maps, used in service tests
 - **Regression tests**: When modifying existing functionality, ensure all related tests still pass. Add new tests for uncovered edge cases.
+- **Test patterns**:
+  - Use `setUp()`/`tearDown()` for temp directory lifecycle management
+  - Prefer inline test data over external fixtures
+  - Use `group()` for organizing related test cases
+  - Verify call counts and side effects, not just return values
+  - For `IOProcessManager`, real process execution tests are valuable; see `test/process/io_process_manager_test.dart`
 
 ## Project Structure
 
@@ -171,9 +186,11 @@ import 'utils/utils.dart';
 ## Implementation Details to Remember
 
 ### PHP Proxy (PhpCommand)
-- Uses `ProcessStartMode.inheritStdio` for high-performance, low-latency piping.
-- Ideal for long-running processes like `php artisan serve`.
+- Uses `Process.start` with `ProcessStartMode.inheritStdio` for high-performance, low-latency piping.
+- Ideal for long-running interactive processes like `php artisan serve`.
 - Correctly handles interactive prompts and terminal colors.
+- Discovers project root by walking up from current directory to find `.php-version`.
+- Requires local `.pvm` symlink to exist; shows helpful error if missing.
 
 ### Symlinks
 - Creating local/global versions relies on Windows symbolic links.

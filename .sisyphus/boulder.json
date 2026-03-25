@@ -1,29 +1,17 @@
 {
-  "active_plan": "D:\\Codes\\Algorithm\\pvm\\.sisyphus\\plans\\add-composer-proxy-command.md",
-  "started_at": "2026-03-24T16:01:57.602Z",
+  "active_plan": "D:\\Codes\\Algorithm\\pvm\\.sisyphus\\plans\\update-agents-md.md",
+  "started_at": "2026-03-25T11:52:00.000Z",
+  "completed_at": "2026-03-25T12:30:00.000Z",
   "session_ids": [
-    "ses_2e2e460c7ffeWLIDVOaAWTs43o",
-    "ses_2df2aa3ebffe2DLD0ZGt7qS8Jc",
-    "ses_2dec00ddbffed46neaR81W2EkL",
-    "ses_2dec03578ffefv9yLeIM0uMPb6",
-    "ses_2deb709b3ffecfOo66MCDI9a9Z",
-    "ses_2db37f9aeffekeGQAENnLr4rFq",
-    "ses_2db37fa05ffeXMzishBIQQjpDk",
-    "ses_2db37f9e1ffell5JlgJoZ1QZ4N",
-    "ses_2db37fa26ffebyt38bPfvBQM6d",
-    "ses_2db37323fffeR2LLCno3Scmyrj",
-    "ses_2db37f9c9ffe48V59Xbotbd6ai",
-    "ses_2db1e11c5ffeT21st56BxhAhCL"
+    "ses_2e2e460c7ffeWLIDVOaAWTs43o"
   ],
-  "plan_name": "add-composer-proxy-command",
+  "plan_name": "update-agents-md",
   "agent": "atlas",
-  "iteration": "composer-proxy",
-  "status": "in_progress",
+  "iteration": "agents-doc-update",
+  "status": "completed",
   "design_decisions": {
-    "composer_requires_phar_in_project": false,
-    "uses_local_php_explicitly": true,
-    "forwards_all_args": true,
-    "error_on_missing_phar": true,
-    "no_global_composer_fallback": true
+    "edit_existing_file": true,
+    "no_subdirectory_agents": true,
+    "incorporate_init_deep_findings": true
   }
 }
