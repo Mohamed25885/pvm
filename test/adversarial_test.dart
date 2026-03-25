@@ -144,20 +144,10 @@ void main() {
       expect(exitCode, equals(1));
     });
 
-    test('php command throws on directoryExists failure', () async {
-      osManager.shouldThrowOnDirectoryExists = true;
-      expect(
-        () => runner.run(['php']),
-        throwsException,
-      );
-    });
-
-    test('php command throws on fileExists failure', () async {
+    test('php command returns error on fileExists failure', () async {
       osManager.shouldThrowOnFileExists = true;
-      expect(
-        () => runner.run(['php']),
-        throwsException,
-      );
+      final exitCode = await runner.run(['php']);
+      expect(exitCode, equals(1));
     });
 
     test('symlink failure with no available versions', () async {

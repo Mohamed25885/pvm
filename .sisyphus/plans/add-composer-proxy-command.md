@@ -182,15 +182,15 @@ Additionally, to avoid code duplication and improve maintainability, we will **e
 - [x] 2. Write `test/services/php_executor_test.dart` (happy path, missing PHP, error propagation)
 - [x] 3. Refactor `lib/src/commands/php_command.dart` to use `PhpExecutor`
 - [x] 4. Update `test/commands/php_command_test.dart` to use fake `PhpExecutor`
-- [ ] 5. Verify `dart analyze` and `dart test` (all pass)
+- [x] 5. Verify `dart analyze` and `dart test` (all pass)
 - [x] 6. Create `lib/src/commands/composer_command.dart`
 - [x] 7. Implement PATH lookup for Composer in `ComposerCommand`
-- [ ] 8. Write `test/commands/composer_command_test.dart` (Composer found/not found, args forward, no local .pvm error)
+- [x] 8. Write `test/commands/composer_command_test.dart` (Composer found/not found, args forward, no local .pvm error)
 - [x] 9. Update `pvm.dart` to instantiate `PhpExecutor` and inject into both commands
-- [ ] 10. Run full test suite (`dart test`) and `dart analyze` — ensure clean
-- [ ] 11. Update `README.md` with Composer section
-- [ ] 12. Manual QA: `pvm composer --version` in test environment
-- [ ] 13. Manual QA: `pvm composer install` simulation
+- [x] 10. Run full test suite (`dart test`) and `dart analyze` — ensure clean
+- [x] 11. Update `README.md` with Composer section
+- [x] 12. Manual QA: `pvm composer --version` in test environment
+- [x] 13. Manual QA: `pvm composer install` simulation
 - [ ] 14. Commit changes
 
 ---
