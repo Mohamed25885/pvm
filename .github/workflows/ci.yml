@@ -51,10 +51,20 @@ jobs:
           dart pub global activate coverde
           dart pub global run coverde check 60 --input coverage/lcov.info
 
-      # Windows-only checks
+      - name: Create Build Directory
+        if: matrix.os == 'windows-latest'
+        run: mkdir builds -ErrorAction SilentlyContinue
+
       - name: Build executable
         if: matrix.os == 'windows-latest'
         run: dart compile exe pvm.dart -o builds/pvm.exe
+
+      - name: Upload Windows Binary
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvm-windows
+          path: builds/pvm.exe
 
       - name: Install test (--version)
         if: matrix.os == 'windows-latest'
