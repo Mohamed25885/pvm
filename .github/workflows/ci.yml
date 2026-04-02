@@ -44,8 +44,12 @@ jobs:
       - name: Format coverage to LCOV
         run: |
           dart pub global activate coverage
-          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
-
+          dart pub global run coverage:format_coverage \
+            --lcov \
+            --in=coverage \
+            --out=coverage/lcov.info \
+            --report-on=lib,pvm.dart
+            
       - name: Check coverage threshold
         run: |
           dart pub global activate coverde
