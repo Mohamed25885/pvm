@@ -26,17 +26,6 @@ jobs:
       - name: Install dependencies
         run: dart pub get
 
-      # Security audit: Scan for known vulnerabilities in dependencies
-      # Uses Google's OSV scanner (https://github.com/google/osv-scanner)
-      # Fails the workflow if vulnerabilities are found
-      - name: Security audit
-        uses: google/osv-scanner-action@v1
-        with:
-          # Path to the lock file to scan
-          lockfile: pubspec.lock
-
-      # Dependency check: Identify outdated packages (informational only)
-      # Shows which packages have updates available
       - name: Check outdated packages
         run: dart pub outdated
 
@@ -62,7 +51,7 @@ jobs:
           dart pub global activate coverde
           dart pub global run coverde check 60 --input coverage/lcov.info
 
-      # Build and install verification (Windows only)
+      # Windows-only checks
       - name: Build executable
         if: matrix.os == 'windows-latest'
         run: dart compile exe pvm.dart -o builds/pvm.exe
