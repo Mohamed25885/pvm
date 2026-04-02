@@ -1,6 +1,7 @@
 .dart_tool
 .pvm
 builds
+coverage
 
 # FVM Version Cache
 .fvm/
@@ -17,3 +18,7 @@ builds
 .DS_Store
 Thumbs.db
 desktop.ini
+coverage/
+
+# Agent working directory (OhMyOpenCode)
+.sisyphus/

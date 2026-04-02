@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
 import '../services/php_executor.dart';
@@ -25,7 +26,7 @@ class PhpCommand extends Command<int> {
     var dir = Directory(cwd);
     while (true) {
       // Check .php-version in the current directory being examined
-      final phpVersionFile = File('${dir.path}\\.php-version');
+      final phpVersionFile = File(p.join(dir.path, '.php-version'));
       if (phpVersionFile.existsSync()) {
         return dir.path;
       }

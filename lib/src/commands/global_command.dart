@@ -1,4 +1,5 @@
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
 
@@ -28,7 +29,8 @@ class GlobalCommand extends Command<int> {
 
     final versionPattern = RegExp(r'^\d+\.\d+(\.\d+)?$');
     if (!versionPattern.hasMatch(version)) {
-      print('Error: Invalid version format. Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)');
+      print(
+          'Error: Invalid version format. Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)');
       return 1;
     }
 
@@ -42,8 +44,8 @@ class GlobalCommand extends Command<int> {
 
     try {
       final homeDir = _osManager.getHomeDirectory();
-      final globalPath = '$homeDir\\.pvm';
-      final sourcePath = '${_osManager.phpVersionsPath}\\$version';
+      final globalPath = p.join(homeDir, '.pvm');
+      final sourcePath = p.join(_osManager.phpVersionsPath, version);
 
       final result =
           await _osManager.createSymLink(version, sourcePath, globalPath);

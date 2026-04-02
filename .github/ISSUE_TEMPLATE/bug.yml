@@ -1,0 +1,60 @@
+name: Bug Report
+description: File a bug report to help us improve PVM
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees: ["Mohamed25885"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report!
+        
+        Please provide a clear and concise description of what the bug is.
+  - type: input
+    id: description
+    attributes:
+      label: Current Behavior
+      description: A clear description of what's happening
+      placeholder: "When I run 'pvm use 8.0', it fails with..."
+    validations:
+      required: true
+  - type: input
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: "I expected the version to switch successfully"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1. Run 'pvm global 8.0'
+        2. Navigate to project directory
+        3. Run 'pvm use 8.2'
+        4. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Provide system information
+      render: shell
+      placeholder: |
+        OS: Windows 11, Build 22621
+        PVM version: 1.0.0
+        Dart SDK: 3.4.0
+        PHP versions installed: 8.0, 8.2
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant Log Output
+      description: Please copy and paste any relevant log output
+      render: shell

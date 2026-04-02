@@ -42,7 +42,7 @@ The `.agents` directory contains all resources for agentic coding:
 ## Architecture
 
 ### OS Abstraction Layer
-The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on WSL/Linux.
+The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on any platform using mock/fake implementations.
 
 - **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations) and `IProcessManager` (process execution) interfaces.
 - **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`. Provides `currentEnvironment` getter for PATH access.
@@ -138,10 +138,10 @@ import 'utils/utils.dart';
 #### 7.1. Mocking Strategy
 - **Production-ready mocks**: `MockOSManager` and `MockProcessManager` in `lib/src/managers/` provide rich configurability, call tracking, and are used in command tests.
 - **Lightweight fakes**: `FakeOSManager` and `FakeProcessManager` in `test/services/` provide simple stubbing for service tests.
-- **Always test on WSL first**: Use the mock/fake implementations to verify logic without needing Windows.
+- **Always test on non-Windows platforms**: Use the mock/fake implementations to verify logic without needing Windows. See `MockOSManager` and `FakeOSManager`.
 
 ### 7. Testing Guidelines
-- **Always test on WSL first**: Use `MockOSManager`/`FakeOSManager` to verify logic without needing Windows.
+- **Non-Windows development**: Always use `MockOSManager`/`FakeOSManager` to verify logic without needing Windows.
 - **Test edge cases**: Invalid paths, missing versions, symlink failures, absence of Composer in PATH, adversarial inputs.
 - **Test organization**: Place unit tests in dedicated files matching the feature:
   - Command tests: `test/commands/<command_name>_test.dart` — test CommandRunner integration
@@ -212,7 +212,7 @@ import 'utils/utils.dart';
 ## Common Pitfalls
 
 1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
-2. **WSL Testing**: On WSL, always use `MockOSManager` - never try to run Windows-specific code.
+  2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` - never try to run Windows-specific code directly.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
 
 ## Rule Integration

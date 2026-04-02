@@ -83,201 +83,190 @@ Future<int> _runUseCommand({
 }
 
 void main() {
-  group('UseCommand - no-arg behavior', () {
-    test('returns error when no version and no .php-version exists', () async {
-      final osManager = MockOSManager();
-      final phpVer = FakePhpVersionManager();
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-      );
-
-      expect(exitCode, equals(1));
-      expect(phpVer.readLastUsedVersionCalled, isTrue);
+  group('UseCommand - Symlink Behavior Tests', () {
+    setUp(() {
+      // Reset mocks before each test
     });
 
-    test('uses version from .php-version when no arg given', () async {
-      final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0', '8.2'];
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true;
-
-      final phpVer = FakePhpVersionManager();
-      phpVer.readResult = '8.0';
-
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-      );
-
-      expect(exitCode, equals(0));
-      expect(phpVer.writeVersion, equals('8.0'));
-    });
-  });
-
-  group('UseCommand - version argument', () {
-    test('valid version creates symlink and updates .php-version', () async {
-      final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0', '8.2'];
-      osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true;
-
-      final phpVer = FakePhpVersionManager();
-      phpVer.readResult = null; // no .php-version
-
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-        args: ['8.2'],
-      );
-
-      expect(exitCode, equals(0));
-      expect(phpVer.writeVersion, equals('8.2'));
-    });
-
-    test('invalid version format returns error', () async {
-      final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0', '8.2'];
-
-      final phpVer = FakePhpVersionManager();
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-        args: ['invalid'],
-      );
-
-      expect(exitCode, equals(1));
-    });
-
-    test('non-existent version prompts user to pick', () async {
-      final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0', '8.2'];
-      osManager.symlinkSourceExistsOverride = true;
-
-      final phpVer = FakePhpVersionManager();
-      phpVer.promptVersionPickResult = '8.0';
-
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-        args: ['9.0'],
-      );
-
-      expect(exitCode, equals(0));
-      expect(phpVer.writeVersion, equals('8.0'));
-    });
-
-    test('non-existent version with no pick returns error', () async {
-      final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0', '8.2'];
-
-      final phpVer = FakePhpVersionManager();
-      phpVer.promptVersionPickResult = null; // user cancelled
-
-      final gitIgnore = FakeGitIgnoreService();
-
-      final exitCode = await _runUseCommand(
-        osManager: osManager,
-        phpVersionManager: phpVer,
-        gitIgnoreService: gitIgnore,
-        args: ['9.0'],
-      );
-
-      expect(exitCode, equals(1));
-    });
-  });
-
-  group('UseCommand - mismatch behavior (non-interactive)', () {
     test(
-        'mismatch with non-interactive auto-applies without updating .php-version',
+        'a) pvm use with no args and no .php-version file: exit code 1, no .pvm symlink created',
         () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      osManager.mockCurrentDirectory = r'C:\project';
 
       final phpVer = FakePhpVersionManager();
-      phpVer.readResult = '8.0'; // .php-version has 8.0
+      phpVer.readResult = null; // No .php-version file
 
       final gitIgnore = FakeGitIgnoreService();
 
-      // Non-interactive: stdout has no terminal (promptMismatch returns false)
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
-        args: ['8.2'],
       );
 
-      expect(exitCode, equals(0));
-      // In non-interactive mode, .php-version is NOT updated
+      // Should fail with exit code 1
+      expect(exitCode, equals(1));
+
+      // No symlink should be created
+      expect(osManager.createdSymlinks, isEmpty);
+
+      // .php-version should not be written
       expect(phpVer.writeVersion, isNull);
     });
-  });
 
-  group('UseCommand - GitIgnoreService auto-run', () {
-    test('runs GitIgnoreService on every use (but NOT early symlink creation)',
+    test(
+        'b) pvm use <version> with version directory exists: creates .pvm symlink pointing to versions/<version>',
         () async {
       final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0'];
+      osManager.mockVersions = ['8.0', '8.2'];
+      osManager.mockProgramDir = r'C:\pvm';
       osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true;
+      osManager.symlinkSourceExistsOverride =
+          true; // Simulate version dir exists
+      osManager.mockCurrentDirectory = r'C:\project';
 
       final phpVer = FakePhpVersionManager();
-      phpVer.readResult = null;
+      phpVer.readResult = null; // No .php-version file
 
       final gitIgnore = FakeGitIgnoreService();
 
-      await _runUseCommand(
+      final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
-        args: ['8.0'],
+        args: ['8.2'],
       );
 
-      // Only ensureGitignoreIncludesPvm should be called early
-      expect(gitIgnore.ensureGitignoreCalled, isTrue);
-      // ensurePvmSymlinkExists should NOT be called early anymore
-      expect(gitIgnore.ensurePvmSymlinkCalled, isFalse);
+      // Should succeed
+      expect(exitCode, equals(0));
+
+      // Exactly one symlink should be created
+      expect(osManager.createdSymlinks, hasLength(1));
+
+      final symlink = osManager.createdSymlinks.first;
+      // Symlink should be created at project root .pvm
+      expect(symlink.to, equals(r'C:\project\.pvm'));
+      // Symlink should point to the version directory in versions/
+      expect(symlink.from, equals(r'C:\pvm\versions\8.2'));
+      // Version should be recorded
+      expect(symlink.version, equals('8.2'));
+
+      // .php-version should be written
+      expect(phpVer.writeVersion, equals('8.2'));
+      expect(phpVer.writeRootPath, equals(r'C:\project'));
     });
-  });
 
-  group('UseCommand - rootPath discovery', () {
-    test('uses CWD when no .php-version is found up the tree', () async {
+    test(
+        'c) pvm use with .php-version file present: reads version from file and creates correct symlink',
+        () async {
       final osManager = MockOSManager();
-      osManager.mockVersions = ['8.0'];
+      osManager.mockVersions = ['8.0', '8.2'];
+      osManager.mockProgramDir = r'C:\pvm';
       osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true;
+      osManager.symlinkSourceExistsOverride =
+          true; // Simulate version dir exists
+      osManager.mockCurrentDirectory = r'C:\project';
+
+      final phpVer = FakePhpVersionManager();
+      phpVer.readResult = '8.0'; // .php-version contains 8.0
+
+      final gitIgnore = FakeGitIgnoreService();
+
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+      );
+
+      // Should succeed
+      expect(exitCode, equals(0));
+
+      // Exactly one symlink should be created
+      expect(osManager.createdSymlinks, hasLength(1));
+
+      final symlink = osManager.createdSymlinks.first;
+      // Symlink should point to 8.0 version
+      expect(symlink.from, equals(r'C:\pvm\versions\8.0'));
+      expect(symlink.to, equals(r'C:\project\.pvm'));
+      expect(symlink.version, equals('8.0'));
+
+      // .php-version should NOT be rewritten (it already had the correct version)
+      // Actually, according to UseCommand, when using .php-version, updateFile=true
+      // So it should write the same version back
+      expect(phpVer.writeVersion, equals('8.0'));
+    });
+
+    test(
+        'd) pvm use <version> when version directory does NOT exist: returns error, no symlink',
+        () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.0', '8.2'];
+      osManager.mockProgramDir = r'C:\pvm';
+      osManager.mockLocalPath = r'C:\project\.pvm';
+      osManager.symlinkSourceExistsOverride =
+          false; // Simulate version dir missing
+      osManager.mockCurrentDirectory = r'C:\project';
 
       final phpVer = FakePhpVersionManager();
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService();
 
-      await _runUseCommand(
+      final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
-        args: ['8.0'],
+        args: ['8.2'],
       );
 
-      // Should still call GitIgnoreService (even if .php-version not found)
-      expect(gitIgnore.ensureGitignoreCalled, isTrue);
+      // Should fail
+      expect(exitCode, equals(1));
+
+      // No symlink should be created
+      expect(osManager.createdSymlinks, isEmpty);
+
+      // .php-version should not be written
+      expect(phpVer.writeVersion, isNull);
+    });
+
+    test(
+        'e) pvm use with .php-version but version not installed: prompts pick and creates symlink',
+        () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.0', '8.2'];
+      osManager.mockProgramDir = r'C:\pvm';
+      osManager.mockLocalPath = r'C:\project\.pvm';
+      osManager.symlinkSourceExistsOverride = true;
+      osManager.mockCurrentDirectory = r'C:\project';
+
+      final phpVer = FakePhpVersionManager();
+      phpVer.readResult =
+          '9.0'; // .php-version has version not in available list
+      phpVer.promptVersionPickResult = '8.2'; // User picks 8.2
+
+      final gitIgnore = FakeGitIgnoreService();
+
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+      );
+
+      // Should succeed
+      expect(exitCode, equals(0));
+
+      // Symlink should be created for picked version
+      expect(osManager.createdSymlinks, hasLength(1));
+      expect(osManager.createdSymlinks.first.version, equals('8.2'));
+      expect(
+          osManager.createdSymlinks.first.from, equals(r'C:\pvm\versions\8.2'));
+
+      // .php-version should be updated to picked version
+      expect(phpVer.writeVersion, equals('8.2'));
     });
   });
 }

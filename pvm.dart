@@ -15,6 +15,12 @@ import 'lib/src/managers/mock_os_manager.dart';
 import 'lib/src/managers/windows_os_manager.dart';
 import 'lib/src/process/io_process_manager.dart';
 import 'lib/src/services/php_executor.dart';
+import 'lib/src/version.dart';
+
+/// Returns the current package version from generated version.dart.
+String _readVersion() {
+  return packageVersion;
+}
 
 void main(List<String> arguments) async {
   final runner = PvmCommandRunner();
@@ -69,11 +75,28 @@ class PvmCommandRunner extends CommandRunner<int> {
 
   @override
   Future<int?> run(Iterable<String> args) async {
+    // If a subcommand is specified (first arg doesn't start with '-'), delegate
+    // to CommandRunner immediately so that flags like '--version' are passed
+    // to the subcommand instead of being intercepted globally.
+    if (args.isNotEmpty && !args.first.startsWith('-')) {
+      final result = await super.run(args);
+      // CommandRunner returns null when help is displayed; convert to 0
+      return result ?? 0;
+    }
+
+    // Check for version flag (only when no subcommand is specified)
+    if (args.contains('--version') || args.contains('-v')) {
+      print('PVM version: ${_readVersion()}');
+      return 0;
+    }
+
+    // Check for help flags (only when no subcommand is specified)
     if (args.isEmpty ||
         args.any((arg) => arg == 'help' || arg == '--help' || arg == '-h')) {
       print(usage);
       return 0;
     }
+
     return super.run(args);
   }
 }

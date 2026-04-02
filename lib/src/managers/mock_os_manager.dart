@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import '../core/os_manager.dart';
 import '../core/process_manager.dart';
 
@@ -82,7 +84,7 @@ class MockOSManager implements IOSManager {
   String get programDirectory => mockProgramDir;
 
   @override
-  String get phpVersionsPath => '$mockProgramDir/versions';
+  String get phpVersionsPath => p.join(mockProgramDir, 'versions');
 
   @override
   String get localPath => mockLocalPath;

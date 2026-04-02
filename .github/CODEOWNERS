@@ -1,0 +1,19 @@
+# Define code owners for automatic review assignment
+
+* @Mohamed25885
+
+# Commands
+/lib/src/commands/ @Mohamed25885
+
+# Core services
+/lib/src/core/ @Mohamed25885
+/lib/src/services/ @Mohamed25885
+
+# Platform-specific
+/lib/src/managers/ @Mohamed25885
+/lib/src/process/ @Mohamed25885
+
+# Configuration
+/pubspec.yaml @Mohamed25885
+/.github/workflows/ @Mohamed25885
+/.dependabot/ @Mohamed25885

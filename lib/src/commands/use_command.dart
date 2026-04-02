@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/gitignore_service.dart';
 import '../core/os_manager.dart';
@@ -31,7 +32,7 @@ class UseCommand extends Command<int> {
     var dir = Directory(cwd);
     while (true) {
       if (dir.parent.path == dir.path) break; // filesystem root
-      final phpVersionFile = File('${dir.path}\\.php-version');
+      final phpVersionFile = File(p.join(dir.path, '.php-version'));
       if (phpVersionFile.existsSync()) {
         return dir.path;
       }
@@ -48,10 +49,6 @@ class UseCommand extends Command<int> {
 
     // -- Run GitIgnoreService on every use --
     await _gitIgnoreService.ensureGitignoreIncludesPvm(rootPath: rootPath);
-    await _gitIgnoreService.ensurePvmSymlinkExists(
-      symlinkPath: '$rootPath\\.pvm',
-      targetPath: _osManager.phpVersionsPath,
-    );
 
     // -- No argument: use .php-version if present --
     if (requestedVersion == null) {
@@ -127,8 +124,8 @@ class UseCommand extends Command<int> {
     String version, {
     required bool updateFile,
   }) async {
-    final localPath = '$rootPath\\.pvm';
-    final sourcePath = '${_osManager.phpVersionsPath}\\$version';
+    final localPath = p.join(rootPath, '.pvm');
+    final sourcePath = p.join(_osManager.phpVersionsPath, version);
 
     try {
       if (!await _osManager.directoryExists(sourcePath)) {

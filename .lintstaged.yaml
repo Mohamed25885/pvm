@@ -1,0 +1,3 @@
+'*.dart':
+  - dart format .
+  - dart analyze --fatal-infos

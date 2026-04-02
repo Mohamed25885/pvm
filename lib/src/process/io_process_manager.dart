@@ -11,18 +11,9 @@ class IOProcessManager implements IProcessManager {
       spec.arguments,
       workingDirectory: spec.workingDirectory,
       environment: spec.environment,
-      mode: ProcessStartMode.normal,
+      mode: ProcessStartMode.inheritStdio,
     );
-
-    final stdinSubscription = _tryPipeParentStdin(process);
-    final stdoutDone = stdout.addStream(process.stdout);
-    final stderrDone = stderr.addStream(process.stderr);
-
-    final exitCode = await process.exitCode;
-    await Future.wait([stdoutDone, stderrDone]);
-    await stdinSubscription?.cancel();
-
-    return exitCode;
+    return await process.exitCode;
   }
 
   @override
@@ -45,25 +36,6 @@ class IOProcessManager implements IProcessManager {
       throw Exception(
         'Failed to start process "${spec.executable}": ${error.message}',
       );
-    }
-  }
-
-  StreamSubscription<List<int>>? _tryPipeParentStdin(Process process) {
-    try {
-      return stdin.listen(
-        (data) {
-          try {
-            process.stdin.add(data);
-          } catch (_) {
-            // Best-effort stdin piping for interactive mode only.
-          }
-        },
-        onDone: () {
-          process.stdin.close();
-        },
-      );
-    } catch (_) {
-      return null;
     }
   }
 }

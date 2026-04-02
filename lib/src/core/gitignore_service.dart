@@ -30,8 +30,8 @@ class GitIgnoreService {
 
     if (!alreadyIgnored) {
       final entry = existing.isNotEmpty && !existing.endsWith('\n')
-          ? '\n/.pvm/\n'
-          : '/.pvm/\n';
+          ? '\n/.pvm\n'
+          : '/.pvm\n';
       await gitignore.writeAsString(existing + entry);
       return true;
     }

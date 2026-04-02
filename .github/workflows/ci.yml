@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Install dependencies
+        run: dart pub get
+
+      # Security audit: Scan for known vulnerabilities in dependencies
+      # Uses Google's OSV scanner (https://github.com/google/osv-scanner)
+      # Fails the workflow if vulnerabilities are found
+      - name: Security audit
+        uses: google/osv-scanner-action@v1
+        with:
+          # Path to the lock file to scan
+          lockfile: pubspec.lock
+
+      # Dependency check: Identify outdated packages (informational only)
+      # Shows which packages have updates available
+      - name: Check outdated packages
+        run: dart pub outdated
+
+      - name: Verify formatting
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Generate version code
+        run: dart run build_runner build
+
+      - name: Analyze code
+        run: dart analyze --fatal-infos
+
+      - name: Run tests with coverage
+        run: dart test --coverage=coverage
+
+      - name: Format coverage to LCOV
+        run: |
+          dart pub global activate coverage
+          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
+
+      - name: Check coverage threshold
+        run: |
+          dart pub global activate coverde
+          dart pub global run coverde check 60 --input coverage/lcov.info
+
+      # Build and install verification (Windows only)
+      - name: Build executable
+        if: matrix.os == 'windows-latest'
+        run: dart compile exe pvm.dart -o builds/pvm.exe
+
+      - name: Install test (--version)
+        if: matrix.os == 'windows-latest'
+        run: builds/pvm.exe --version
