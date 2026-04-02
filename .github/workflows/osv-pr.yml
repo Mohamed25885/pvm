@@ -1,13 +1,19 @@
-name: OSV PR Scan
+name: OSV Scan
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
   security-events: write
+  pull-requests: write
 
 jobs:
   osv-scan:
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.1
+    with:
+      scan-args: |-
+        --lockfile=pubspec.lock
