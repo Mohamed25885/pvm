@@ -5,6 +5,8 @@ import '../../lib/src/commands/use_command.dart';
 import '../../lib/src/core/gitignore_service.dart';
 import '../../lib/src/core/php_version_manager.dart';
 import '../../lib/src/managers/mock_os_manager.dart';
+import 'dart:io';
+import 'package:path/path.dart' as p;
 
 /// FakePhpVersionManager records calls and returns canned values for testing.
 class FakePhpVersionManager extends PhpVersionManager {
@@ -149,7 +151,7 @@ void main() {
 
       final symlink = osManager.createdSymlinks.first;
       // Symlink should be created at project root .pvm
-      expect(symlink.to, equals(r'C:\project\.pvm'));
+      expect(symlink.to, equals(p.join(Directory.current.path, '.pvm')));
       // Symlink should point to the version directory in versions/
       expect(symlink.from, equals(r'C:\pvm\versions\8.2'));
       // Version should be recorded
@@ -157,7 +159,7 @@ void main() {
 
       // .php-version should be written
       expect(phpVer.writeVersion, equals('8.2'));
-      expect(phpVer.writeRootPath, equals(r'C:\project'));
+      expect(phpVer.writeRootPath, equals(Directory.current.path));
     });
 
     test(
@@ -191,7 +193,7 @@ void main() {
       final symlink = osManager.createdSymlinks.first;
       // Symlink should point to 8.0 version
       expect(symlink.from, equals(r'C:\pvm\versions\8.0'));
-      expect(symlink.to, equals(r'C:\project\.pvm'));
+      expect(symlink.to, equals(p.join(Directory.current.path, '.pvm')));
       expect(symlink.version, equals('8.0'));
 
       // .php-version should NOT be rewritten (it already had the correct version)

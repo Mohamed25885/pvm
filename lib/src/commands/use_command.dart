@@ -59,6 +59,23 @@ class UseCommand extends Command<int> {
         print('Usage: pvm use <version>');
         return 1;
       }
+
+      // -- Check if version from .php-version is installed --
+      final available =
+          _osManager.getAvailableVersions(_osManager.phpVersionsPath);
+      if (!available.contains(lastVersion)) {
+        // -- Version not installed: prompt user to pick --
+        print('Error: Version $lastVersion not found.');
+        final picked = await _phpVersionManager.promptVersionPick(
+          availableVersions: available,
+        );
+        if (picked == null) {
+          print('Cancelled.');
+          return 1;
+        }
+        return _applyVersion(rootPath, picked, updateFile: true);
+      }
+
       return _applyVersion(rootPath, lastVersion, updateFile: true);
     }
 
