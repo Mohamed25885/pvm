@@ -6,8 +6,6 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
-  push:
-    branches: [main]
 
 permissions:
   # Required to upload SARIF file to CodeQL. See: https://github.com/github/codeql-action/issues/2117
