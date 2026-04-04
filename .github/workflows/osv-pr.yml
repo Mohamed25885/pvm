@@ -6,6 +6,8 @@ on:
     branches: [main]
   merge_group:
     branches: [main]
+  push:
+    branches: [main]
 
 permissions:
   # Required to upload SARIF file to CodeQL. See: https://github.com/github/codeql-action/issues/2117
@@ -17,7 +19,7 @@ permissions:
 
 jobs:
   scan-pr:
-    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.3.4"
+    uses: "google/osv-scanner-action/.github/workflows/osv-scanner-reusable-pr.yml@v2.2.4"
     with:
       scan-args: |-
         --lockfile=pubspec.lock
