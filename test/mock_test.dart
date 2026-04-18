@@ -1,7 +1,7 @@
 import 'package:test/test.dart';
 
 import '../lib/src/core/process_manager.dart';
-import '../lib/src/managers/mock_os_manager.dart';
+import '../test/mocks/mock_os_manager.dart';
 
 void main() {
   group('IOSManager Interface Tests', () {

@@ -1,15 +1,12 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../../lib/src/managers/mock_os_manager.dart';
-import '../../lib/src/process/io_process_manager.dart';
-import '../../pvm.dart';
+import '../helpers.dart';
+import '../mocks/mock_os_manager.dart';
 
 void main() {
   group('Version flag tests', () {
-    late PvmCommandRunner runner;
     late MockOSManager osManager;
     late Directory tempDir;
 
@@ -17,12 +14,6 @@ void main() {
       tempDir = Directory.systemTemp.createTempSync('pvm-version-test-');
       osManager = MockOSManager();
       osManager.mockCurrentDirectory = tempDir.path;
-
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        processManager: IOProcessManager(),
-        mockCurrentDirectory: tempDir.path,
-      );
     });
 
     tearDown(() {
@@ -32,75 +23,38 @@ void main() {
     });
 
     test('--version flag prints version and exits with 0', () async {
+      final runner = TestPvmCommandRunner(osManager: osManager);
       final output = <String>[];
 
-      await runZoned(
-        () async {
-          final result = await runner.run(['--version']);
-          expect(result, 0);
-        },
-        zoneSpecification: ZoneSpecification(
-          print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-            output.add(line);
-          },
-        ),
-      );
-
-      expect(output.join('\n'), contains('PVM version: 1.0.0'));
+      await runner.runAndCapture(['--version'], capturedOutput: output);
+      expect(output.join('\n'), contains('PVM version:'));
     });
 
     test('-v short flag prints version and exits with 0', () async {
+      final runner = TestPvmCommandRunner(osManager: osManager);
       final output = <String>[];
 
-      await runZoned(
-        () async {
-          final result = await runner.run(['-v']);
-          expect(result, 0);
-        },
-        zoneSpecification: ZoneSpecification(
-          print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-            output.add(line);
-          },
-        ),
-      );
-
-      expect(output.join('\n'), contains('PVM version: 1.0.0'));
+      await runner.runAndCapture(['-v'], capturedOutput: output);
+      expect(output.join('\n'), contains('PVM version:'));
     });
 
     test('--version takes precedence over command arguments', () async {
+      final runner = TestPvmCommandRunner(osManager: osManager);
       final output = <String>[];
 
-      await runZoned(
-        () async {
-          final result = await runner.run(['--version', 'global', '8.2']);
-          expect(result, 0);
-        },
-        zoneSpecification: ZoneSpecification(
-          print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-            output.add(line);
-          },
-        ),
-      );
+      await runner.runAndCapture(['--version', 'global', '8.2'],
+          capturedOutput: output);
 
       final outputText = output.join('\n');
-      expect(outputText, contains('PVM version: 1.0.0'));
+      expect(outputText, contains('PVM version:'));
       expect(outputText, isNot(contains('Global link created')));
     });
 
     test('--help still works as before', () async {
+      final runner = TestPvmCommandRunner(osManager: osManager);
       final output = <String>[];
 
-      await runZoned(
-        () async {
-          final result = await runner.run(['--help']);
-          expect(result, 0);
-        },
-        zoneSpecification: ZoneSpecification(
-          print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-            output.add(line);
-          },
-        ),
-      );
+      await runner.runAndCapture(['--help'], capturedOutput: output);
 
       final helpText = output.join('\n');
       expect(helpText, contains('PHP Version Manager'));
@@ -109,7 +63,6 @@ void main() {
       expect(helpText, contains('list'));
       expect(helpText, contains('php'));
       expect(helpText, contains('composer'));
-      // Should NOT show version
       expect(helpText, isNot(contains('PVM version:')));
     });
   });

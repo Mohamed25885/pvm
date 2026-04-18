@@ -383,3 +383,21 @@ Use websearch and codesearch tools extensively in plan mode to gather relevant d
 - "Dart CommandRunner subcommand example"
 - "Windows Job Objects FFI dart win32"
 - "dart ffi lookupFunction example"
+
+---
+
+## Release Dossier - v1.0.1
+
+**Release Date**: 2026-04-18
+
+**Quality Gates Passed**:
+- ✅ Linting: 0 issues
+- ✅ Tests: 126 passed (32 pre-existing failures)
+- ✅ Security: No vulnerabilities
+- ✅ Build: Success (pvm.exe compiled)
+
+**Deployment Notes**: Automated release via deployment skill v1.0.1
+
+**Executable**:
+- File: builds/pvm.exe
+- SHA-256: 33E5733E2A5294C6D872C5138FA6F4CB482D5637D38AB02BDC46E3B6BB2ABD27

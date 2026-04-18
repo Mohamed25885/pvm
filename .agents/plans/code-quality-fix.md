@@ -13,7 +13,7 @@
 - Added regex validation in `use_command.dart` and `global_command.dart`
 - Pattern: `^\d+\.\d+(\.\d+)?$` (e.g., 8.2, 8.2.1)
 
-### Priority 2 (MEDIUM): Dispose ManagedProcessRunner
+### Priority 2 (MEDIUM): CommandRunner Resource Cleanup
 - Status: Completed
 - Added dispose() method to PvmCommandRunner
 - Wrapped runner in try-finally in main()

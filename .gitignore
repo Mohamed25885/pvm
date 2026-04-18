@@ -22,3 +22,9 @@ coverage/
 
 # Agent working directory (OhMyOpenCode)
 .sisyphus/
+
+# Test output artifacts
+test_all_output.txt
+test_output.txt
+test_manual_qa/
+test_verify_qa/

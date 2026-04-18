@@ -31,7 +31,7 @@ pvm/
 │       ├── commands/      # Command implementations
 │       ├── core/          # Interfaces/contracts
 │       ├── managers/      # OS/Process managers
-│       ├── process/      # PhpProxy, JobObjectManager
+│       ├── process/      # IOProcessManager
 │       └── utils/        # Helpers
 ├── test/
 ├── bin/
@@ -81,7 +81,7 @@ pvm/
 - Moved commands/*.dart → lib/src/commands/
 - Moved interfaces/os_manager.dart → lib/src/core/
 - Moved utils/windows_os_manager.dart, mock_os_manager.dart → lib/src/managers/
-- Moved utils/job_object_manager.dart, php_proxy.dart → lib/src/process/
+- Created lib/src/process/io_process_manager.dart (no JobObjectManager — IOProcessManager used instead)
 - Moved utils/*.dart → lib/src/utils/
 - Moved enums/options.dart → lib/src/utils/
 - Moved pvm.dart → bin/pvm.dart
@@ -89,7 +89,7 @@ pvm/
   - bin/pvm.dart
   - lib/src/commands/*.dart (changed ../interfaces/ to ../core/)
   - lib/src/managers/*.dart (changed ../interfaces/ to ../core/)
-  - lib/src/process/php_proxy.dart (changed utils.dart to ../utils/utils.dart)
+  - *(no php_proxy.dart — PHP execution refactored into PhpExecutor service)*
   - test/mock_test.dart
   - test/adversarial_test.dart
 - Added executables section to pubspec.yaml

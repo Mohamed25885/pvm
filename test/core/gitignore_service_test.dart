@@ -2,13 +2,19 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
+import '../mocks/mock_console.dart';
+import '../services/fake_os_manager.dart';
 import '../../lib/src/core/gitignore_service.dart';
 
 void main() {
   late Directory tempDir;
+  late FakeOSManager osManager;
+  late MockConsole console;
 
   setUp(() async {
     tempDir = await Directory.systemTemp.createTemp('pvm-gitignore-');
+    osManager = FakeOSManager();
+    console = MockConsole();
   });
 
   tearDown(() async {
@@ -20,7 +26,7 @@ void main() {
   group('ensureGitignoreIncludesPvm', () {
     test('returns true and creates .gitignore when it does not exist',
         () async {
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result =
           await service.ensureGitignoreIncludesPvm(rootPath: tempDir.path);
 
@@ -36,7 +42,7 @@ void main() {
       final gitignore = File('${tempDir.path}\\.gitignore');
       await gitignore.writeAsString('build/\n');
 
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result =
           await service.ensureGitignoreIncludesPvm(rootPath: tempDir.path);
 
@@ -50,7 +56,7 @@ void main() {
       final gitignore = File('${tempDir.path}\\.gitignore');
       await gitignore.writeAsString('/.pvm/\nbuild/\n');
 
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result =
           await service.ensureGitignoreIncludesPvm(rootPath: tempDir.path);
 
@@ -65,7 +71,7 @@ void main() {
       final gitignore = File('${tempDir.path}\\.gitignore');
       await gitignore.writeAsString('.pvm\n');
 
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result =
           await service.ensureGitignoreIncludesPvm(rootPath: tempDir.path);
 
@@ -82,7 +88,7 @@ void main() {
       final versionsDir = Directory('${tempDir.path}\\versions');
       await versionsDir.create();
 
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result = await service.ensurePvmSymlinkExists(
         symlinkPath: '${tempDir.path}\\.pvm',
         targetPath: '${tempDir.path}\\versions',
@@ -94,7 +100,7 @@ void main() {
     });
 
     test('returns false when target dir does not exist', () async {
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result = await service.ensurePvmSymlinkExists(
         symlinkPath: '${tempDir.path}\\.pvm',
         targetPath: '${tempDir.path}\\versions',
@@ -111,7 +117,7 @@ void main() {
       final existingFile = File('${tempDir.path}\\.pvm');
       await existingFile.create();
 
-      final service = GitIgnoreService();
+      final service = GitIgnoreService(osManager, console);
       final result = await service.ensurePvmSymlinkExists(
         symlinkPath: '${tempDir.path}\\.pvm',
         targetPath: '${tempDir.path}\\versions',

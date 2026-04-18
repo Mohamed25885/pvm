@@ -1,69 +1,19 @@
 import 'dart:io';
 
-import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
-import '../lib/src/commands/php_command.dart';
+import 'helpers.dart';
+import 'mocks/mock_os_manager.dart';
 import '../lib/src/core/process_manager.dart';
-import '../lib/src/managers/mock_os_manager.dart';
-import '../lib/src/services/php_executor.dart';
-import '../pvm.dart';
-
-class _AdversarialRecordingProcessManager implements IProcessManager {
-  ProcessSpec? lastInteractiveSpec;
-  final int exitCodeToReturn;
-
-  _AdversarialRecordingProcessManager({this.exitCodeToReturn = 0});
-
-  @override
-  Future<int> runInteractive(ProcessSpec spec) async {
-    lastInteractiveSpec = spec;
-    return exitCodeToReturn;
-  }
-
-  @override
-  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) {
-    throw UnimplementedError();
-  }
-}
-
-Future<int> _executePhpThroughCommandRunner({
-  required MockOSManager osManager,
-  required _AdversarialRecordingProcessManager processManager,
-  List<String> args = const [],
-}) async {
-  final phpExecutor = PhpExecutor(
-    processManager: processManager,
-    osManager: osManager,
-  );
-  final runner = CommandRunner<int>('test', 'test');
-  runner.addCommand(PhpCommand(osManager, phpExecutor));
-
-  final result = await runner.run(['php', ...args]);
-  return result ?? 0;
-}
-
-/// Walk up from [dir] and delete any .php-version files found.
-/// This prevents _discoverRootPath from returning a parent directory.
-Future<void> _cleanupPhpVersionInParents(Directory dir) async {
-  while (true) {
-    final phpVersion = File('${dir.path}\\.php-version');
-    if (await phpVersion.exists()) {
-      await phpVersion.delete();
-    }
-    if (dir.parent.path == dir.path) break;
-    dir = dir.parent;
-  }
-}
 
 void main() {
   group('Adversarial Tests - Invalid Version Handling', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('global command with non-existent version', () async {
@@ -123,11 +73,11 @@ void main() {
 
   group('Adversarial Tests - Permission/Environment Errors', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('global command throws on symlink creation failure', () async {
@@ -167,11 +117,11 @@ void main() {
 
   group('Adversarial Tests - Argument Parsing Edge Cases', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('no arguments prints help', () async {
@@ -240,12 +190,8 @@ void main() {
 
     test('php command with extra arguments passes them', () async {
       osManager.mockVersions = ['8.0'];
-      // Set mockCurrentDirectory to isolate from real CWD's .pvm
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -259,19 +205,16 @@ void main() {
 
   group('Adversarial Tests - PHP Command Edge Cases', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('php command with no local .pvm directory', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -279,78 +222,58 @@ void main() {
 
     test('php command with .pvm directory but no php.exe', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with valid path but php process fails', () async {
-      // Set mockCurrentDirectory to isolate from real CWD's .pvm
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with empty arguments list', () async {
-      // Set mockCurrentDirectory to isolate from real CWD's .pvm
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with special characters in arguments', () async {
-      // Set mockCurrentDirectory to isolate from real CWD's .pvm
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
     });
 
     test('php command with path containing spaces', () async {
-      // Create a temp project dir with .pvm and php.exe for this test
       final tempDir = await Directory.systemTemp.createTemp('pvm adv spaces-');
       await Directory('${tempDir.path}\\.pvm').create();
       await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      // _discoverRootPath walks UP from tempDir looking for .php-version.
-      // Clean up any leftover .php-version in the temp folder tree to ensure
-      // _discoverRootPath returns tempDir.path (the test's project root).
       await _cleanupPhpVersionInParents(tempDir);
 
       osManager.mockCurrentDirectory = tempDir.path;
-
-      final expectedPhpExe = '${tempDir.path}\\.pvm\\php.exe';
+      osManager.shouldThrowOnSymlink = false;
 
       final processManager =
           _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
-
-      final exitCode = await _executePhpThroughCommandRunner(
+      runner = TestPvmCommandRunner(
         osManager: osManager,
         processManager: processManager,
-        args: const ['-v'],
       );
+
+      final exitCode = await runner.run(['php', '-v']);
 
       expect(exitCode, equals(37));
       expect(processManager.lastInteractiveSpec?.executable,
-          equals(expectedPhpExe));
+          equals('${tempDir.path}\\.pvm\\php.exe'));
       expect(
           processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
 
@@ -358,30 +281,28 @@ void main() {
     });
 
     test('php command with very long argument', () async {
-      // Create a temp project dir with .pvm and php.exe for this test
       final tempDir = await Directory.systemTemp.createTemp('pvm adv long-');
       await Directory('${tempDir.path}\\.pvm').create();
       await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      // Clean up any leftover .php-version in the temp folder tree
       await _cleanupPhpVersionInParents(tempDir);
 
       osManager.mockCurrentDirectory = tempDir.path;
-
-      final expectedPhpExe = '${tempDir.path}\\.pvm\\php.exe';
+      osManager.shouldThrowOnSymlink = false;
 
       final processManager = _AdversarialRecordingProcessManager();
       final longArg = 'a' * 10000;
 
-      final exitCode = await _executePhpThroughCommandRunner(
+      runner = TestPvmCommandRunner(
         osManager: osManager,
         processManager: processManager,
-        args: [longArg],
       );
+
+      final exitCode = await runner.run(['php', longArg]);
 
       expect(exitCode, equals(0));
       expect(processManager.lastInteractiveSpec?.executable,
-          equals(expectedPhpExe));
+          equals('${tempDir.path}\\.pvm\\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
 
@@ -391,12 +312,12 @@ void main() {
 
   group('Adversarial Tests - Race Condition Scenarios', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
       osManager.symlinkSourceExistsOverride = true;
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('version exists at check but not at symlink creation', () async {
@@ -414,6 +335,7 @@ void main() {
 
     test('concurrent version switches - last one wins', () async {
       osManager.mockVersions = ['8.0', '8.2'];
+      runner.console.hasTerminal = false;
 
       final exitCode1 = await runner.run(['use', '8.0']);
       expect(exitCode1, equals(0));
@@ -424,6 +346,7 @@ void main() {
 
     test('rapid switching between versions', () async {
       osManager.mockVersions = ['8.0', '8.2'];
+      runner.console.hasTerminal = false;
 
       for (var i = 0; i < 10; i++) {
         final exitCode = await runner.run(['use', i % 2 == 0 ? '8.0' : '8.2']);
@@ -433,10 +356,7 @@ void main() {
 
     test('directory created between check and use', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -445,11 +365,11 @@ void main() {
 
   group('Adversarial Tests - Edge Cases with Empty/Null Data', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('empty versions list', () async {
@@ -489,11 +409,11 @@ void main() {
 
   group('Adversarial Tests - List Command Edge Cases', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('list command with single version', () async {
@@ -534,12 +454,12 @@ void main() {
 
   group('Adversarial Tests - Invalid Paths', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
       osManager.symlinkSourceExistsOverride = true;
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('very long path', () async {
@@ -552,10 +472,7 @@ void main() {
 
     test('path with unicode characters', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -563,10 +480,7 @@ void main() {
 
     test('path with only special characters', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -574,10 +488,7 @@ void main() {
 
     test('root directory path', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -585,10 +496,7 @@ void main() {
 
     test('network path style', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-adv-');
-      runner = PvmCommandRunner(
-        osManager: osManager,
-        mockCurrentDirectory: tempDir.path,
-      );
+      osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
       expect(exitCode, equals(1));
@@ -598,34 +506,34 @@ void main() {
   group('Adversarial Tests - Command Runner Configuration', () {
     test('PvmCommandRunner can be instantiated with custom OSManager', () {
       final mockOsManager = MockOSManager();
-      final runner = PvmCommandRunner(osManager: mockOsManager);
+      final runner = TestPvmCommandRunner(osManager: mockOsManager);
       expect(runner, isNotNull);
     });
 
     test('PvmCommandRunner has all expected commands', () {
-      final runner = PvmCommandRunner();
-      expect(runner.commands.containsKey('global'), isTrue);
-      expect(runner.commands.containsKey('use'), isTrue);
-      expect(runner.commands.containsKey('list'), isTrue);
-      expect(runner.commands.containsKey('php'), isTrue);
+      final runner = TestPvmCommandRunner(osManager: MockOSManager());
+      expect(runner.runner.commands.containsKey('global'), isTrue);
+      expect(runner.runner.commands.containsKey('use'), isTrue);
+      expect(runner.runner.commands.containsKey('list'), isTrue);
+      expect(runner.runner.commands.containsKey('php'), isTrue);
     });
 
     test('PvmCommandRunner command names are correct', () {
-      final runner = PvmCommandRunner();
-      expect(runner.commands['global']?.name, equals('global'));
-      expect(runner.commands['use']?.name, equals('use'));
-      expect(runner.commands['list']?.name, equals('list'));
-      expect(runner.commands['php']?.name, equals('php'));
+      final runner = TestPvmCommandRunner(osManager: MockOSManager());
+      expect(runner.runner.commands['global']?.name, equals('global'));
+      expect(runner.runner.commands['use']?.name, equals('use'));
+      expect(runner.runner.commands['list']?.name, equals('list'));
+      expect(runner.runner.commands['php']?.name, equals('php'));
     });
   });
 
   group('Adversarial Tests - Edge Cases with Special Commands', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('version with leading dash treated as flag throws exception',
@@ -696,11 +604,11 @@ void main() {
 
   group('Adversarial Tests - Case Sensitivity', () {
     late MockOSManager osManager;
-    late PvmCommandRunner runner;
+    late TestPvmCommandRunner runner;
 
     setUp(() {
       osManager = MockOSManager();
-      runner = PvmCommandRunner(osManager: osManager);
+      runner = TestPvmCommandRunner(osManager: osManager);
     });
 
     test('version with uppercase', () async {
@@ -724,4 +632,34 @@ void main() {
       );
     });
   });
+}
+
+/// Walk up from [dir] and delete any .php-version files found.
+Future<void> _cleanupPhpVersionInParents(Directory dir) async {
+  while (true) {
+    final phpVersion = File('${dir.path}\\.php-version');
+    if (await phpVersion.exists()) {
+      await phpVersion.delete();
+    }
+    if (dir.parent.path == dir.path) break;
+    dir = dir.parent;
+  }
+}
+
+class _AdversarialRecordingProcessManager implements IProcessManager {
+  ProcessSpec? lastInteractiveSpec;
+  final int exitCodeToReturn;
+
+  _AdversarialRecordingProcessManager({this.exitCodeToReturn = 0});
+
+  @override
+  Future<int> runInteractive(ProcessSpec spec) async {
+    lastInteractiveSpec = spec;
+    return exitCodeToReturn;
+  }
+
+  @override
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) {
+    throw UnimplementedError();
+  }
 }

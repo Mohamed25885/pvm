@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../core/constants.dart';
 import '../core/os_manager.dart';
 import '../core/process_manager.dart';
 
@@ -48,8 +49,11 @@ class PhpExecutor {
   }
 
   Future<String> _resolvePhpExecutable(String rootPath) async {
-    final phpExe =
-        p.join(rootPath, '.pvm', Platform.isWindows ? 'php.exe' : 'php');
+    final phpExe = p.join(
+      rootPath,
+      PvmConstants.pvmDirName,
+      Platform.isWindows ? PvmConstants.phpExecutable : 'php',
+    );
 
     if (!(await _osManager.fileExists(phpExe))) {
       throw Exception('PHP executable not found at $phpExe');

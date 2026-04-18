@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../core/os_manager.dart';
-import '../core/process_manager.dart';
+import '../../lib/src/core/os_manager.dart';
+import '../../lib/src/core/process_manager.dart';
 
 class MockOSManager implements IOSManager {
   bool shouldThrowOnSymlink = false;

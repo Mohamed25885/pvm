@@ -1,102 +1,67 @@
-import 'dart:io';
-
+import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
-import 'lib/src/commands/global_command.dart';
+import 'lib/src/console/console_io.dart';
+import 'lib/src/core/exit_codes.dart';
+import 'lib/src/managers/windows_os_manager.dart';
+import 'lib/src/core/gitignore_service.dart';
+import 'lib/src/core/php_version_manager.dart';
+import 'lib/src/services/php_executor.dart';
 import 'lib/src/commands/use_command.dart';
+import 'lib/src/commands/global_command.dart';
 import 'lib/src/commands/list_command.dart';
 import 'lib/src/commands/php_command.dart';
 import 'lib/src/commands/composer_command.dart';
-import 'lib/src/core/gitignore_service.dart';
-import 'lib/src/core/os_manager.dart';
-import 'lib/src/core/php_version_manager.dart';
-import 'lib/src/core/process_manager.dart';
-import 'lib/src/managers/mock_os_manager.dart';
-import 'lib/src/managers/windows_os_manager.dart';
+import 'lib/src/commands/version_flag.dart';
 import 'lib/src/process/io_process_manager.dart';
-import 'lib/src/services/php_executor.dart';
 import 'lib/src/version.dart';
 
-/// Returns the current package version from generated version.dart.
-String _readVersion() {
-  return packageVersion;
-}
-
-void main(List<String> arguments) async {
-  final runner = PvmCommandRunner();
-  try {
-    await runner.run(arguments);
-  } catch (e) {
-    print(e.toString());
-    exitCode = 1;
-  }
-}
-
 class PvmCommandRunner extends CommandRunner<int> {
-  late final IOSManager _osManager;
-  late final IProcessManager _processManager;
-  late final PhpVersionManager _phpVersionManager;
-  late final GitIgnoreService _gitIgnoreService;
+  PvmCommandRunner(String name, String description) : super(name, description);
 
-  PvmCommandRunner({
-    IOSManager? osManager,
-    IProcessManager? processManager,
-    PhpVersionManager? phpVersionManager,
-    GitIgnoreService? gitIgnoreService,
+  ArgParser? _parser;
+  @override
+  ArgParser get argParser => _parser ??= ArgParser(allowTrailingOptions: true);
+}
 
-    /// Overrides the current directory for MockOSManager.
-    /// Used in tests to isolate from the real CWD.
-    String? mockCurrentDirectory,
-  }) : super('pvm',
-            'PHP Version Manager - Manage multiple PHP versions on Windows') {
-    _osManager = osManager ?? WindowsOSManager();
-    _processManager = processManager ?? IOProcessManager();
-    _phpVersionManager = phpVersionManager ?? PhpVersionManager();
-    _gitIgnoreService = gitIgnoreService ?? GitIgnoreService();
+Future<int> main(List<String> arguments) async {
+  final console = ConsoleIO();
+  final osManager = WindowsOSManager();
+  final gitIgnoreService = GitIgnoreService(osManager, console);
+  final phpVersionManager = PhpVersionManager(console);
+  final phpExecutor = PhpExecutor(
+    processManager: IOProcessManager(),
+    osManager: osManager,
+  );
 
-    // Apply mock current directory if provided and osManager is MockOSManager
-    if (mockCurrentDirectory != null) {
-      final mos = _osManager;
-      if (mos is MockOSManager) {
-        mos.mockCurrentDirectory = mockCurrentDirectory;
-      }
-    }
+  final runner = PvmCommandRunner('pvm', 'PHP Version Manager');
 
-    addCommand(GlobalCommand(_osManager));
-    addCommand(UseCommand(_osManager, _phpVersionManager, _gitIgnoreService));
-    addCommand(ListCommand(_osManager));
-    final phpExecutor = PhpExecutor(
-      processManager: _processManager,
-      osManager: _osManager,
-    );
-    addCommand(PhpCommand(_osManager, phpExecutor));
-    addCommand(ComposerCommand(_osManager, phpExecutor));
+  runner.addCommand(UseCommand(
+    osManager,
+    phpVersionManager,
+    gitIgnoreService,
+    console,
+  ));
+  runner.addCommand(GlobalCommand(osManager, console));
+  runner.addCommand(ListCommand(osManager, console));
+  runner.addCommand(PhpCommand(phpExecutor, osManager, console));
+  runner.addCommand(ComposerCommand(phpExecutor, osManager, console));
+  runner.addCommand(VersionFlag(console));
+
+  // Intercept top-level --version / -v to output custom format
+  if (arguments.isNotEmpty &&
+      (arguments.first == '--version' || arguments.first == '-v')) {
+    console.print('PVM version: $packageVersion');
+    return ExitCode.success;
   }
 
-  @override
-  Future<int?> run(Iterable<String> args) async {
-    // If a subcommand is specified (first arg doesn't start with '-'), delegate
-    // to CommandRunner immediately so that flags like '--version' are passed
-    // to the subcommand instead of being intercepted globally.
-    if (args.isNotEmpty && !args.first.startsWith('-')) {
-      final result = await super.run(args);
-      // CommandRunner returns null when help is displayed; convert to 0
-      return result ?? 0;
-    }
-
-    // Check for version flag (only when no subcommand is specified)
-    if (args.contains('--version') || args.contains('-v')) {
-      print('PVM version: ${_readVersion()}');
-      return 0;
-    }
-
-    // Check for help flags (only when no subcommand is specified)
-    if (args.isEmpty ||
-        args.any((arg) => arg == 'help' || arg == '--help' || arg == '-h')) {
-      print(usage);
-      return 0;
-    }
-
-    return super.run(args);
+  try {
+    return await runner.run(arguments) ?? ExitCode.success;
+  } on UsageException catch (e) {
+    console.printError(e.message);
+    return ExitCode.usageError;
+  } catch (e) {
+    console.printError('Unexpected error: $e');
+    return ExitCode.generalError;
   }
 }

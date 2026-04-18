@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
-import '../../lib/src/commands/php_command.dart';
+import '../mocks/mock_os_manager.dart';
+import '../mocks/mock_console.dart';
 import '../../lib/src/core/process_manager.dart';
-import '../../lib/src/managers/mock_os_manager.dart';
 import '../../lib/src/services/php_executor.dart';
+import '../../lib/src/commands/php_command.dart';
 
 class RecordingProcessManager implements IProcessManager {
   ProcessSpec? lastInteractiveSpec;
@@ -42,12 +43,13 @@ Future<int> executePhpCommand({
   required RecordingProcessManager processManager,
   List<String> args = const [],
 }) async {
+  final console = MockConsole();
   final phpExecutor = PhpExecutor(
     processManager: processManager,
     osManager: osManager,
   );
   final runner = CommandRunner<int>('test', 'test');
-  runner.addCommand(PhpCommand(osManager, phpExecutor));
+  runner.addCommand(PhpCommand(phpExecutor, osManager, console));
 
   final result = await runner.run(['php', ...args]);
   return result ?? 0;

@@ -51,8 +51,7 @@ Refactor the PVM (PHP Version Manager) codebase to improve maintainability, test
    - Implement `MockOSManager` with configurable flags: `shouldThrowOnSymlink`, `shouldThrowOnDirectoryExists`, `shouldThrowOnFileExists`, `mockVersions`
    - Implement `MockProcessManager` for testing
 
-4. Create `utils/job_object_manager.dart`:
-   - Implement `ManagedProcessRunner ` class using `ProcessStartMode.inheritStdio` for high-performance piping
+4. *(Skipped)* Job Objects were not implemented — IOProcessManager approach proved superior
 
 ---
 
@@ -86,9 +85,9 @@ Refactor the PVM (PHP Version Manager) codebase to improve maintainability, test
 
 **Steps:**
 
-1. In `ManagedProcessRunner .run()`:
-   - Use `ProcessStartMode.inheritStdio` instead of manual stream piping
-   - This allows PHP to communicate directly with terminal
+1. In `IOProcessManager.runInteractive()`:
+   - Use `ProcessStartMode.normal` with manual stdout/stderr piping
+   - Avoids Dart SDK hanging issues with inheritStdio
    - Correctly handles interactive prompts and terminal colors
 
 2. (Optional Future) Implement Windows Job Objects:
