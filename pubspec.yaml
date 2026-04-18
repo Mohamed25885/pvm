@@ -21,7 +21,7 @@ dev_dependencies:
   build_runner: ^2.13.1
   meta: ^1.18.2
   lint_staged: ^0.5.1
-  dart_pre_commit: ^6.1.1
+  dart_pre_commit: ^6.1.1+1
 
 dart_pre_commit:
   format: false
