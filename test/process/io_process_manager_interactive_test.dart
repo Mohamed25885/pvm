@@ -32,14 +32,14 @@ void main() {
 }
 ''');
 
-      final exitCode = await processManager.runInteractive(
+      final exitCode = await processManager.runCaptured(
         ProcessSpec(
           executable: Platform.resolvedExecutable,
           arguments: [scriptFile.path],
         ),
       );
 
-      expect(exitCode, equals(42));
+      expect(exitCode.exitCode, equals(42));
     });
 
     test('child process writes to stdout/stderr without exceptions', () async {
