@@ -185,7 +185,7 @@ void main() {
       );
 
       expect(exitCode, equals(0));
-      // Even in non-interactive mode, version is applied
+      // Version is applied in non-interactive mode (symlink created), .php-version unchanged
       expect(phpVer.writeVersion, equals('8.2'));
     });
   });

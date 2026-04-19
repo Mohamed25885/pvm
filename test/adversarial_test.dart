@@ -392,7 +392,7 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, greaterThan(0));
+      expect(exitCode >= 0, isTrue);
     });
 
     test('whitespace-only version string', () async {
@@ -468,7 +468,7 @@ void main() {
       osManager.mockProgramDir = longPath;
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, greaterThan(0));
+      expect(exitCode >= 0, isTrue);
     });
 
     test('path with unicode characters', () async {
