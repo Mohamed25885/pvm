@@ -8,6 +8,7 @@ import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
 import '../../lib/src/commands/use_command.dart';
+import '../../lib/src/core/exit_codes.dart';
 import '../../lib/src/domain/php_version.dart';
 
 Future<int> _runUseCommand({
@@ -58,7 +59,7 @@ void main() {
       );
 
       // Should fail with exit code 1
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.usageError));
 
       // No symlink should be created
       expect(osManager.createdSymlinks, isEmpty);
@@ -179,7 +180,7 @@ void main() {
       );
 
       // Should fail
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.versionNotFound));
 
       // No symlink should be created
       expect(osManager.createdSymlinks, isEmpty);

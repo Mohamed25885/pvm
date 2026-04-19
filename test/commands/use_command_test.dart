@@ -5,6 +5,7 @@ import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
 import '../../lib/src/commands/use_command.dart';
+import '../../lib/src/core/exit_codes.dart';
 import '../../lib/src/domain/php_version.dart';
 
 Future<int> _runUseCommand({
@@ -41,7 +42,7 @@ void main() {
         console: console,
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.usageError));
       expect(phpVer.readLastUsedVersionCalled, isTrue);
     });
 
@@ -110,7 +111,7 @@ void main() {
         args: ['invalid'],
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.usageError));
     });
 
     test('non-existent version prompts user to pick', () async {
@@ -154,7 +155,7 @@ void main() {
         args: ['9.0'],
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.userCancelled));
     });
   });
 
@@ -184,8 +185,8 @@ void main() {
       );
 
       expect(exitCode, equals(0));
-      // In non-interactive mode, .php-version is NOT updated
-      expect(phpVer.writeVersion, isNull);
+      // Even in non-interactive mode, version is applied
+      expect(phpVer.writeVersion, equals('8.2'));
     });
   });
 

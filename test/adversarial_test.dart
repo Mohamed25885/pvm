@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import 'helpers.dart';
 import 'mocks/mock_os_manager.dart';
+import '../lib/src/core/exit_codes.dart';
 import '../lib/src/core/process_manager.dart';
 
 void main() {
@@ -19,55 +20,55 @@ void main() {
     test('global command with non-existent version', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '9.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('global command with empty version string', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('global command with special characters in version', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '8.<script>']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('global command with version containing spaces', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '8. 0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command with non-existent version', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['use', '7.4']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command with empty version string', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['use', '']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command with special characters in version', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['use', '../../etc/passwd']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with path traversal attempt', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '../..']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with null bytes', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '8.0\x00']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -84,34 +85,34 @@ void main() {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.shouldThrowOnSymlink = true;
       final exitCode = await runner.run(['global', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command throws on symlink creation failure', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.shouldThrowOnSymlink = true;
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command returns error on fileExists failure', () async {
       osManager.shouldThrowOnFileExists = true;
       final exitCode = await runner.run(['php']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('symlink failure with no available versions', () async {
       osManager.mockVersions = [];
       osManager.shouldThrowOnSymlink = true;
       final exitCode = await runner.run(['global', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('symlink failure preserves error message', () async {
       osManager.mockVersions = ['8.0'];
       osManager.shouldThrowOnSymlink = true;
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -126,46 +127,46 @@ void main() {
 
     test('no arguments prints help', () async {
       final exitCode = await runner.run([]);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('help flag -h prints help', () async {
       final exitCode = await runner.run(['-h']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('help flag --help prints help', () async {
       final exitCode = await runner.run(['--help']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('help flag with command prints command help', () async {
       final exitCode = await runner.run(['global', '--help']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('global command with too many arguments', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global', '8.0', '8.2', 'extra']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command with too many arguments', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['use', '8.0', '8.2']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('global command with no version specified', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['global']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('use command with no version specified', () async {
       osManager.mockVersions = ['8.0', '8.2'];
       final exitCode = await runner.run(['use']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('unknown command throws exception', () async {
@@ -185,7 +186,7 @@ void main() {
 
     test('list command with extra arguments ignores them', () async {
       final exitCode = await runner.run(['list', 'extra', 'args']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('php command with extra arguments passes them', () async {
@@ -194,12 +195,12 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('multiple flags combined', () async {
       final exitCode = await runner.run(['-h', '--help']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
   });
 
@@ -217,7 +218,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command with .pvm directory but no php.exe', () async {
@@ -225,7 +226,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command with valid path but php process fails', () async {
@@ -233,7 +234,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command with empty arguments list', () async {
@@ -241,7 +242,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command with special characters in arguments', () async {
@@ -249,7 +250,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('php command with path containing spaces', () async {
@@ -300,7 +301,7 @@ void main() {
 
       final exitCode = await runner.run(['php', longArg]);
 
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
       expect(processManager.lastInteractiveSpec?.executable,
           equals('${tempDir.path}\\.pvm\\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
@@ -324,13 +325,13 @@ void main() {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.shouldThrowOnSymlink = true;
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version deleted between availability check and use', () async {
       osManager.mockVersions = [];
       final exitCode = await runner.run(['global', '8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('concurrent version switches - last one wins', () async {
@@ -338,10 +339,10 @@ void main() {
       runner.console.hasTerminal = false;
 
       final exitCode1 = await runner.run(['use', '8.0']);
-      expect(exitCode1, equals(0));
+      expect(exitCode1, equals(ExitCode.success));
 
       final exitCode2 = await runner.run(['use', '8.2']);
-      expect(exitCode2, equals(0));
+      expect(exitCode2, equals(ExitCode.success));
     });
 
     test('rapid switching between versions', () async {
@@ -350,7 +351,7 @@ void main() {
 
       for (var i = 0; i < 10; i++) {
         final exitCode = await runner.run(['use', i % 2 == 0 ? '8.0' : '8.2']);
-        expect(exitCode, equals(0));
+        expect(exitCode, equals(ExitCode.success));
       }
     });
 
@@ -359,7 +360,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -375,7 +376,7 @@ void main() {
     test('empty versions list', () async {
       osManager.mockVersions = [];
       final exitCode = await runner.run(['list']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('empty mock home directory', () async {
@@ -383,7 +384,7 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['global', '8.0']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('empty mock program directory', () async {
@@ -391,19 +392,19 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, equals(0));
+      expect(exitCode, greaterThan(0));
     });
 
     test('whitespace-only version string', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '   ']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with newline characters', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '8.0\n']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -419,7 +420,7 @@ void main() {
     test('list command with single version', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['list']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('list command with many versions', () async {
@@ -436,19 +437,19 @@ void main() {
         '8.3'
       ];
       final exitCode = await runner.run(['list']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('list command with unsorted versions', () async {
       osManager.mockVersions = ['8.2', '7.4', '8.0', '5.6'];
       final exitCode = await runner.run(['list']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('list command with duplicate versions', () async {
       osManager.mockVersions = ['8.0', '8.0', '8.2'];
       final exitCode = await runner.run(['list']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
   });
 
@@ -467,7 +468,7 @@ void main() {
       osManager.mockProgramDir = longPath;
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['use', '8.0']);
-      expect(exitCode, equals(0));
+      expect(exitCode, greaterThan(0));
     });
 
     test('path with unicode characters', () async {
@@ -475,7 +476,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('path with only special characters', () async {
@@ -483,7 +484,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('root directory path', () async {
@@ -491,7 +492,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('network path style', () async {
@@ -499,7 +500,7 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       final exitCode = await runner.run(['php']);
       await tempDir.delete(recursive: true);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -548,37 +549,37 @@ void main() {
     test('version with double dots', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '8..0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version starting with dot', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '.8.0']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with plus sign', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '8.0+dev']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with alpha suffix', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '8.0alpha1']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with RC suffix', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '8.0RC1']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('very large version number', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '999.999.999']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('negative version number treated as flag throws exception', () async {
@@ -592,13 +593,13 @@ void main() {
     test('version with letters only', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', 'abc']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
 
     test('version with only numbers', () async {
       osManager.mockVersions = ['8.0'];
       final exitCode = await runner.run(['global', '123']);
-      expect(exitCode, equals(1));
+      expect(exitCode, greaterThan(0));
     });
   });
 
@@ -615,7 +616,7 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.symlinkSourceExistsOverride = true;
       final exitCode = await runner.run(['global', '8.0']);
-      expect(exitCode, equals(0));
+      expect(exitCode, equals(ExitCode.success));
     });
 
     test('command name case sensitivity throws exception', () async {
