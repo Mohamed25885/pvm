@@ -1,3 +1,7 @@
+/// OS abstraction layer for platform-specific operations.
+///
+/// Current implementation: WindowsOSManager only.
+/// Future: LinuxOSManager, MacOSManager when cross-platform support is added.
 abstract class IOSManager {
   Future<({String from, String to})> createSymLink(
       String version, String from, String to);

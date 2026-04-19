@@ -1,4 +1,4 @@
-import 'package:pvm/src/core/process_manager.dart';
+import '../../lib/src/core/process_manager.dart';
 
 /// Test double for [IProcessManager] that records captured specs and returns
 /// configurable exit codes.

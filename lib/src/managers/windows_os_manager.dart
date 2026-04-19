@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+import '../core/constants.dart';
 import '../core/os_manager.dart';
 
 class WindowsOSManager implements IOSManager {
@@ -7,10 +9,11 @@ class WindowsOSManager implements IOSManager {
   String get programDirectory => File(Platform.script.toFilePath()).parent.path;
 
   @override
-  String get phpVersionsPath => "$programDirectory\\versions";
+  String get phpVersionsPath => p.join(programDirectory, 'versions');
 
   @override
-  String get localPath => "${Directory.current.path}\\.pvm";
+  String get localPath =>
+      p.join(Directory.current.path, PvmConstants.pvmDirName);
 
   @override
   String get currentDirectory => Directory.current.path;
@@ -18,7 +21,7 @@ class WindowsOSManager implements IOSManager {
   @override
   Map<String, String> get currentEnvironment => Platform.environment;
 
-  String get directoryName => '.pvm';
+  String get directoryName => PvmConstants.pvmDirName;
 
   @override
   String getHomeDirectory() {

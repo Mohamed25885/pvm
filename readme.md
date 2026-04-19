@@ -25,6 +25,17 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 ---
 
+## Platform Support
+
+**Current**: Windows 10/11 only  
+**Requirements**:
+- Symbolic link support (Developer Mode enabled OR Administrator privileges)
+- PowerShell or CMD
+
+**Planned**: Linux and macOS support in future releases.
+
+---
+
 ## Installation
 
 1. **Download or build** the `pvm.exe` binary.
@@ -291,8 +302,7 @@ pvm/
 │   │   ├── windows_os_manager.dart  # Windows implementation
 │   │   └── mock_os_manager.dart     # Mock for testing
 │   └── process/
-│       ├── job_object_manager.dart  # Windows Job Objects
-│       └── io_process_manager.dart  # Process runner
+│       └── io_process_manager.dart  # Process execution (no Windows Job Objects)
 └── test/
     └── ...
 ```

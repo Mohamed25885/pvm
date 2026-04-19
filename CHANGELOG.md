@@ -2,7 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.0.0...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.0.1...HEAD)
+
+## [1.0.1] - 2026-04-18
+
+### Added
+- Composer proxy command (`pvm composer`)
+- `pvm version` flag support
+- Console UI improvements with colors and formatting
+- Exit codes module for better error handling
+
+### Fixed
+- Various bug fixes and improvements
+
+---
 
 ## [1.0.0] - 2025-03-25
 

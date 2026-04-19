@@ -1,11 +1,12 @@
-import 'dart:io';
-
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
-import 'package:path/path.dart' as p;
 
+import '../core/console.dart';
+import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../services/php_executor.dart';
+import '../domain/exceptions.dart';
+import '../domain/project.dart';
 
 class PhpCommand extends Command<int> {
   @override
@@ -14,48 +15,36 @@ class PhpCommand extends Command<int> {
   @override
   final String description = 'Run PHP with the local version configuration';
 
-  final IOSManager _osManager;
   final PhpExecutor _phpExecutor;
+  final IOSManager _osManager;
+  final Console _console;
 
-  PhpCommand(this._osManager, this._phpExecutor);
+  PhpCommand(this._phpExecutor, this._osManager, this._console);
 
-  /// Walk up from [cwd] looking for .php-version file.
-  /// Its parent directory is the project root.
-  /// Falls back to [cwd] if not found.
-  String _discoverRootPath(String cwd) {
-    var dir = Directory(cwd);
-    while (true) {
-      // Check .php-version in the current directory being examined
-      final phpVersionFile = File(p.join(dir.path, '.php-version'));
-      if (phpVersionFile.existsSync()) {
-        return dir.path;
-      }
-      // Move to parent
-      if (dir.parent.path == dir.path) break; // filesystem root
-      dir = dir.parent;
-    }
-    return cwd;
-  }
+  ArgParser? _parser;
 
   @override
-  String get invocation => 'pvm php [arguments]';
-
-  @override
-  ArgParser get argParser => ArgParser.allowAnything();
+  ArgParser get argParser => _parser ??= ArgParser.allowAnything();
 
   @override
   Future<int> run() async {
-    final cwd = _osManager.currentDirectory;
-    final rootPath = _discoverRootPath(cwd);
-
     try {
-      final args = argResults?.rest ?? [];
-      final exitCode =
-          await _phpExecutor.runPhp(args, workingDirectory: rootPath);
+      final project = await Project.findFromPath(_osManager.currentDirectory);
+      final args = argResults!.rest;
+      final exitCode = await _phpExecutor.runPhp(
+        args,
+        workingDirectory: project.rootDirectory.path,
+      );
       return exitCode;
+    } on ProjectNotConfiguredException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.configurationError;
+    } on CorruptedConfigurationException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.configurationError;
     } catch (e) {
-      print('Error running PHP: $e');
-      return 1;
+      _console.printError('Error running PHP: $e');
+      return ExitCode.generalError;
     }
   }
 }

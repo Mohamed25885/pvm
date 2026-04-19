@@ -11,9 +11,33 @@ class IOProcessManager implements IProcessManager {
       spec.arguments,
       workingDirectory: spec.workingDirectory,
       environment: spec.environment,
-      mode: ProcessStartMode.inheritStdio,
+      mode: ProcessStartMode.normal,
     );
+
+    // Forward stdin from parent to child (best-effort, non-blocking)
+    _forwardStdin(process.stdin);
+
+    // Pipe child stdout and stderr to parent
+    final stdoutFuture = process.stdout.pipe(stdout);
+    final stderrFuture = process.stderr.pipe(stderr);
+
+    await Future.wait([stdoutFuture, stderrFuture]);
     return await process.exitCode;
+  }
+
+  void _forwardStdin(IOSink stdinSink) {
+    // Fire-and-forget stdin forwarding
+    Future(() async {
+      try {
+        await for (final data in stdin) {
+          stdinSink.add(data);
+        }
+        await stdinSink.flush();
+        await stdinSink.close();
+      } catch (_) {
+        // Best-effort: ignore any errors in stdin forwarding
+      }
+    });
   }
 
   @override

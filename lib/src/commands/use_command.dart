@@ -1,11 +1,16 @@
-import 'dart:io';
-
 import 'package:args/command_runner.dart';
 import 'package:path/path.dart' as p;
 
+import '../core/console.dart';
+import '../core/constants.dart';
+import '../core/exit_codes.dart';
 import '../core/gitignore_service.dart';
 import '../core/os_manager.dart';
 import '../core/php_version_manager.dart';
+import '../domain/exceptions.dart';
+import '../domain/php_version.dart';
+import '../domain/project.dart';
+import '../domain/version_registry.dart';
 
 class UseCommand extends Command<int> {
   @override
@@ -18,156 +23,170 @@ class UseCommand extends Command<int> {
   final IOSManager _osManager;
   final PhpVersionManager _phpVersionManager;
   final GitIgnoreService _gitIgnoreService;
+  final Console _console;
 
   UseCommand(
     this._osManager,
     this._phpVersionManager,
     this._gitIgnoreService,
+    this._console,
   );
 
-  /// Walk up from [cwd] looking for .php-version.
-  /// If found, its parent directory is the project root.
-  /// Otherwise fall back to [cwd].
-  String _discoverRootPath(String cwd) {
-    var dir = Directory(cwd);
-    while (true) {
-      if (dir.parent.path == dir.path) break; // filesystem root
-      final phpVersionFile = File(p.join(dir.path, '.php-version'));
-      if (phpVersionFile.existsSync()) {
-        return dir.path;
-      }
-      dir = dir.parent;
-    }
-    return cwd;
+  List<PhpVersion> _getAvailableVersions() {
+    final versionStrings =
+        _osManager.getAvailableVersions(_osManager.phpVersionsPath);
+    return versionStrings.map((v) => PhpVersion.parse(v)).toList();
   }
 
   @override
   Future<int> run() async {
-    final cwd = Directory.current.path;
-    final rootPath = _discoverRootPath(cwd);
-    final requestedVersion = argResults?.rest.firstOrNull;
+    try {
+      final project = await Project.findFromCurrentDirectory();
+      final registry = VersionRegistry(_osManager);
 
-    // -- Run GitIgnoreService on every use --
-    await _gitIgnoreService.ensureGitignoreIncludesPvm(rootPath: rootPath);
+      // Always ensure .gitignore includes .pvm
+      await _gitIgnoreService.ensureGitignoreIncludesPvm(
+        rootPath: project.rootDirectory.path,
+      );
 
-    // -- No argument: use .php-version if present --
-    if (requestedVersion == null) {
-      final lastVersion =
-          await _phpVersionManager.readLastUsedVersion(rootPath: rootPath);
-      if (lastVersion == null) {
-        print('Error: No version specified and no .php-version file found.');
-        print('Usage: pvm use <version>');
-        return 1;
+      final requestedVersionStr = argResults?.rest.firstOrNull;
+
+      if (requestedVersionStr == null) {
+        return await _useConfiguredVersion(project, registry);
       }
 
-      // -- Check if version from .php-version is installed --
-      final available =
-          _osManager.getAvailableVersions(_osManager.phpVersionsPath);
-      if (!available.contains(lastVersion)) {
-        // -- Version not installed: prompt user to pick --
-        print('Error: Version $lastVersion not found.');
+      if (argResults!.rest.length > 1) {
+        _console.printError('Too many arguments. Usage: pvm use <version>');
+        return ExitCode.usageError;
+      }
+
+      final requestedVersion = PhpVersion.parse(requestedVersionStr);
+      return await _useSpecificVersion(project, requestedVersion, registry);
+    } on InvalidVersionFormatException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.usageError;
+    } on ProjectConfigurationException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.configurationError;
+    } on PvmException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.generalError;
+    }
+  }
+
+  Future<int> _useConfiguredVersion(
+    Project project,
+    VersionRegistry registry,
+  ) async {
+    final configured = await _phpVersionManager.readLastUsedVersion(
+        rootPath: project.rootDirectory.path);
+
+    if (configured == null) {
+      _console
+          .printError('No version specified and no .php-version file found.');
+      _console.print('Usage: pvm use <version>');
+      return ExitCode.usageError;
+    }
+
+    return _useSpecificVersion(project, configured, registry, updateFile: true);
+  }
+
+  Future<int> _useSpecificVersion(
+    Project project,
+    PhpVersion requestedVersion,
+    VersionRegistry registry, {
+    bool updateFile = true,
+  }) async {
+    final available = _getAvailableVersions();
+
+    // Check if version is in available list
+    if (!available.any((v) => v == requestedVersion)) {
+      if (_console.hasTerminal) {
         final picked = await _phpVersionManager.promptVersionPick(
           availableVersions: available,
         );
         if (picked == null) {
-          print('Cancelled.');
-          return 1;
+          _console.print('Cancelled.');
+          return ExitCode.userCancelled;
         }
-        return _applyVersion(rootPath, picked, updateFile: true);
+        // Recursively call with the same updateFile flag
+        return _useSpecificVersion(project, picked, registry,
+            updateFile: updateFile);
+      } else {
+        _console.printError(
+            'Requested version $requestedVersion is not available.');
+        return ExitCode.versionNotFound;
       }
-
-      return _applyVersion(rootPath, lastVersion, updateFile: true);
     }
 
-    // -- Too many arguments --
-    if (argResults!.rest.length != 1) {
-      print('Error: Too many arguments. Usage: pvm use <version>');
-      return 1;
+    // Sanity check: directory exists
+    final sourcePath = registry.getVersionPath(requestedVersion);
+    if (!await _osManager.directoryExists(sourcePath)) {
+      _console.printError('Version directory not found at $sourcePath');
+      return ExitCode.versionNotFound;
     }
 
-    // -- Version format validation --
-    final versionPattern = RegExp(r'^\d+\.\d+(\.\d+)?$');
-    if (!versionPattern.hasMatch(requestedVersion)) {
-      print(
-          'Error: Invalid version format. Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)');
-      return 1;
-    }
-
-    // -- Check if requested version is installed --
-    final available =
-        _osManager.getAvailableVersions(_osManager.phpVersionsPath);
-    if (!available.contains(requestedVersion)) {
-      // -- Version not installed: prompt user to pick --
-      print('Error: Version $requestedVersion not found.');
-      final picked = await _phpVersionManager.promptVersionPick(
-        availableVersions: available,
-      );
-      if (picked == null) {
-        print('Cancelled.');
-        return 1;
-      }
-      return _applyVersion(rootPath, picked, updateFile: true);
-    }
-
-    // -- Check for mismatch with .php-version --
-    final lastVersion =
-        await _phpVersionManager.readLastUsedVersion(rootPath: rootPath);
-    if (lastVersion != null && lastVersion != requestedVersion) {
-      final isInteractive = stdout.hasTerminal;
-      if (isInteractive) {
+    // Check for mismatch
+    final configured = await project.getConfiguredVersion();
+    if (configured != null && configured != requestedVersion) {
+      if (_console.hasTerminal) {
         final confirmed = await _phpVersionManager.promptMismatch(
-          currentVersion: lastVersion,
+          currentVersion: configured,
           requestedVersion: requestedVersion,
         );
         if (!confirmed) {
-          print('Cancelled.');
-          return 1;
+          _console.print('Cancelled.');
+          return ExitCode.userCancelled;
         }
-        // Interactive confirmed: apply and update .php-version
-        return _applyVersion(rootPath, requestedVersion, updateFile: true);
+        // User confirmed, apply with updateFile: true
+        return _applyVersion(project, requestedVersion, registry,
+            updateFile: true);
       } else {
-        // Non-interactive: auto-apply but do NOT update .php-version
-        return _applyVersion(rootPath, requestedVersion, updateFile: false);
+        // Non-interactive: apply but don't update file
+        return _applyVersion(project, requestedVersion, registry,
+            updateFile: false);
       }
     }
 
-    // -- No mismatch or same version: apply and update .php-version --
-    return _applyVersion(rootPath, requestedVersion, updateFile: true);
+    // No mismatch or same version: apply with caller's updateFile preference
+    return _applyVersion(project, requestedVersion, registry,
+        updateFile: updateFile);
   }
 
-  /// Create the local symlink and optionally update .php-version.
   Future<int> _applyVersion(
-    String rootPath,
-    String version, {
+    Project project,
+    PhpVersion version,
+    VersionRegistry registry, {
     required bool updateFile,
   }) async {
-    final localPath = p.join(rootPath, '.pvm');
-    final sourcePath = p.join(_osManager.phpVersionsPath, version);
+    final localPath =
+        p.join(project.rootDirectory.path, PvmConstants.pvmDirName);
+    final sourcePath = registry.getVersionPath(version);
 
     try {
       if (!await _osManager.directoryExists(sourcePath)) {
-        print('Error: Version directory not found at $sourcePath');
-        return 1;
+        _console.printError('Version directory not found at $sourcePath');
+        return ExitCode.versionNotFound;
       }
 
       final result = await _osManager.createSymLink(
-        version,
+        version.toString(),
         sourcePath,
         localPath,
       );
 
       if (updateFile) {
         await _phpVersionManager.writeCurrentVersion(
-          rootPath: rootPath,
+          rootPath: project.rootDirectory.path,
           version: version,
         );
       }
 
-      print('Local link created: ${result.to} -> ${result.from}');
-      return 0;
+      _console.print('Local link created: ${result.to} -> ${result.from}');
+      return ExitCode.success;
     } catch (e) {
-      print('Error: $e');
-      return 1;
+      _console.printError('Error: $e');
+      return ExitCode.generalError;
     }
   }
 }

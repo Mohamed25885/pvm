@@ -5,7 +5,7 @@ ini_set('memory_limit', '1G'); // S3 buffers full output — 50 procs × 20k lin
 /**
  * stress_test.php
  *
- * Stress tests for ManagedProcessRunner / JobObjectManager.
+ * Stress tests for PVM's process management (IOProcessManager).
  * All 4 scenarios run in PARALLEL for maximum pressure.
  *
  *   php stress_test.php                  # run all scenarios in parallel
@@ -418,7 +418,7 @@ function run_scenario4(array $cfg): void
         ok($tag, "All {$count} processes terminated in " . elapsed($start) . " ✓");
     } else {
         fail($tag, count($remaining) . " zombie(s) after timeout: " . implode(', ', $remaining));
-        warn($tag, "Job Object kill-on-close may not be propagating correctly.");
+        warn($tag, "Process cleanup may not be propagating correctly.");
     }
 }
 
@@ -740,7 +740,7 @@ function run_scenario5(array $cfg): void
     } else {
         $zombiePids = implode(', ', $remaining);
         fail($tag, count($remaining) . " zombie(s) survived kill: {$zombiePids}");
-        warn($tag, "Job Object kill-on-close may not be capturing artisan child processes.");
+        warn($tag, "Process cleanup may not be capturing all child processes.");
     }
 
     ok($tag, "S5 completed in " . elapsed($start));
@@ -866,7 +866,7 @@ if ($scenario > 0) {
 
 echo "\033[35m";
 echo "\n╔══════════════════════════════════════════════════════════╗\n";
-echo "║     ManagedProcessRunner — Parallel Stress Test Suite    ║\n";
+echo "║     Process Management Stress Test Suite (IOProcessManager) ║\n";
 echo "╚══════════════════════════════════════════════════════════╝\033[0m\n";
 echo "  PHP " . PHP_VERSION . " | OS: " . PHP_OS_FAMILY . " | PID: " . getmypid() . "\n";
 echo "  spawn={$CFG['spawn']}  depth={$CFG['depth']}  trees={$CFG['trees']}  ";

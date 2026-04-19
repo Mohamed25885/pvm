@@ -10,7 +10,7 @@ jobs:
   ci:
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
 
@@ -39,22 +39,32 @@ jobs:
         run: dart analyze --fatal-infos
 
       - name: Run tests with coverage
-        run: dart test --coverage=coverage --concurrency=1
+        run: dart test --coverage=coverage --reporter=expanded
 
       - name: Format coverage to LCOV
         run: |
           dart pub global activate coverage
-          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info
-
+          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib,pvm.dart
+            
       - name: Check coverage threshold
         run: |
           dart pub global activate coverde
           dart pub global run coverde check 60 --input coverage/lcov.info
 
-      # Windows-only checks
+      - name: Create Build Directory
+        if: matrix.os == 'windows-latest'
+        run: mkdir builds -ErrorAction SilentlyContinue
+
       - name: Build executable
         if: matrix.os == 'windows-latest'
         run: dart compile exe pvm.dart -o builds/pvm.exe
+
+      - name: Upload Windows Binary
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pvm-windows
+          path: builds/pvm.exe
 
       - name: Install test (--version)
         if: matrix.os == 'windows-latest'

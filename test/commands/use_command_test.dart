@@ -1,82 +1,27 @@
 import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
+import '../helpers.dart';
+import '../mocks/mock_console.dart';
+import '../mocks/mock_os_manager.dart';
 import '../../lib/src/commands/use_command.dart';
-import '../../lib/src/core/gitignore_service.dart';
-import '../../lib/src/core/php_version_manager.dart';
-import '../../lib/src/managers/mock_os_manager.dart';
-
-/// FakePhpVersionManager records calls and returns canned values for testing.
-class FakePhpVersionManager extends PhpVersionManager {
-  String? readResult;
-  String? writeVersion;
-  String? writeRootPath;
-  bool promptMismatchResult = true;
-  String? promptVersionPickResult;
-  bool readLastUsedVersionCalled = false;
-
-  @override
-  Future<String?> readLastUsedVersion({required String rootPath}) async {
-    readLastUsedVersionCalled = true;
-    return readResult;
-  }
-
-  @override
-  Future<void> writeCurrentVersion({
-    required String rootPath,
-    required String version,
-  }) async {
-    writeRootPath = rootPath;
-    writeVersion = version;
-  }
-
-  @override
-  Future<bool> promptMismatch({
-    required String currentVersion,
-    required String requestedVersion,
-  }) async {
-    return promptMismatchResult;
-  }
-
-  @override
-  Future<String?> promptVersionPick({
-    required List<String> availableVersions,
-  }) async {
-    return promptVersionPickResult;
-  }
-}
-
-/// FakeGitIgnoreService records calls.
-class FakeGitIgnoreService extends GitIgnoreService {
-  bool ensureGitignoreCalled = false;
-  bool ensureGitignoreResult = true;
-  bool ensurePvmSymlinkCalled = false;
-  bool ensurePvmSymlinkResult = true;
-
-  @override
-  Future<bool> ensureGitignoreIncludesPvm({required String rootPath}) async {
-    ensureGitignoreCalled = true;
-    return ensureGitignoreResult;
-  }
-
-  @override
-  Future<bool> ensurePvmSymlinkExists({
-    required String symlinkPath,
-    required String targetPath,
-  }) async {
-    ensurePvmSymlinkCalled = true;
-    return ensurePvmSymlinkResult;
-  }
-}
+import '../../lib/src/core/exit_codes.dart';
+import '../../lib/src/domain/php_version.dart';
 
 Future<int> _runUseCommand({
   required MockOSManager osManager,
   required FakePhpVersionManager phpVersionManager,
   required FakeGitIgnoreService gitIgnoreService,
+  required MockConsole console,
   List<String> args = const [],
 }) async {
   final runner = CommandRunner<int>('test', 'test');
-  runner.addCommand(UseCommand(osManager, phpVersionManager, gitIgnoreService));
+  runner.addCommand(UseCommand(
+    osManager,
+    phpVersionManager,
+    gitIgnoreService,
+    console,
+  ));
 
   final result = await runner.run(['use', ...args]);
   return result ?? 1;
@@ -86,16 +31,18 @@ void main() {
   group('UseCommand - no-arg behavior', () {
     test('returns error when no version and no .php-version exists', () async {
       final osManager = MockOSManager();
-      final phpVer = FakePhpVersionManager();
-      final gitIgnore = FakeGitIgnoreService();
+      final console = MockConsole();
+      final phpVer = FakePhpVersionManager(console);
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.usageError));
       expect(phpVer.readLastUsedVersionCalled, isTrue);
     });
 
@@ -104,16 +51,18 @@ void main() {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
-      phpVer.readResult = '8.0';
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.readResult = PhpVersion.parse('8.0');
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
       );
 
       expect(exitCode, equals(0));
@@ -127,16 +76,18 @@ void main() {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
+      final phpVer = FakePhpVersionManager(console);
       phpVer.readResult = null; // no .php-version
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['8.2'],
       );
 
@@ -147,34 +98,38 @@ void main() {
     test('invalid version format returns error', () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
-      final gitIgnore = FakeGitIgnoreService();
+      final phpVer = FakePhpVersionManager(console);
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['invalid'],
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.usageError));
     });
 
     test('non-existent version prompts user to pick', () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
-      phpVer.promptVersionPickResult = '8.0';
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.promptVersionPickResult = PhpVersion.parse('8.0');
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['9.0'],
       );
 
@@ -185,20 +140,22 @@ void main() {
     test('non-existent version with no pick returns error', () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
+      final phpVer = FakePhpVersionManager(console);
       phpVer.promptVersionPickResult = null; // user cancelled
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['9.0'],
       );
 
-      expect(exitCode, equals(1));
+      expect(exitCode, equals(ExitCode.userCancelled));
     });
   });
 
@@ -210,22 +167,25 @@ void main() {
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
+      console.hasTerminal = false; // Simulate non-interactive
 
-      final phpVer = FakePhpVersionManager();
-      phpVer.readResult = '8.0'; // .php-version has 8.0
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.readResult = PhpVersion.parse('8.0'); // .php-version has 8.0
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       // Non-interactive: stdout has no terminal (promptMismatch returns false)
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['8.2'],
       );
 
       expect(exitCode, equals(0));
-      // In non-interactive mode, .php-version is NOT updated
+      // Version is applied in non-interactive mode (symlink created), .php-version unchanged
       expect(phpVer.writeVersion, isNull);
     });
   });
@@ -237,16 +197,18 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
+      final phpVer = FakePhpVersionManager(console);
       phpVer.readResult = null;
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['8.0'],
       );
 
@@ -263,16 +225,18 @@ void main() {
       osManager.mockVersions = ['8.0'];
       osManager.mockLocalPath = r'C:\project\.pvm';
       osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-      final phpVer = FakePhpVersionManager();
+      final phpVer = FakePhpVersionManager(console);
       phpVer.readResult = null;
 
-      final gitIgnore = FakeGitIgnoreService();
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
 
       await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
+        console: console,
         args: ['8.0'],
       );
 
