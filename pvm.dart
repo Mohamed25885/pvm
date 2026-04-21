@@ -7,12 +7,16 @@ import 'lib/src/managers/windows_os_manager.dart';
 import 'lib/src/core/gitignore_service.dart';
 import 'lib/src/core/php_version_manager.dart';
 import 'lib/src/services/php_executor.dart';
+import 'lib/src/services/php_downloader.dart';
+import 'lib/src/services/release_fetcher_factory.dart';
 import 'lib/src/commands/use_command.dart';
 import 'lib/src/commands/global_command.dart';
 import 'lib/src/commands/list_command.dart';
 import 'lib/src/commands/php_command.dart';
 import 'lib/src/commands/composer_command.dart';
 import 'lib/src/commands/version_flag.dart';
+import 'lib/src/commands/install_command.dart';
+import 'lib/src/commands/list_remote_command.dart';
 import 'lib/src/process/io_process_manager.dart';
 import 'lib/src/version.dart';
 
@@ -35,6 +39,13 @@ Future<int> main(List<String> arguments) async {
   );
 
   final runner = PvmCommandRunner('pvm', 'PHP Version Manager');
+
+  final fetcher = createReleaseFetcher();
+  final downloader = PhpDownloader();
+  final versionsPath = osManager.phpVersionsPath;
+
+  runner.addCommand(InstallCommand(fetcher, downloader, console, versionsPath));
+  runner.addCommand(ListRemoteCommand(fetcher, downloader, console));
 
   runner.addCommand(UseCommand(
     osManager,
