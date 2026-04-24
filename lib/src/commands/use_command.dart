@@ -11,6 +11,7 @@ import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
 import '../domain/version_registry.dart';
+import '../interfaces/i_version_activator.dart';
 
 class UseCommand extends Command<int> {
   @override
@@ -23,12 +24,14 @@ class UseCommand extends Command<int> {
   final IOSManager _osManager;
   final PhpVersionManager _phpVersionManager;
   final GitIgnoreService _gitIgnoreService;
+  final IVersionActivator _versionActivator;
   final Console _console;
 
   UseCommand(
     this._osManager,
     this._phpVersionManager,
     this._gitIgnoreService,
+    this._versionActivator,
     this._console,
   );
 
@@ -169,11 +172,8 @@ class UseCommand extends Command<int> {
         return ExitCode.versionNotFound;
       }
 
-      final result = await _osManager.createSymLink(
-        version.toString(),
-        sourcePath,
-        localPath,
-      );
+      // Use the activator to create the local symlink
+      await _versionActivator.activateLocal(version.toString());
 
       if (updateFile) {
         await _phpVersionManager.writeCurrentVersion(
@@ -182,7 +182,7 @@ class UseCommand extends Command<int> {
         );
       }
 
-      _console.print('Local link created: ${result.to} -> ${result.from}');
+      _console.print('Local link created: $localPath -> $sourcePath');
       return ExitCode.success;
     } catch (e) {
       _console.printError('Error: $e');

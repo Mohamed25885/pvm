@@ -7,7 +7,7 @@ import 'package:path/path.dart' as p;
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../domain/php_release.dart';
-import '../services/php_downloader.dart';
+import '../interfaces/i_installer.dart';
 import '../services/release_fetcher.dart';
 
 class InstallCommand extends Command<int> {
@@ -25,15 +25,13 @@ class InstallCommand extends Command<int> {
     ..addFlag('force', help: 'Force reinstall', negatable: false);
 
   final IReleaseFetcher _fetcher;
-  final PhpDownloader _downloader;
   final Console _console;
-  final String _versionsPath;
+  final IInstaller _installer;
 
   InstallCommand(
     this._fetcher,
-    this._downloader,
     this._console,
-    this._versionsPath,
+    this._installer,
   );
 
   @override
@@ -75,10 +73,11 @@ class InstallCommand extends Command<int> {
     if (useTs) buildType = BuildType.ts;
 
     final force = argResults?['force'] == true;
+    final versionsPath = _installer.versionsPath;
 
     try {
       _console.print('Fetching available PHP versions...');
-      final releases = await _downloader.fetchReleases(_fetcher);
+      final releases = await _fetcher.fetchReleases();
 
       final filter = PhpReleaseFilter(
         major: major,
@@ -96,39 +95,53 @@ class InstallCommand extends Command<int> {
       }
 
       final release = matching.first;
-      final versionDir = p.join(_versionsPath, release.displayVersion);
+      final versionDir = p.join(versionsPath, release.displayVersion);
 
       if (!force && await Directory(versionDir).exists()) {
-        _console.printError(
-            'PHP ${release.displayVersion} already installed. Use --force to reinstall');
+        _console.printError('PHP ${release.displayVersion} already installed. Use --force to reinstall');
         return ExitCode.generalError;
       }
 
+      // Lifecycle hook: before installation starts
+      await _installer.preInstall(release.displayVersion);
+
       _console.print('Downloading PHP ${release.displayVersion}...');
-      final zipFile = await _downloader.download(release, _versionsPath);
+      // Lifecycle hook: download started
+      await _installer.onInstalling(release.displayVersion, 0.0);
+      final zipFile = await _installer.downloadPhp(release, versionsPath);
 
       _console.print('Verifying SHA256...');
-      final valid = await _downloader.verifySha256(zipFile, release.sha256);
+      final valid = await _installer.verifySha256(zipFile, release.sha256);
       if (!valid) {
         await zipFile.delete();
         _console.printError('SHA256 verification failed');
+        // Lifecycle hook: on failure
+        await _installer.onInstallFailed(release.displayVersion, Exception('SHA256 verification failed'));
         return ExitCode.generalError;
       }
 
       _console.print('Extracting...');
+      // Lifecycle hook: after extraction
+      await _installer.onInstalling(release.displayVersion, 0.5);
       await _extractZip(zipFile.path, versionDir);
       await zipFile.delete();
+
+      // Lifecycle hook: on success
+      await _installer.postInstall(release.displayVersion);
 
       _console.print('Successfully installed PHP ${release.displayVersion}');
       return ExitCode.success;
     } on ReleaseFetcherException catch (e) {
       _console.printError(e.message);
+      await _installer.onInstallFailed(versionArg, e);
       return ExitCode.generalError;
-    } on PhpDownloaderException catch (e) {
+    } on DownloadException catch (e) {
       _console.printError(e.message);
+      await _installer.onInstallFailed(versionArg, e);
       return ExitCode.generalError;
     } catch (e) {
       _console.printError('Installation failed: $e');
+      await _installer.onInstallFailed(versionArg, Exception(e.toString()));
       return ExitCode.generalError;
     }
   }
@@ -150,7 +163,6 @@ class InstallCommand extends Command<int> {
   }
 
   String _getDefaultArchitecture() {
-    if (Platform.isWindows) return 'x64';
     return 'x64';
   }
 
@@ -165,8 +177,7 @@ class InstallCommand extends Command<int> {
       final fullPath = p.join(destPath, filename);
       final normalizedPath = p.normalize(fullPath);
 
-      if (!normalizedPath.startsWith(destCanonical) &&
-          normalizedPath != destCanonical) {
+      if (!normalizedPath.startsWith(destCanonical) && normalizedPath != destCanonical) {
         continue;
       }
 

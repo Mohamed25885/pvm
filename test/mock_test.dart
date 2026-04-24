@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 
-import '../lib/src/core/process_manager.dart';
+import 'package:pvm/src/core/process_manager.dart';
 import '../test/mocks/mock_os_manager.dart';
 
 void main() {

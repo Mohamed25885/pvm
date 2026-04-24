@@ -2,20 +2,34 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-
-import '../../lib/src/services/php_downloader.dart';
-import '../../lib/src/services/windows_release_fetcher.dart';
-import '../../lib/src/commands/install_command.dart';
+import 'package:pvm/src/domain/php_release.dart';
+import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:pvm/src/commands/install_command.dart';
 import '../mocks/mock_console.dart';
+import '../mocks/mock_installer.dart';
+
+class MockReleaseFetcher implements IReleaseFetcher {
+  @override
+  String get platformName => 'Mock';
+
+  @override
+  Future<List<PhpRelease>> fetchReleases() async => [];
+}
 
 void main() {
   group('InstallCommand', () {
+    late MockInstaller mockInstaller;
+
+    setUp(() {
+      mockInstaller = MockInstaller();
+    });
+
     test('argParser has arch option', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse(['--arch', 'x64']);
@@ -23,11 +37,11 @@ void main() {
     });
 
     test('argParser accepts --ts flag', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse(['--ts']);
@@ -35,11 +49,11 @@ void main() {
     });
 
     test('argParser accepts --nts flag', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse(['--nts']);
@@ -47,11 +61,11 @@ void main() {
     });
 
     test('argParser accepts --force flag', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse(['--force']);
@@ -59,11 +73,11 @@ void main() {
     });
 
     test('argParser accepts version argument', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse(['8.3']);
@@ -71,11 +85,11 @@ void main() {
     });
 
     test('argParser defaults arch to x64', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       final result = cmd.argParser.parse([]);
@@ -83,11 +97,11 @@ void main() {
     });
 
     test('command has correct name and description', () {
+      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        WindowsReleaseFetcher(),
-        PhpDownloader(),
+        mockFetcher,
         MockConsole(),
-        'C:\\pvm\\versions',
+        mockInstaller,
       );
 
       expect(cmd.name, 'install');

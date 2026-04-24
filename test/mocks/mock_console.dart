@@ -1,4 +1,4 @@
-import '../../lib/src/core/console.dart';
+import 'package:pvm/src/core/console.dart';
 
 class MockConsole implements Console {
   final List<String> printed = [];

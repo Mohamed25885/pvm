@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import '../../lib/src/core/os_manager.dart';
-import '../../lib/src/core/process_manager.dart';
+import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/core/process_manager.dart';
 
 class MockOSManager implements IOSManager {
   bool shouldThrowOnSymlink = false;
@@ -96,8 +96,7 @@ class MockOSManager implements IOSManager {
   Map<String, String> get currentEnvironment => Platform.environment;
 
   @override
-  Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+  Future<({String from, String to})> createSymLink(String version, String from, String to) async {
     symlinkCallCount++;
 
     if (shouldThrowOnSymlink) {
@@ -126,8 +125,7 @@ class MockOSManager implements IOSManager {
     directoryExistsCallCount++;
 
     if (shouldThrowOnDirectoryExists) {
-      throw Exception(
-          directoryExistsErrorMessage ?? 'Mock: Directory check failed');
+      throw Exception(directoryExistsErrorMessage ?? 'Mock: Directory check failed');
     }
 
     // Explicit cache takes priority
@@ -177,8 +175,7 @@ class MockOSManager implements IOSManager {
     getAvailableVersionsCallCount++;
 
     if (shouldThrowOnGetAvailableVersions) {
-      throw Exception(getAvailableVersionsErrorMessage ??
-          'Mock: Failed to get available versions');
+      throw Exception(getAvailableVersionsErrorMessage ?? 'Mock: Failed to get available versions');
     }
 
     return mockVersions;
@@ -189,8 +186,7 @@ class MockOSManager implements IOSManager {
     getHomeDirectoryCallCount++;
 
     if (shouldThrowOnGetHomeDirectory) {
-      throw Exception(
-          getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
+      throw Exception(getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
     }
 
     return mockHomeDir;
@@ -262,4 +258,7 @@ class MockProcessManager implements IProcessManager {
       exitCode: mockExitCode,
     );
   }
+
+  @override
+  Future<String> resolveSystemCommand(String command) async => command;
 }

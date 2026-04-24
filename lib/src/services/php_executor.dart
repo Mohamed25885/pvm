@@ -1,24 +1,25 @@
 import 'dart:io';
 
-import 'package:path/path.dart' as p;
-
-import '../core/constants.dart';
 import '../core/os_manager.dart';
 import '../core/process_manager.dart';
+import '../core/executable_resolver.dart';
 
 class PhpExecutor {
   final IProcessManager _processManager;
   final IOSManager _osManager;
+  final IExecutableResolver _executableResolver;
 
   PhpExecutor({
     required IProcessManager processManager,
     required IOSManager osManager,
+    required IExecutableResolver executableResolver,
   })  : _processManager = processManager,
-        _osManager = osManager;
+        _osManager = osManager,
+        _executableResolver = executableResolver;
 
   Future<int> runPhp(List<String> args, {String? workingDirectory}) async {
     final rootPath = workingDirectory ?? _osManager.currentDirectory;
-    final phpExe = await _resolvePhpExecutable(rootPath);
+    final phpExe = await _executableResolver.resolvePhpExecutable(rootPath);
 
     final spec = ProcessSpec(
       executable: phpExe,
@@ -36,7 +37,7 @@ class PhpExecutor {
     String? workingDirectory,
   }) async {
     final rootPath = workingDirectory ?? _osManager.currentDirectory;
-    final phpExe = await _resolvePhpExecutable(rootPath);
+    final phpExe = await _executableResolver.resolvePhpExecutable(rootPath);
 
     final spec = ProcessSpec(
       executable: phpExe,
@@ -46,19 +47,5 @@ class PhpExecutor {
     );
 
     return await _processManager.runInteractive(spec);
-  }
-
-  Future<String> _resolvePhpExecutable(String rootPath) async {
-    final phpExe = p.join(
-      rootPath,
-      PvmConstants.pvmDirName,
-      Platform.isWindows ? PvmConstants.phpExecutable : 'php',
-    );
-
-    if (!(await _osManager.fileExists(phpExe))) {
-      throw Exception('PHP executable not found at $phpExe');
-    }
-
-    return phpExe;
   }
 }

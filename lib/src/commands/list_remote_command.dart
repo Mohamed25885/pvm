@@ -4,7 +4,6 @@ import 'package:args/command_runner.dart';
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../domain/php_release.dart';
-import '../services/php_downloader.dart';
 import '../services/release_fetcher.dart';
 
 class ListRemoteCommand extends Command<int> {
@@ -20,12 +19,10 @@ class ListRemoteCommand extends Command<int> {
     ..addOption('type', help: 'Filter by build type (ts or nts)');
 
   final IReleaseFetcher _fetcher;
-  final PhpDownloader _downloader;
   final Console _console;
 
   ListRemoteCommand(
     this._fetcher,
-    this._downloader,
     this._console,
   );
 
@@ -33,7 +30,7 @@ class ListRemoteCommand extends Command<int> {
   Future<int> run() async {
     try {
       _console.print('Fetching available PHP versions...');
-      final releases = await _downloader.fetchReleases(_fetcher);
+      final releases = await _fetcher.fetchReleases();
 
       if (releases.isEmpty) {
         _console.print('No PHP versions available for download.');
@@ -82,11 +79,9 @@ class ListRemoteCommand extends Command<int> {
         final versionReleases = grouped[version]!;
         _console.print('  $version');
         for (final release in versionReleases) {
-          final archStr =
-              release.architecture == Architecture.x64 ? 'x64' : 'x86';
+          final archStr = release.architecture == Architecture.x64 ? 'x64' : 'x86';
           final typeStr = release.buildType == BuildType.ts ? 'ts' : 'nts';
-          _console
-              .print('    - ${archStr}_$typeStr (${release.sizeFormatted})');
+          _console.print('    - ${archStr}_$typeStr (${release.sizeFormatted})');
         }
       }
 

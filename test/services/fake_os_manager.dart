@@ -1,4 +1,4 @@
-import '../../lib/src/core/os_manager.dart';
+import 'package:pvm/src/core/os_manager.dart';
 
 /// Test double for [IOSManager] that provides configurable responses for file
 /// existence checks and returns predetermined environment values.

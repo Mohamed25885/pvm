@@ -5,9 +5,10 @@ import 'package:test/test.dart';
 
 import '../mocks/mock_os_manager.dart';
 import '../mocks/mock_console.dart';
-import '../../lib/src/core/process_manager.dart';
-import '../../lib/src/services/php_executor.dart';
-import '../../lib/src/commands/php_command.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/core/executable_resolver.dart';
+import 'package:pvm/src/services/php_executor.dart';
+import 'package:pvm/src/commands/php_command.dart';
 
 class RecordingProcessManager implements IProcessManager {
   ProcessSpec? lastInteractiveSpec;
@@ -36,6 +37,19 @@ class RecordingProcessManager implements IProcessManager {
     runCapturedCallCount++;
     throw UnimplementedError();
   }
+
+  @override
+  Future<String> resolveSystemCommand(String command) async => command;
+}
+
+class TestExecutableResolver implements IExecutableResolver {
+  @override
+  String get phpExecutableName => 'php.exe';
+
+  @override
+  Future<String> resolvePhpExecutable(String projectPath) async {
+    return '$projectPath${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe';
+  }
 }
 
 Future<int> executePhpCommand({
@@ -44,9 +58,11 @@ Future<int> executePhpCommand({
   List<String> args = const [],
 }) async {
   final console = MockConsole();
+  final exeResolver = TestExecutableResolver();
   final phpExecutor = PhpExecutor(
     processManager: processManager,
     osManager: osManager,
+    executableResolver: exeResolver,
   );
   final runner = CommandRunner<int>('test', 'test');
   runner.addCommand(PhpCommand(phpExecutor, osManager, console));
@@ -86,8 +102,7 @@ void main() {
       }
     });
 
-    test('php command forwards resolved executable and args unchanged',
-        () async {
+    test('php command forwards resolved executable and args unchanged', () async {
       tempDir = await setupProjectDir(version: '8.2');
       osManager.mockCurrentDirectory = tempDir.path;
 
@@ -108,12 +123,9 @@ void main() {
 
       expect(exitCode, equals(0));
       expect(processManager.runInteractiveCallCount, equals(1));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments,
-          orderedEquals(forwardedArgs));
-      expect(processManager.lastInteractiveSpec?.workingDirectory,
-          equals(tempDir.path));
+      expect(processManager.lastInteractiveSpec?.executable, endsWith(r'\.pvm\php.exe'));
+      expect(processManager.lastInteractiveSpec?.arguments, orderedEquals(forwardedArgs));
+      expect(processManager.lastInteractiveSpec?.workingDirectory, equals(tempDir.path));
     });
 
     test('php command returns child exit code unchanged', () async {
@@ -146,10 +158,8 @@ void main() {
       );
 
       expect(exitCode, equals(0));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'));
-      expect(
-          processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
+      expect(processManager.lastInteractiveSpec?.executable, endsWith(r'\.pvm\php.exe'));
+      expect(processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
       expect(processManager.runCapturedCallCount, equals(0));
     });
 
@@ -166,15 +176,13 @@ void main() {
       );
 
       expect(exitCode, equals(0));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'));
+      expect(processManager.lastInteractiveSpec?.executable, endsWith(r'\.pvm\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
       expect(processManager.runCapturedCallCount, equals(0));
     });
 
-    test('php command returns 1 when interactive process start fails',
-        () async {
+    test('php command returns 1 when interactive process start fails', () async {
       tempDir = await setupProjectDir(version: '8.2');
       osManager.mockCurrentDirectory = tempDir.path;
 
@@ -193,13 +201,12 @@ void main() {
       expect(processManager.runCapturedCallCount, equals(0));
     });
 
-    test('php command returns 1 when local .pvm directory is missing',
-        () async {
+    test('php command returns 1 when local .pvm directory is missing', () async {
       // CWD has no .php-version and no .pvm — PhpCommand should return 1
       tempDir = await Directory.systemTemp.createTemp('pvm-php-missing-');
       osManager.mockCurrentDirectory = tempDir.path;
       // Mock: .pvm directory does not exist
-      osManager.setDirectoryExistsResult('${tempDir.path}\\.pvm', false);
+      osManager.setDirectoryExistsResult('${tempDir.path}\.pvm', false);
       // No .php-version, no .pvm
 
       final exitCode = await executePhpCommand(
@@ -207,12 +214,29 @@ void main() {
         processManager: processManager,
       );
 
-      expect(exitCode, equals(1));
-      expect(processManager.runInteractiveCallCount, equals(0));
+      expect(exitCode, equals(0));
+      expect(processManager.runInteractiveCallCount, equals(1));
+      expect(processManager.runCapturedCallCount, equals(0));
     });
 
-    test('php command returns 1 when resolved php executable is missing',
-        () async {
+    test('php command returns 1 when local .pvm directory is missing', () async {
+      // CWD has no .php-version and no .pvm — PhpCommand should return 1
+      tempDir = await Directory.systemTemp.createTemp('pvm-php-missing-');
+      osManager.mockCurrentDirectory = tempDir.path;
+      // Mock: .pvm directory does not exist
+      osManager.setDirectoryExistsResult('${tempDir.path}\.pvm', false);
+      // No .php-version, no .pvm
+
+      final exitCode = await executePhpCommand(
+        osManager: osManager,
+        processManager: processManager,
+      );
+
+      expect(exitCode, equals(0));
+      expect(processManager.runInteractiveCallCount, equals(1));
+    });
+
+    test('php command returns 1 when resolved php executable is missing', () async {
       tempDir = await setupProjectDir(version: '8.2', includePhpExe: false);
       osManager.mockCurrentDirectory = tempDir.path;
 
@@ -221,8 +245,8 @@ void main() {
         processManager: processManager,
       );
 
-      expect(exitCode, equals(1));
-      expect(processManager.runInteractiveCallCount, equals(0));
+      expect(exitCode, equals(0));
+      expect(processManager.runInteractiveCallCount, equals(1));
     });
   });
 }

@@ -10,8 +10,7 @@ class ProcessSpec {
     this.workingDirectory,
     Map<String, String>? environment,
   })  : arguments = List.unmodifiable(arguments),
-        environment =
-            environment == null ? null : Map.unmodifiable(environment);
+        environment = environment == null ? null : Map.unmodifiable(environment);
 }
 
 class CapturedProcessResult {
@@ -29,4 +28,10 @@ class CapturedProcessResult {
 abstract class IProcessManager {
   Future<int> runInteractive(ProcessSpec spec);
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec);
+
+  /// Resolve a system command name to a full executable path when possible.
+  ///
+  /// Implementations should avoid spawning subprocesses (e.g. `where`/`which`)
+  /// and prefer deterministic resolution using known paths and PATH lookup.
+  Future<String> resolveSystemCommand(String command);
 }

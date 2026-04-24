@@ -6,6 +6,7 @@ import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
+import '../interfaces/i_version_activator.dart';
 
 class GlobalCommand extends Command<int> {
   @override
@@ -15,9 +16,10 @@ class GlobalCommand extends Command<int> {
   final String description = 'Set the global PHP version (system-wide)';
 
   final IOSManager _osManager;
+  final IVersionActivator _versionActivator;
   final Console _console;
 
-  GlobalCommand(this._osManager, this._console);
+  GlobalCommand(this._osManager, this._versionActivator, this._console);
 
   @override
   Future<int> run() async {
@@ -45,8 +47,6 @@ class GlobalCommand extends Command<int> {
         return ExitCode.generalError;
       }
 
-      final globalPath =
-          _osManager.localPath; // For global, this is %USERPROFILE%\.pvm
       final versionsPath = _osManager.phpVersionsPath;
       final sourcePath = p.join(versionsPath, version.toString());
 
@@ -55,14 +55,9 @@ class GlobalCommand extends Command<int> {
         return ExitCode.generalError;
       }
 
-      await _osManager.createSymLink(
-        version.toString(),
-        sourcePath,
-        globalPath,
-      );
+      await _versionActivator.activateGlobal(version.toString());
 
-      _console.print('Global link created:');
-      _console.print('  $globalPath -> $sourcePath');
+      _console.print('Global version set to: ${version.toString()}');
       return ExitCode.success;
     } on InvalidVersionFormatException catch (e) {
       _console.printError(e.message);

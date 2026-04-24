@@ -4,8 +4,8 @@ import 'dart:io';
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
-import '../../lib/src/core/php_version_manager.dart';
-import '../../lib/src/domain/php_version.dart';
+import 'package:pvm/src/core/php_version_manager.dart';
+import 'package:pvm/src/domain/php_version.dart';
 
 void main() {
   late Directory tempDir;

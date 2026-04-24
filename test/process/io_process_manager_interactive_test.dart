@@ -1,16 +1,19 @@
 import 'dart:io';
 import 'package:test/test.dart';
 
-import '../../lib/src/core/process_manager.dart';
-import '../../lib/src/process/io_process_manager.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/process/io_process_manager.dart';
+import '../services/fake_os_manager.dart';
 
 void main() {
   group('IOProcessManager.runInteractive', () {
     late IOProcessManager processManager;
     late Directory tempDirectory;
+    late FakeOSManager osManager;
 
     setUp(() async {
-      processManager = IOProcessManager();
+      osManager = FakeOSManager()..environment = Platform.environment;
+      processManager = IOProcessManager(osManager: osManager);
       tempDirectory = await Directory.systemTemp.createTemp('pvm-interactive-');
     });
 

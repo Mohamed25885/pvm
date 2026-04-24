@@ -1,4 +1,4 @@
-import '../../lib/src/core/process_manager.dart';
+import 'package:pvm/src/core/process_manager.dart';
 
 /// Test double for [IProcessManager] that records captured specs and returns
 /// configurable exit codes.
@@ -22,6 +22,9 @@ class FakeProcessManager implements IProcessManager {
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
     throw UnimplementedError('runCaptured not needed for these tests');
   }
+
+  @override
+  Future<String> resolveSystemCommand(String command) async => command;
 
   void reset() {
     capturedSpecs.clear();

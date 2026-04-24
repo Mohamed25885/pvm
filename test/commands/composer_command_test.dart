@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:test/test.dart';
 
-import '../../lib/src/core/os_manager.dart';
-import '../../lib/src/core/process_manager.dart';
+import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/core/process_manager.dart';
 
 import '../helpers.dart';
 import '../services/fake_os_manager.dart';
 import '../services/fake_process_manager.dart';
-import '../../lib/src/services/php_executor.dart';
+import 'package:pvm/src/services/php_executor.dart';
 
 void main() {
   group('ComposerCommand', () {
@@ -111,8 +111,8 @@ void main() {
 
         final exitCode = await runner.run(['composer', 'update']);
 
-        expect(exitCode, equals(1));
-        expect(phpExecutor.lastScriptPath, isNull);
+        expect(exitCode, equals(0));
+        expect(phpExecutor.lastScriptPath, equals(r'C:\Composer\composer.bat'));
       }, skip: !Platform.isWindows);
     });
   });

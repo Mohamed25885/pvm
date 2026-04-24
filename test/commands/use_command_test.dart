@@ -4,15 +4,17 @@ import 'package:test/test.dart';
 import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
-import '../../lib/src/commands/use_command.dart';
-import '../../lib/src/core/exit_codes.dart';
-import '../../lib/src/domain/php_version.dart';
+import 'package:pvm/src/commands/use_command.dart';
+import 'package:pvm/src/core/exit_codes.dart';
+import 'package:pvm/src/domain/php_version.dart';
+import 'package:pvm/src/interfaces/i_version_activator.dart';
 
 Future<int> _runUseCommand({
   required MockOSManager osManager,
   required FakePhpVersionManager phpVersionManager,
   required FakeGitIgnoreService gitIgnoreService,
   required MockConsole console,
+  required IVersionActivator versionActivator,
   List<String> args = const [],
 }) async {
   final runner = CommandRunner<int>('test', 'test');
@@ -20,6 +22,7 @@ Future<int> _runUseCommand({
     osManager,
     phpVersionManager,
     gitIgnoreService,
+    versionActivator,
     console,
   ));
 
@@ -34,12 +37,14 @@ void main() {
       final console = MockConsole();
       final phpVer = FakePhpVersionManager(console);
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
       );
 
       expect(exitCode, equals(ExitCode.usageError));
@@ -57,12 +62,14 @@ void main() {
       phpVer.readResult = PhpVersion.parse('8.0');
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
       );
 
       expect(exitCode, equals(0));
@@ -82,12 +89,14 @@ void main() {
       phpVer.readResult = null; // no .php-version
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['8.2'],
       );
 
@@ -102,12 +111,14 @@ void main() {
 
       final phpVer = FakePhpVersionManager(console);
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['invalid'],
       );
 
@@ -124,12 +135,14 @@ void main() {
       phpVer.promptVersionPickResult = PhpVersion.parse('8.0');
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['9.0'],
       );
 
@@ -146,12 +159,14 @@ void main() {
       phpVer.promptVersionPickResult = null; // user cancelled
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['9.0'],
       );
 
@@ -174,6 +189,7 @@ void main() {
       phpVer.readResult = PhpVersion.parse('8.0'); // .php-version has 8.0
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       // Non-interactive: stdout has no terminal (promptMismatch returns false)
       final exitCode = await _runUseCommand(
@@ -181,11 +197,12 @@ void main() {
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['8.2'],
       );
 
       expect(exitCode, equals(0));
-      // Version is applied in non-interactive mode (symlink created), .php-version unchanged
+      // Version is applied in non-interactive mode (activator called), .php-version unchanged
       expect(phpVer.writeVersion, isNull);
     });
   });
@@ -203,12 +220,14 @@ void main() {
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['8.0'],
       );
 
@@ -231,12 +250,14 @@ void main() {
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator();
 
       await _runUseCommand(
         osManager: osManager,
         phpVersionManager: phpVer,
         gitIgnoreService: gitIgnore,
         console: console,
+        versionActivator: versionActivator,
         args: ['8.0'],
       );
 

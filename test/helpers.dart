@@ -1,22 +1,29 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
-import '../lib/src/commands/composer_command.dart';
-import '../lib/src/commands/global_command.dart';
-import '../lib/src/commands/list_command.dart';
-import '../lib/src/commands/php_command.dart';
-import '../lib/src/commands/use_command.dart';
-import '../lib/src/commands/version_flag.dart';
-import '../lib/src/core/console.dart';
-import '../lib/src/core/gitignore_service.dart';
-import '../lib/src/core/os_manager.dart';
-import '../lib/src/core/php_version_manager.dart';
-import '../lib/src/core/process_manager.dart';
-import '../lib/src/domain/php_version.dart';
-import '../lib/src/process/io_process_manager.dart';
-import '../lib/src/services/php_executor.dart';
+import 'package:pvm/src/commands/composer_command.dart';
+import 'package:pvm/src/commands/global_command.dart';
+import 'package:pvm/src/commands/list_command.dart';
+import 'package:pvm/src/commands/php_command.dart';
+import 'package:pvm/src/commands/use_command.dart';
+import 'package:pvm/src/commands/version_flag.dart';
+import 'package:pvm/src/core/console.dart';
+import 'package:pvm/src/core/gitignore_service.dart';
+import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/core/php_version_manager.dart';
+import 'package:pvm/src/core/platform_constants.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/core/executable_resolver.dart';
+import 'package:pvm/src/core/composer_locator.dart';
+import 'package:pvm/src/domain/php_version.dart';
+import 'package:pvm/src/process/io_process_manager.dart';
+import 'package:pvm/src/services/php_executor.dart';
+import 'package:pvm/src/interfaces/i_version_activator.dart';
+import 'services/fake_os_manager.dart';
 import 'mocks/mock_console.dart';
 
 /// Private CommandRunner subclass that enables trailing options.
@@ -29,6 +36,69 @@ class _PvmTestCommandRunner extends CommandRunner<int> {
   ArgParser get argParser => _parser ??= ArgParser(allowTrailingOptions: true);
 }
 
+class MockPlatformInfo extends PlatformInfo {
+  @override
+  String get osType => 'windows';
+
+  @override
+  String get pathSeparator => ';';
+
+  @override
+  String get executableExtension => '.exe';
+
+  @override
+  String get homeDirectoryKey => 'USERPROFILE';
+
+  @override
+  List<String> get composerCandidates =>
+      ['composer.bat', 'composer.cmd', 'composer.phar'];
+}
+
+class MockComposerLocator implements IComposerLocator {
+  @override
+  Future<String?> findComposer(Map<String, String> environment) async => null;
+}
+
+class MockExecutableResolver implements IExecutableResolver {
+  final IOSManager osManager;
+
+  MockExecutableResolver({required this.osManager});
+
+  @override
+  String get phpExecutableName => 'php.exe';
+
+  @override
+  Future<String> resolvePhpExecutable(String projectPath) async {
+    final phpExe =
+        '$projectPath${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe';
+
+    if (!(await osManager.fileExists(phpExe))) {
+      throw Exception('PHP executable not found at $phpExe');
+    }
+
+    return phpExe;
+  }
+}
+
+class MockVersionActivator implements IVersionActivator {
+  bool activateGlobalCalled = false;
+  String? activateGlobalVersion;
+  bool activateLocalCalled = false;
+  String? activateLocalVersion;
+
+  @override
+  Future<void> activateGlobal(String version) async {
+    activateGlobalCalled = true;
+    activateGlobalVersion = version;
+  }
+
+  @override
+  Future<void> activateLocal(String version) async {
+    activateLocalCalled = true;
+    activateLocalVersion = version;
+  }
+}
+
 /// Test helper that creates a CommandRunner with all PVM commands configured
 /// with the provided dependencies (or sensible defaults for testing).
 ///
@@ -37,6 +107,9 @@ class _PvmTestCommandRunner extends CommandRunner<int> {
 class TestPvmCommandRunner {
   final CommandRunner<int> runner;
   final MockConsole console;
+  final IOSManager osManager;
+  late final PhpExecutor phpExecutor;
+  late final ComposerLocator composerLocator;
 
   TestPvmCommandRunner({
     required IOSManager osManager,
@@ -45,27 +118,49 @@ class TestPvmCommandRunner {
     GitIgnoreService? gitIgnoreService,
     PhpExecutor? phpExecutor,
   })  : console = MockConsole(),
+        osManager = osManager,
         runner = _PvmTestCommandRunner('pvm', 'PHP Version Manager') {
+    final platformInfo = MockPlatformInfo();
+    final platformConstants = PlatformConstants(platformInfo);
+    final exeResolver = MockExecutableResolver(osManager: osManager);
+
     // Create default implementations if not provided
     final phpVerMgr = phpVersionManager ?? PhpVersionManager(console);
     final gitIgnore = gitIgnoreService ?? GitIgnoreService(osManager, console);
-    final phpExec = phpExecutor ??
+    final defaultProcessManager = () {
+      final envOSManager = FakeOSManager()..environment = Platform.environment;
+      return IOProcessManager(osManager: envOSManager);
+    }();
+
+    phpExecutor = phpExecutor ??
         PhpExecutor(
-          processManager: processManager ?? IOProcessManager(),
+          processManager: processManager ?? defaultProcessManager,
           osManager: osManager,
+          executableResolver: exeResolver,
         );
+    composerLocator = ComposerLocator(
+      platformConstants: platformConstants,
+      osManager: osManager,
+    );
 
     // Add all commands with correct constructor signatures
     runner.addCommand(UseCommand(
       osManager,
       phpVerMgr,
       gitIgnore,
+      MockVersionActivator(),
       console,
     ));
-    runner.addCommand(GlobalCommand(osManager, console));
+    runner
+        .addCommand(GlobalCommand(osManager, MockVersionActivator(), console));
     runner.addCommand(ListCommand(osManager, console));
-    runner.addCommand(PhpCommand(phpExec, osManager, console));
-    runner.addCommand(ComposerCommand(phpExec, osManager, console));
+    runner.addCommand(PhpCommand(phpExecutor, osManager, console));
+    runner.addCommand(ComposerCommand(
+      phpExecutor,
+      osManager,
+      composerLocator,
+      console,
+    ));
     runner.addCommand(VersionFlag(console));
   }
 

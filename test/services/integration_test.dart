@@ -1,12 +1,12 @@
 import 'package:test/test.dart';
 
-import '../../lib/src/domain/php_release.dart';
-import '../../lib/src/services/release_fetcher.dart';
-import '../../lib/src/services/php_downloader.dart';
-import '../../lib/src/services/release_fetcher_factory.dart';
-import '../../lib/src/commands/list_remote_command.dart';
-import '../../lib/src/commands/install_command.dart';
+import 'package:pvm/src/domain/php_release.dart';
+import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:pvm/src/services/release_fetcher_factory.dart';
+import 'package:pvm/src/commands/list_remote_command.dart';
+import 'package:pvm/src/commands/install_command.dart';
 import '../mocks/mock_console.dart';
+import '../mocks/mock_installer.dart';
 
 void main() {
   group('Full workflow integration', () {
@@ -54,15 +54,6 @@ void main() {
       expect(filtered, isNotEmpty);
     });
 
-    test('php downloader can fetch through fetcher', () async {
-      final fetcher = createReleaseFetcher();
-      final downloader = PhpDownloader();
-
-      final releases = await downloader.fetchReleases(fetcher);
-
-      expect(releases, isNotEmpty);
-    });
-
     test('full filter chain works', () async {
       final fetcher = createReleaseFetcher();
       final releases = await fetcher.fetchReleases();
@@ -83,10 +74,9 @@ void main() {
   group('ListRemoteCommand integration', () {
     test('command runs with real fetcher', () async {
       final fetcher = createReleaseFetcher();
-      final downloader = PhpDownloader();
       final console = MockConsole();
 
-      final cmd = ListRemoteCommand(fetcher, downloader, console);
+      final cmd = ListRemoteCommand(fetcher, console);
 
       // Run the command
       // Note: This makes a real HTTP call! We'll handle this differently
@@ -98,14 +88,12 @@ void main() {
   group('InstallCommand integration', () {
     test('command parses version argument', () {
       final fetcher = createReleaseFetcher();
-      final downloader = PhpDownloader();
       final console = MockConsole();
 
       final cmd = InstallCommand(
         fetcher,
-        downloader,
         console,
-        'C:\\pvm\\versions',
+        MockInstaller(),
       );
 
       final result = cmd.argParser.parse(['8.3']);

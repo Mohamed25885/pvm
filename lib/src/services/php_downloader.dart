@@ -28,14 +28,22 @@ class PhpDownloaderException implements Exception {
 class PhpDownloader {
   static const int _downloadTimeout = 300;
   static const int _maxRetries = 3;
-  static const List<String> _allowedDomains = [
-    'windows.php.net',
-    'downloads.php.net',
-  ];
+
+  /// Allowed domains for download - can be configured
+  /// Default: common PHP download domains
+  final List<String> allowedDomains;
 
   final http.Client _client;
 
-  PhpDownloader() : _client = http.Client();
+  /// Create with default allowed domains
+  PhpDownloader()
+      : allowedDomains = ['windows.php.net', 'downloads.php.net'],
+        _client = http.Client();
+
+  /// Create with custom allowed domains
+  PhpDownloader.withDomains(List<String> domains)
+      : allowedDomains = domains,
+        _client = http.Client();
 
   Future<List<PhpRelease>> fetchReleases(IReleaseFetcher fetcher) async {
     return fetcher.fetchReleases();
@@ -111,7 +119,7 @@ class PhpDownloader {
   }
 
   void _validateUrl(String url) {
-    final isAllowed = _allowedDomains.any((d) => url.contains(d));
+    final isAllowed = allowedDomains.any((d) => url.contains(d));
     if (!isAllowed) {
       throw PhpDownloaderException('URL not allowed: $url');
     }
