@@ -263,7 +263,8 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       osManager.shouldThrowOnSymlink = false;
 
-      final processManager = _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
+      final processManager =
+          _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
       runner = TestPvmCommandRunner(
         osManager: osManager,
         processManager: processManager,
@@ -272,8 +273,10 @@ void main() {
       final exitCode = await runner.run(['php', '-v']);
 
       expect(exitCode, equals(37));
-      expect(processManager.lastInteractiveSpec?.executable, equals('${tempDir.path}\\.pvm\\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
+      expect(processManager.lastInteractiveSpec?.executable,
+          equals('${tempDir.path}\\.pvm\\php.exe'));
+      expect(
+          processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
 
       await tempDir.delete(recursive: true);
     });
@@ -299,7 +302,8 @@ void main() {
       final exitCode = await runner.run(['php', longArg]);
 
       expect(exitCode, equals(ExitCode.success));
-      expect(processManager.lastInteractiveSpec?.executable, equals('${tempDir.path}\\.pvm\\php.exe'));
+      expect(processManager.lastInteractiveSpec?.executable,
+          equals('${tempDir.path}\\.pvm\\php.exe'));
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
 
@@ -420,7 +424,18 @@ void main() {
     });
 
     test('list command with many versions', () async {
-      osManager.mockVersions = ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3'];
+      osManager.mockVersions = [
+        '5.6',
+        '7.0',
+        '7.1',
+        '7.2',
+        '7.3',
+        '7.4',
+        '8.0',
+        '8.1',
+        '8.2',
+        '8.3'
+      ];
       final exitCode = await runner.run(['list']);
       expect(exitCode, equals(ExitCode.success));
     });
@@ -522,7 +537,8 @@ void main() {
       runner = TestPvmCommandRunner(osManager: osManager);
     });
 
-    test('version with leading dash treated as flag throws exception', () async {
+    test('version with leading dash treated as flag throws exception',
+        () async {
       osManager.mockVersions = ['8.0'];
       expect(
         () => runner.run(['global', '-8.0']),

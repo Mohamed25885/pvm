@@ -14,12 +14,14 @@ void main() {
     });
 
     test('pvm --version outputs correct version string', () async {
-      final result = await Process.run('dart', ['run', 'pvm.dart', '--version']);
+      final result =
+          await Process.run('dart', ['run', 'pvm.dart', '--version']);
       expect(result.exitCode, 0,
           reason: 'pvm --version should exit with code 0');
       final output = result.stdout.toString().trim();
       expect(output, contains('PVM version: ${version.packageVersion}'),
-          reason: 'Output should contain "PVM version: ${version.packageVersion}"');
+          reason:
+              'Output should contain "PVM version: ${version.packageVersion}"');
     });
 
     test('pvm -v short flag outputs correct version string', () async {
@@ -27,7 +29,8 @@ void main() {
       expect(result.exitCode, 0, reason: 'pvm -v should exit with code 0');
       final output = result.stdout.toString().trim();
       expect(output, contains('PVM version: ${version.packageVersion}'),
-          reason: 'Output should contain "PVM version: ${version.packageVersion}"');
+          reason:
+              'Output should contain "PVM version: ${version.packageVersion}"');
     });
   });
 }

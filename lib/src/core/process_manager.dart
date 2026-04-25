@@ -10,7 +10,8 @@ class ProcessSpec {
     this.workingDirectory,
     Map<String, String>? environment,
   })  : arguments = List.unmodifiable(arguments),
-        environment = environment == null ? null : Map.unmodifiable(environment);
+        environment =
+            environment == null ? null : Map.unmodifiable(environment);
 }
 
 class CapturedProcessResult {

@@ -38,7 +38,9 @@ void main() {
       // Reset mocks before each test
     });
 
-    test('a) pvm use with no args and no .php-version file: exit code 1, no .pvm symlink created', () async {
+    test(
+        'a) pvm use with no args and no .php-version file: exit code 1, no .pvm symlink created',
+        () async {
       final osManager = MockOSManager();
       osManager.mockCurrentDirectory = r'C:\project';
       final console = MockConsole();
@@ -64,13 +66,15 @@ void main() {
       expect(phpVer.writeVersion, isNull);
     });
 
-    test('b) pvm use <version> with version directory exists: creates .pvm symlink pointing to versions/<version>',
+    test(
+        'b) pvm use <version> with version directory exists: creates .pvm symlink pointing to versions/<version>',
         () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockProgramDir = r'C:\pvm';
       osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true; // Simulate version dir exists
+      osManager.symlinkSourceExistsOverride =
+          true; // Simulate version dir exists
       osManager.mockCurrentDirectory = r'C:\project';
       final console = MockConsole();
 
@@ -101,12 +105,15 @@ void main() {
       expect(phpVer.writeRootPath, equals(Directory.current.path));
     });
 
-    test('c) pvm use with .php-version file present: reads version from file and creates correct symlink', () async {
+    test(
+        'c) pvm use with .php-version file present: reads version from file and creates correct symlink',
+        () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockProgramDir = r'C:\pvm';
       osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = true; // Simulate version dir exists
+      osManager.symlinkSourceExistsOverride =
+          true; // Simulate version dir exists
       osManager.mockCurrentDirectory = r'C:\project';
       final console = MockConsole();
 
@@ -137,12 +144,15 @@ void main() {
       expect(phpVer.writeVersion, equals('8.0'));
     });
 
-    test('d) pvm use <version> when version directory does NOT exist: returns error, no symlink', () async {
+    test(
+        'd) pvm use <version> when version directory does NOT exist: returns error, no symlink',
+        () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockProgramDir = r'C:\pvm';
       osManager.mockLocalPath = r'C:\project\.pvm';
-      osManager.symlinkSourceExistsOverride = false; // Simulate version dir missing
+      osManager.symlinkSourceExistsOverride =
+          false; // Simulate version dir missing
       osManager.mockCurrentDirectory = r'C:\project';
       final console = MockConsole();
 
@@ -171,7 +181,9 @@ void main() {
       expect(phpVer.writeVersion, isNull);
     });
 
-    test('e) pvm use with .php-version but version not installed: prompts pick and creates symlink', () async {
+    test(
+        'e) pvm use with .php-version but version not installed: prompts pick and creates symlink',
+        () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockProgramDir = r'C:\pvm';
@@ -181,8 +193,10 @@ void main() {
       final console = MockConsole();
 
       final phpVer = FakePhpVersionManager(console);
-      phpVer.readResult = PhpVersion.parse('9.0'); // .php-version has version not in available list
-      phpVer.promptVersionPickResult = PhpVersion.parse('8.2'); // User picks 8.2
+      phpVer.readResult = PhpVersion.parse(
+          '9.0'); // .php-version has version not in available list
+      phpVer.promptVersionPickResult =
+          PhpVersion.parse('8.2'); // User picks 8.2
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
       final versionActivator = MockVersionActivator();

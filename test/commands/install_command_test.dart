@@ -5,8 +5,6 @@ import 'package:pvm/src/commands/install_command.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_installer.dart';
 
-
-
 void main() {
   group('InstallCommand', () {
     late MockInstaller mockInstaller;
@@ -36,7 +34,6 @@ void main() {
     });
 
     test('argParser accepts --nts flag', () {
-
       final cmd = InstallCommand(
         MockConsole(),
         mockInstaller,
@@ -47,7 +44,6 @@ void main() {
     });
 
     test('argParser accepts --force flag', () {
-
       final cmd = InstallCommand(
         MockConsole(),
         mockInstaller,
@@ -58,7 +54,6 @@ void main() {
     });
 
     test('argParser accepts version argument', () {
-
       final cmd = InstallCommand(
         MockConsole(),
         mockInstaller,
@@ -69,7 +64,6 @@ void main() {
     });
 
     test('argParser defaults arch to x64', () {
-
       final cmd = InstallCommand(
         MockConsole(),
         mockInstaller,
@@ -80,7 +74,6 @@ void main() {
     });
 
     test('command has correct name and description', () {
-
       final cmd = InstallCommand(
         MockConsole(),
         mockInstaller,

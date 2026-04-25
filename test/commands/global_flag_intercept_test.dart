@@ -59,7 +59,9 @@ void main() {
       expect(helpText, contains('composer'));
     });
 
-    test('pvm php --version delegates to PhpCommand (does not show PVM version)', () async {
+    test(
+        'pvm php --version delegates to PhpCommand (does not show PVM version)',
+        () async {
       // Setup: create a project directory with .php-version and .pvm/php.exe
       final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
       await File('${tempDir.path}\\.php-version').writeAsString('8.2\n');
@@ -80,15 +82,18 @@ void main() {
       );
       final output = <String>[];
 
-      final exitCode = await runner.runAndCapture(['php', '--version'], capturedOutput: output);
+      final exitCode = await runner
+          .runAndCapture(['php', '--version'], capturedOutput: output);
 
       // Verify delegation: exit code from PhpCommand (0)
       expect(exitCode, equals(0));
 
       // Verify that the process manager was called (PhpCommand executed)
       expect(processManager.runInteractiveCallCount, equals(1));
-      expect(processManager.lastInteractiveSpec?.executable, endsWith(r'\.pvm\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments, orderedEquals(['--version']));
+      expect(processManager.lastInteractiveSpec?.executable,
+          endsWith(r'\.pvm\php.exe'));
+      expect(processManager.lastInteractiveSpec?.arguments,
+          orderedEquals(['--version']));
 
       // Verify PVM version was NOT printed
       expect(output.join('\n'), isNot(contains('PVM version:')));
@@ -113,12 +118,15 @@ void main() {
       );
       final output = <String>[];
 
-      final exitCode = await runner.runAndCapture(['php', '--help'], capturedOutput: output);
+      final exitCode =
+          await runner.runAndCapture(['php', '--help'], capturedOutput: output);
 
       expect(exitCode, equals(0));
       expect(processManager.runInteractiveCallCount, equals(1));
-      expect(processManager.lastInteractiveSpec?.executable, endsWith(r'\.pvm\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments, orderedEquals(['--help']));
+      expect(processManager.lastInteractiveSpec?.executable,
+          endsWith(r'\.pvm\php.exe'));
+      expect(processManager.lastInteractiveSpec?.arguments,
+          orderedEquals(['--help']));
 
       expect(output.join('\n'), isNot(contains('Usage:')));
     });

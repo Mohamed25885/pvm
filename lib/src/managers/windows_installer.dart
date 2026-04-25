@@ -19,7 +19,6 @@ class WindowsInstaller implements IInstaller {
   final Console _console;
   late final http.Client _client;
 
-
   WindowsInstaller({
     required String versionsPath,
     required IReleaseFetcher releaseFetcher,
@@ -31,7 +30,10 @@ class WindowsInstaller implements IInstaller {
     _client = http.Client();
   }
 
-  static const List<String> allowedDomains = ['windows.php.net', 'downloads.php.net'];
+  static const List<String> allowedDomains = [
+    'windows.php.net',
+    'downloads.php.net'
+  ];
 
   @override
   String get versionsPath => _versionsPath;
@@ -51,7 +53,8 @@ class WindowsInstaller implements IInstaller {
     final force = options?.force ?? false;
 
     if (!force && await isInstalled(version)) {
-      _console.printError('PHP $version already installed. Use --force to reinstall');
+      _console.printError(
+          'PHP $version already installed. Use --force to reinstall');
       return;
     }
 
@@ -79,7 +82,8 @@ class WindowsInstaller implements IInstaller {
     final matching = releases.where((r) => filter.matches(r)).toList();
 
     if (matching.isEmpty) {
-      _console.printError('No matching PHP release found for $version ($arch, $buildType)');
+      _console.printError(
+          'No matching PHP release found for $version ($arch, $buildType)');
       throw Exception('No matching PHP release found');
     }
 
@@ -87,7 +91,8 @@ class WindowsInstaller implements IInstaller {
     final targetDir = p.join(versionsPath, release.displayVersion);
 
     if (!force && await Directory(targetDir).exists()) {
-      _console.printError('PHP ${release.displayVersion} already installed. Use --force to reinstall');
+      _console.printError(
+          'PHP ${release.displayVersion} already installed. Use --force to reinstall');
       return;
     }
 
@@ -124,7 +129,8 @@ class WindowsInstaller implements IInstaller {
       final fullPath = p.join(destPath, filename);
       final normalizedPath = p.normalize(fullPath);
 
-      if (!normalizedPath.startsWith(destCanonical) && normalizedPath != destCanonical) {
+      if (!normalizedPath.startsWith(destCanonical) &&
+          normalizedPath != destCanonical) {
         continue;
       }
 
@@ -136,8 +142,6 @@ class WindowsInstaller implements IInstaller {
       }
     }
   }
-
-
 
   @override
   Future<File> downloadPhp(

@@ -132,13 +132,12 @@ class IOProcessManager implements IProcessManager {
         ? '.EXE;.BAT;.CMD;.COM'
         : pathExtRaw;
 
-    final parts = raw
-        .split(';')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final parts =
+        raw.split(';').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
 
-    return parts.map((e) => e.startsWith('.') ? e.toLowerCase() : '.${e.toLowerCase()}').toList();
+    return parts
+        .map((e) => e.startsWith('.') ? e.toLowerCase() : '.${e.toLowerCase()}')
+        .toList();
   }
 
   static const Map<String, List<String>> _commandResolutionMap = {

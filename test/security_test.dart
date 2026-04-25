@@ -30,14 +30,17 @@ void main() {
       });
 
       test('Rejects empty or purely malicious payloads', () {
-        expect(() => PhpVersion.parse(''), throwsA(isA<InvalidVersionFormatException>()));
-        expect(() => PhpVersion.parse('sudo'), throwsA(isA<InvalidVersionFormatException>()));
-        expect(() => PhpVersion.parse('<script>'), throwsA(isA<InvalidVersionFormatException>()));
+        expect(() => PhpVersion.parse(''),
+            throwsA(isA<InvalidVersionFormatException>()));
+        expect(() => PhpVersion.parse('sudo'),
+            throwsA(isA<InvalidVersionFormatException>()));
+        expect(() => PhpVersion.parse('<script>'),
+            throwsA(isA<InvalidVersionFormatException>()));
       });
     });
 
     // NOTE: HTTPS validation tests for `WindowsInstaller._validateUrl`
-    // require mocking the installer network dependencies, but are structurally locked 
+    // require mocking the installer network dependencies, but are structurally locked
     // inside the `_validateUrl` bounds ensuring URL scheme and domain mapping.
   });
 }

@@ -1,4 +1,3 @@
-
 import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
 import '../core/process_manager.dart';

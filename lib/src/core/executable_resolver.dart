@@ -14,8 +14,7 @@ class PhpExecutableNotFoundException implements Exception {
   PhpExecutableNotFoundException(this.path);
 
   @override
-  String toString() =>
-      'PHP executable not found at $path.\n'
+  String toString() => 'PHP executable not found at $path.\n'
       'Run `pvm use <version>` to activate a version for this project, '
       'or `pvm global <version>` to set a global default.';
 }

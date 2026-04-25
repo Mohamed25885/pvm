@@ -16,8 +16,10 @@ class PvmConstants {
 }
 
 class PvmUrls {
-  static const windowsReleasesApi = 'https://downloads.php.net/~windows/releases/releases.json';
-  static const windowsDownloadBase = 'https://windows.php.net/downloads/releases/';
+  static const windowsReleasesApi =
+      'https://downloads.php.net/~windows/releases/releases.json';
+  static const windowsDownloadBase =
+      'https://windows.php.net/downloads/releases/';
 }
 
 class PvmTimeouts {

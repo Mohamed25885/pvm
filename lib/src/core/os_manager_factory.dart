@@ -1,4 +1,3 @@
-
 import '../core/os_manager.dart';
 import '../core/platform_detector.dart';
 import '../managers/windows_os_manager.dart';

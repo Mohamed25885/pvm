@@ -70,4 +70,3 @@ abstract class PackageManagerInstaller implements IInstaller {
   @override
   Future<void> onInstallFailed(String version, Exception error) async {}
 }
-

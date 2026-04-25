@@ -96,7 +96,8 @@ class MockOSManager implements IOSManager {
   Map<String, String> get currentEnvironment => Platform.environment;
 
   @override
-  Future<({String from, String to})> createSymLink(String version, String from, String to) async {
+  Future<({String from, String to})> createSymLink(
+      String version, String from, String to) async {
     symlinkCallCount++;
 
     if (shouldThrowOnSymlink) {
@@ -125,7 +126,8 @@ class MockOSManager implements IOSManager {
     directoryExistsCallCount++;
 
     if (shouldThrowOnDirectoryExists) {
-      throw Exception(directoryExistsErrorMessage ?? 'Mock: Directory check failed');
+      throw Exception(
+          directoryExistsErrorMessage ?? 'Mock: Directory check failed');
     }
 
     // Explicit cache takes priority
@@ -175,7 +177,8 @@ class MockOSManager implements IOSManager {
     getAvailableVersionsCallCount++;
 
     if (shouldThrowOnGetAvailableVersions) {
-      throw Exception(getAvailableVersionsErrorMessage ?? 'Mock: Failed to get available versions');
+      throw Exception(getAvailableVersionsErrorMessage ??
+          'Mock: Failed to get available versions');
     }
 
     return mockVersions;
@@ -186,7 +189,8 @@ class MockOSManager implements IOSManager {
     getHomeDirectoryCallCount++;
 
     if (shouldThrowOnGetHomeDirectory) {
-      throw Exception(getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
+      throw Exception(
+          getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
     }
 
     return mockHomeDir;

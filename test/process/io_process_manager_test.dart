@@ -26,7 +26,8 @@ void main() {
     });
 
     test('interactive execution preserves exit code', () async {
-      final scriptFile = File('${tempDirectory.path}${Platform.pathSeparator}exit_code.dart');
+      final scriptFile =
+          File('${tempDirectory.path}${Platform.pathSeparator}exit_code.dart');
       await scriptFile.writeAsString('''
 import 'dart:io';
 
@@ -45,8 +46,10 @@ void main() {
       expect(exitCode, equals(73));
     });
 
-    test('interactive execution preserves working directory and environment', () async {
-      final scriptFile = File('${tempDirectory.path}${Platform.pathSeparator}cwd_env.dart');
+    test('interactive execution preserves working directory and environment',
+        () async {
+      final scriptFile =
+          File('${tempDirectory.path}${Platform.pathSeparator}cwd_env.dart');
       await scriptFile.writeAsString('''
 import 'dart:io';
 
@@ -59,7 +62,8 @@ void main() {
 }
 ''');
 
-      final workingDirectory = await Directory.systemTemp.createTemp('pvm io cwd ');
+      final workingDirectory =
+          await Directory.systemTemp.createTemp('pvm io cwd ');
       addTearDown(() async {
         if (await workingDirectory.exists()) {
           await workingDirectory.delete(recursive: true);
@@ -84,7 +88,8 @@ void main() {
     });
 
     test('interactive execution reports process start failures', () async {
-      final missingExecutable = '${tempDirectory.path}${Platform.pathSeparator}missing interactive executable';
+      final missingExecutable =
+          '${tempDirectory.path}${Platform.pathSeparator}missing interactive executable';
 
       await expectLater(
         () => processManager.runInteractive(
@@ -112,7 +117,8 @@ void main() {
       }
     });
 
-    test('captured execution returns stdout stderr and exit code separately', () async {
+    test('captured execution returns stdout stderr and exit code separately',
+        () async {
       final scriptFile = File(
         '${tempDirectory.path}${Platform.pathSeparator}captured_split.dart',
       );
@@ -161,7 +167,8 @@ void main() {
 }
 ''');
 
-      final workingDirectory = await Directory.systemTemp.createTemp('pvm-io-captured-cwd-');
+      final workingDirectory =
+          await Directory.systemTemp.createTemp('pvm-io-captured-cwd-');
       addTearDown(() async {
         if (await workingDirectory.exists()) {
           await workingDirectory.delete(recursive: true);
@@ -238,7 +245,8 @@ void main() {
       expect(result.stderr.trim(), isEmpty);
     });
 
-    test('captured execution keeps heavy stdout and stderr separated', () async {
+    test('captured execution keeps heavy stdout and stderr separated',
+        () async {
       final scriptFile = File(
         '${tempDirectory.path}${Platform.pathSeparator}captured_heavy_split.dart',
       );
@@ -261,8 +269,14 @@ void main() {
         ),
       );
 
-      final stdoutLines = const LineSplitter().convert(result.stdout).where((line) => line.isNotEmpty).toList();
-      final stderrLines = const LineSplitter().convert(result.stderr).where((line) => line.isNotEmpty).toList();
+      final stdoutLines = const LineSplitter()
+          .convert(result.stdout)
+          .where((line) => line.isNotEmpty)
+          .toList();
+      final stderrLines = const LineSplitter()
+          .convert(result.stderr)
+          .where((line) => line.isNotEmpty)
+          .toList();
 
       expect(stdoutLines, hasLength(200));
       expect(stderrLines, hasLength(200));
@@ -272,7 +286,8 @@ void main() {
     });
 
     test('captured execution reports process start failure clearly', () async {
-      final missingExecutable = '${tempDirectory.path}${Platform.pathSeparator}missing_executable';
+      final missingExecutable =
+          '${tempDirectory.path}${Platform.pathSeparator}missing_executable';
 
       await expectLater(
         () => processManager.runCaptured(
@@ -303,9 +318,11 @@ void main() {
       expect(await File(resolved).exists(), isTrue);
     });
 
-    test('resolveSystemCommand returns original command when not found', () async {
+    test('resolveSystemCommand returns original command when not found',
+        () async {
       const missingCommand = 'pvm_test_command_that_does_not_exist';
-      final resolved = await processManager.resolveSystemCommand(missingCommand);
+      final resolved =
+          await processManager.resolveSystemCommand(missingCommand);
 
       expect(resolved, equals(missingCommand));
     });

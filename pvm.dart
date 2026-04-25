@@ -111,7 +111,8 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
     );
   } else if (PlatformDetector.isLinux) {
     getIt.registerLazySingleton<IInstaller>(
-      () => LinuxInstaller(versionsPath: versionsPath, processManager: processManager),
+      () => LinuxInstaller(
+          versionsPath: versionsPath, processManager: processManager),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => LinuxVersionActivator(
@@ -123,7 +124,8 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
     );
   } else if (PlatformDetector.isMacOS) {
     getIt.registerLazySingleton<IInstaller>(
-      () => MacOSInstaller(versionsPath: versionsPath, processManager: processManager),
+      () => MacOSInstaller(
+          versionsPath: versionsPath, processManager: processManager),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => MacOSVersionActivator(
@@ -168,7 +170,8 @@ Future<int> main(List<String> arguments) async {
     getIt<IVersionActivator>(),
     console,
   ));
-  runner.addCommand(GlobalCommand(osManager, getIt<IVersionActivator>(), console));
+  runner.addCommand(
+      GlobalCommand(osManager, getIt<IVersionActivator>(), console));
   runner.addCommand(ListCommand(osManager, console));
   runner.addCommand(PhpCommand(phpExecutor, osManager, console));
   runner.addCommand(ComposerCommand(
@@ -179,7 +182,8 @@ Future<int> main(List<String> arguments) async {
   ));
   runner.addCommand(VersionFlag(console));
 
-  if (arguments.isNotEmpty && (arguments.first == '--version' || arguments.first == '-v')) {
+  if (arguments.isNotEmpty &&
+      (arguments.first == '--version' || arguments.first == '-v')) {
     console.print('PVM version: $packageVersion');
     return ExitCode.success;
   }

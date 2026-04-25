@@ -84,7 +84,8 @@ class FakeOSManager implements IOSManager {
   String get localPath => throw UnimplementedError();
 
   @override
-  Future<({String from, String to})> createSymLink(String version, String from, String to) async {
+  Future<({String from, String to})> createSymLink(
+      String version, String from, String to) async {
     throw UnimplementedError();
   }
 
@@ -147,7 +148,8 @@ void main() {
         expect(spec.environment, equals(Platform.environment));
       });
 
-      test('uses currentDirectory from osManager when workingDirectory is null', () async {
+      test('uses currentDirectory from osManager when workingDirectory is null',
+          () async {
         final root = '/default/dir';
         osManager.mockCurrentDirectory = root;
         final phpExe = getPhpExe(root);
@@ -187,7 +189,8 @@ void main() {
         expect(exitCode, equals(0));
         final spec = processManager.lastSpec!;
         expect(spec.executable, equals(phpExe));
-        expect(spec.arguments, equals(['scripts/deploy.php', '--env=production', '--force']));
+        expect(spec.arguments,
+            equals(['scripts/deploy.php', '--env=production', '--force']));
       });
 
       test('script path is first arg even with empty args list', () async {
@@ -226,7 +229,8 @@ void main() {
     });
 
     group('File operations use _osManager exclusively', () {
-      test('runPhp uses osManager.fileExists() not direct File calls', () async {
+      test('runPhp uses osManager.fileExists() not direct File calls',
+          () async {
         final root = '/test';
         final phpExe = getPhpExe(root);
         osManager.setFileExists(phpExe, true);
