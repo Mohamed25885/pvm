@@ -46,7 +46,7 @@ void main() {
       final console = MockConsole();
       final phpVer = FakePhpVersionManager(console);
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -82,7 +82,7 @@ void main() {
       phpVer.readResult = null; // No .php-version file
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -121,7 +121,7 @@ void main() {
       phpVer.readResult = PhpVersion.parse('8.0'); // .php-version contains 8.0
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -160,7 +160,7 @@ void main() {
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -199,7 +199,7 @@ void main() {
           PhpVersion.parse('8.2'); // User picks 8.2
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,

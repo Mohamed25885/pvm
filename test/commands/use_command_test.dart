@@ -37,7 +37,7 @@ void main() {
       final console = MockConsole();
       final phpVer = FakePhpVersionManager(console);
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -62,7 +62,7 @@ void main() {
       phpVer.readResult = PhpVersion.parse('8.0');
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -89,7 +89,7 @@ void main() {
       phpVer.readResult = null; // no .php-version
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -111,7 +111,7 @@ void main() {
 
       final phpVer = FakePhpVersionManager(console);
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -135,7 +135,7 @@ void main() {
       phpVer.promptVersionPickResult = PhpVersion.parse('8.0');
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -159,7 +159,7 @@ void main() {
       phpVer.promptVersionPickResult = null; // user cancelled
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       final exitCode = await _runUseCommand(
         osManager: osManager,
@@ -175,9 +175,7 @@ void main() {
   });
 
   group('UseCommand - mismatch behavior (non-interactive)', () {
-    test(
-        'mismatch with non-interactive auto-applies without updating .php-version',
-        () async {
+    test('mismatch with non-interactive auto-applies without updating .php-version', () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
@@ -189,7 +187,7 @@ void main() {
       phpVer.readResult = PhpVersion.parse('8.0'); // .php-version has 8.0
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       // Non-interactive: stdout has no terminal (promptMismatch returns false)
       final exitCode = await _runUseCommand(
@@ -208,8 +206,7 @@ void main() {
   });
 
   group('UseCommand - GitIgnoreService auto-run', () {
-    test('runs GitIgnoreService on every use (but NOT early symlink creation)',
-        () async {
+    test('runs GitIgnoreService on every use (but NOT early symlink creation)', () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0'];
       osManager.mockLocalPath = r'C:\project\.pvm';
@@ -220,7 +217,7 @@ void main() {
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       await _runUseCommand(
         osManager: osManager,
@@ -250,7 +247,7 @@ void main() {
       phpVer.readResult = null;
 
       final gitIgnore = FakeGitIgnoreService(osManager, console);
-      final versionActivator = MockVersionActivator();
+      final versionActivator = MockVersionActivator(osManager);
 
       await _runUseCommand(
         osManager: osManager,
