@@ -28,7 +28,8 @@ import 'mocks/mock_console.dart';
 
 /// Private CommandRunner subclass that enables trailing options.
 class _PvmTestCommandRunner extends CommandRunner<int> {
-  _PvmTestCommandRunner(String name, String description) : super(name, description);
+  _PvmTestCommandRunner(String name, String description)
+      : super(name, description);
 
   ArgParser? _parser;
   @override
@@ -49,7 +50,8 @@ class MockPlatformInfo extends PlatformInfo {
   String get homeDirectoryKey => 'USERPROFILE';
 
   @override
-  List<String> get composerCandidates => ['composer.bat', 'composer.cmd', 'composer.phar'];
+  List<String> get composerCandidates =>
+      ['composer.bat', 'composer.cmd', 'composer.phar'];
 }
 
 class MockComposerLocator implements IComposerLocator {
@@ -67,7 +69,8 @@ class MockExecutableResolver implements IExecutableResolver {
 
   @override
   Future<String> resolvePhpExecutable(String projectPath) async {
-    final phpExe = '$projectPath${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe';
+    final phpExe =
+        '$projectPath${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe';
 
     if (!(await osManager.fileExists(phpExe))) {
       throw Exception('PHP executable not found at $phpExe');
@@ -155,7 +158,8 @@ class TestPvmCommandRunner {
       MockVersionActivator(osManager),
       console,
     ));
-    runner.addCommand(GlobalCommand(osManager, MockVersionActivator(osManager), console));
+    runner.addCommand(
+        GlobalCommand(osManager, MockVersionActivator(osManager), console));
     runner.addCommand(ListCommand(osManager, console));
     runner.addCommand(PhpCommand(phpExecutor, osManager, console));
     runner.addCommand(ComposerCommand(
@@ -252,7 +256,8 @@ class FakeGitIgnoreService extends GitIgnoreService {
   bool ensurePvmSymlinkCalled = false;
   bool ensurePvmSymlinkResult = true;
 
-  FakeGitIgnoreService(IOSManager osManager, Console console) : super(osManager, console);
+  FakeGitIgnoreService(IOSManager osManager, Console console)
+      : super(osManager, console);
 
   @override
   Future<bool> ensureGitignoreIncludesPvm({required String rootPath}) async {

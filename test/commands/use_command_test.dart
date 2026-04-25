@@ -175,7 +175,9 @@ void main() {
   });
 
   group('UseCommand - mismatch behavior (non-interactive)', () {
-    test('mismatch with non-interactive auto-applies without updating .php-version', () async {
+    test(
+        'mismatch with non-interactive auto-applies without updating .php-version',
+        () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0', '8.2'];
       osManager.mockLocalPath = r'C:\project\.pvm';
@@ -206,7 +208,8 @@ void main() {
   });
 
   group('UseCommand - GitIgnoreService auto-run', () {
-    test('runs GitIgnoreService on every use (but NOT early symlink creation)', () async {
+    test('runs GitIgnoreService on every use (but NOT early symlink creation)',
+        () async {
       final osManager = MockOSManager();
       osManager.mockVersions = ['8.0'];
       osManager.mockLocalPath = r'C:\project\.pvm';
