@@ -1,20 +1,11 @@
 import 'dart:io';
 
 import 'package:test/test.dart';
-
-import 'package:pvm/src/domain/php_release.dart';
-import 'package:pvm/src/services/release_fetcher.dart';
 import 'package:pvm/src/commands/install_command.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_installer.dart';
 
-class MockReleaseFetcher implements IReleaseFetcher {
-  @override
-  String get platformName => 'Mock';
 
-  @override
-  Future<List<PhpRelease>> fetchReleases() async => [];
-}
 
 void main() {
   group('InstallCommand', () {
@@ -25,9 +16,7 @@ void main() {
     });
 
     test('argParser has arch option', () {
-      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -37,9 +26,7 @@ void main() {
     });
 
     test('argParser accepts --ts flag', () {
-      final mockFetcher = MockReleaseFetcher();
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -49,9 +36,8 @@ void main() {
     });
 
     test('argParser accepts --nts flag', () {
-      final mockFetcher = MockReleaseFetcher();
+
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -61,9 +47,8 @@ void main() {
     });
 
     test('argParser accepts --force flag', () {
-      final mockFetcher = MockReleaseFetcher();
+
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -73,9 +58,8 @@ void main() {
     });
 
     test('argParser accepts version argument', () {
-      final mockFetcher = MockReleaseFetcher();
+
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -85,9 +69,8 @@ void main() {
     });
 
     test('argParser defaults arch to x64', () {
-      final mockFetcher = MockReleaseFetcher();
+
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );
@@ -97,9 +80,8 @@ void main() {
     });
 
     test('command has correct name and description', () {
-      final mockFetcher = MockReleaseFetcher();
+
       final cmd = InstallCommand(
-        mockFetcher,
         MockConsole(),
         mockInstaller,
       );

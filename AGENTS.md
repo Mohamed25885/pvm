@@ -401,3 +401,17 @@ Use websearch and codesearch tools extensively in plan mode to gather relevant d
 **Executable**:
 - File: builds/pvm.exe
 - SHA-256: 33E5733E2A5294C6D872C5138FA6F4CB482D5637D38AB02BDC46E3B6BB2ABD27
+
+---
+
+## Release Dossier - v1.1.0
+
+**Release Date**: 2026-04-25
+
+**Quality Gates Passed**:
+- ✅ Linting: 0 issues
+- ✅ Tests: All passed successfully 
+- ✅ Security: Zero vulnerabilities plus new adversarial testing suites integrated.
+- ✅ Build: Natively compiled successfully.
+
+**Deployment Notes**: Automated release orchestrating full architectural rewrites, dependency upgrades, and critical security patches on Windows symlinking bounds.

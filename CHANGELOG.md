@@ -2,8 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.0.1...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.1.0...HEAD)
 
+## [1.1.0] - 2026-04-25
+
+### Added
+- Extracted `PlatformDetector` as single OS truth source.
+- Added explicit HTTPS enforcement protecting PVM from unsafe releases inside `WindowsInstaller`.
+- Added structural version parameter path guards via `PhpVersion.parse`.
+
+### Changed
+- Refactored `InstallCommand` delegating extraction workflows natively into `IInstaller`.
+- Centralized all constants inside `core/constants.dart`.
+
+### Fixed
+- Fixed version directory resolution discrepancy based on terminal elevation contexts on Windows.
+- Fixed `File().delete()` crashing symmetric link collisions during `pvm use` / `pvm global`.
 ## [1.0.1] - 2026-04-18
 
 ### Added

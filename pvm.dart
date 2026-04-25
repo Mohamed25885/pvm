@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 
 import 'package:pvm/src/console/console_io.dart';
 import 'package:pvm/src/core/exit_codes.dart';
+import 'package:pvm/src/core/platform_detector.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/platform_constants.dart';
 import 'package:pvm/src/core/os_manager.dart';
@@ -24,6 +25,7 @@ import 'package:pvm/src/managers/macos_version_activator.dart';
 import 'package:pvm/src/process/io_process_manager.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import 'package:pvm/src/services/release_fetcher_factory.dart';
+import 'package:pvm/src/services/release_fetcher.dart';
 import 'package:pvm/src/commands/use_command.dart';
 import 'package:pvm/src/commands/global_command.dart';
 import 'package:pvm/src/commands/list_command.dart';
@@ -87,33 +89,45 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
   final osManager = getIt<IOSManager>();
   final versionsPath = osManager.phpVersionsPath;
   final homeDir = osManager.getHomeDirectory();
+  final processManager = getIt<IProcessManager>();
 
-  if (platformInfo.osType == 'windows') {
+  final fetcher = createReleaseFetcher();
+  getIt.registerLazySingleton<IReleaseFetcher>(() => fetcher);
+
+  if (PlatformDetector.isWindows) {
     getIt.registerLazySingleton<IInstaller>(
-      () => WindowsInstaller(versionsPath: versionsPath),
+      () => WindowsInstaller(
+        versionsPath: versionsPath,
+        releaseFetcher: getIt<IReleaseFetcher>(),
+        console: getIt<ConsoleIO>(),
+      ),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => WindowsVersionActivator(
+        osManager: osManager,
         versionsPath: versionsPath,
         homeDirectory: homeDir,
       ),
     );
-  } else if (platformInfo.osType == 'linux') {
+  } else if (PlatformDetector.isLinux) {
     getIt.registerLazySingleton<IInstaller>(
-      () => LinuxInstaller(versionsPath: versionsPath),
+      () => LinuxInstaller(versionsPath: versionsPath, processManager: processManager),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => LinuxVersionActivator(
+        osManager: osManager,
+        processManager: processManager,
         versionsPath: versionsPath,
         homeDirectory: homeDir,
       ),
     );
-  } else if (platformInfo.osType == 'macos') {
+  } else if (PlatformDetector.isMacOS) {
     getIt.registerLazySingleton<IInstaller>(
-      () => MacOSInstaller(versionsPath: versionsPath),
+      () => MacOSInstaller(versionsPath: versionsPath, processManager: processManager),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => MacOSVersionActivator(
+        osManager: osManager,
         versionsPath: versionsPath,
         homeDirectory: homeDir,
       ),
@@ -141,10 +155,10 @@ Future<int> main(List<String> arguments) async {
 
   final runner = PvmCommandRunner('pvm', 'PHP Version Manager');
 
-  final fetcher = createReleaseFetcher();
+  final fetcher = getIt<IReleaseFetcher>();
   final installer = getIt<IInstaller>();
 
-  runner.addCommand(InstallCommand(fetcher, console, installer));
+  runner.addCommand(InstallCommand(console, installer));
   runner.addCommand(ListRemoteCommand(fetcher, console));
 
   runner.addCommand(UseCommand(

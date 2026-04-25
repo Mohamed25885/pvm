@@ -6,7 +6,13 @@ import '../core/os_manager.dart';
 
 class WindowsOSManager implements IOSManager {
   @override
-  String get programDirectory => File(Platform.script.toFilePath()).parent.path;
+  String get programDirectory {
+    final exePath = Platform.resolvedExecutable;
+    if (p.basename(exePath).startsWith('dart')) {
+      return File(Platform.script.toFilePath()).parent.path;
+    }
+    return File(exePath).parent.path;
+  }
 
   @override
   String get phpVersionsPath => p.join(programDirectory, 'versions');
@@ -46,22 +52,26 @@ class WindowsOSManager implements IOSManager {
     }
 
     try {
-      Process.runSync('cmd', ['/c', 'rmdir', to]);
-    } catch (_) {}
-
-    final result = await Process.run('cmd', [
-      '/c',
-      'mklink',
-      '/D',
-      to,
-      from,
-    ]);
-
-    if (result.exitCode == 0) {
-      return (from: from, to: to);
+      final existingType = await FileSystemEntity.type(to, followLinks: false);
+      if (existingType != FileSystemEntityType.notFound) {
+        if (existingType == FileSystemEntityType.link) {
+          await Link(to).delete();
+        } else if (existingType == FileSystemEntityType.directory) {
+          await Directory(to).delete(recursive: true);
+        } else {
+          await File(to).delete();
+        }
+      }
+    } catch (_) {
+      // ignore - create will surface meaningful failures
     }
 
-    throw Exception('Error creating symbolic link: ${result.stderr}');
+    try {
+      await Link(to).create(from);
+      return (from: from, to: to);
+    } on FileSystemException catch (e) {
+      throw Exception('Error creating symbolic link: ${e.message}');
+    }
   }
 
   @override

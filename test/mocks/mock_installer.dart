@@ -33,7 +33,7 @@ class MockInstaller implements IInstaller {
   }
 
   @override
-  Future<void> install(String version) async {}
+  Future<void> install(String version, {InstallOptions? options}) async {}
 
   @override
   Future<bool> isInstalled(String version) async => false;

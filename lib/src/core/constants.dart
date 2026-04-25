@@ -14,3 +14,17 @@ class PvmConstants {
   // Version format (with capture groups: major, minor, optional patch)
   static const versionPattern = r'^(\d+)\.(\d+)(?:\.(\d+))?$';
 }
+
+class PvmUrls {
+  static const windowsReleasesApi = 'https://downloads.php.net/~windows/releases/releases.json';
+  static const windowsDownloadBase = 'https://windows.php.net/downloads/releases/';
+}
+
+class PvmTimeouts {
+  static const downloadTimeoutSeconds = 300;
+  static const downloadMaxRetries = 3;
+}
+
+class PvmMessages {
+  // Can be filled with error message templates.
+}

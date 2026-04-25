@@ -23,6 +23,19 @@ class DownloadException implements Exception {
   String toString() => message;
 }
 
+/// Options for installation
+class InstallOptions {
+  final Architecture? architecture;
+  final BuildType? buildType;
+  final bool force;
+
+  const InstallOptions({
+    this.architecture,
+    this.buildType,
+    this.force = false,
+  });
+}
+
 /// Installer interface for PHP installation across platforms.
 ///
 /// Windows: Downloads ZIP and extracts to versions directory.
@@ -33,7 +46,7 @@ abstract class IInstaller {
 
   /// Install a PHP version.
   /// [version] - the PHP version to install (e.g., "8.4", "8.4.1")
-  Future<void> install(String version);
+  Future<void> install(String version, {InstallOptions? options});
 
   /// Check if a version is installed.
   Future<bool> isInstalled(String version);

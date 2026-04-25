@@ -1,24 +1,33 @@
 import 'dart:io';
+import 'package:archive/archive.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../core/console.dart';
 import '../domain/php_release.dart';
+import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
+import '../core/constants.dart';
+import '../services/release_fetcher.dart';
 
 /// Windows installer - downloads ZIP and extracts to versions directory.
 class WindowsInstaller implements IInstaller {
-  static const int _downloadTimeout = 300;
-  static const int _maxRetries = 3;
-
   final String _versionsPath;
   final String downloadBaseUrl;
+  final IReleaseFetcher _fetcher;
+  final Console _console;
   late final http.Client _client;
+
 
   WindowsInstaller({
     required String versionsPath,
-    this.downloadBaseUrl = 'https://windows.php.net/downloads/releases/',
-  }) : _versionsPath = versionsPath {
+    required IReleaseFetcher releaseFetcher,
+    required Console console,
+    this.downloadBaseUrl = PvmUrls.windowsDownloadBase,
+  })  : _versionsPath = versionsPath,
+        _fetcher = releaseFetcher,
+        _console = console {
     _client = http.Client();
   }
 
@@ -38,20 +47,97 @@ class WindowsInstaller implements IInstaller {
   }
 
   @override
-  Future<void> install(String version) async {
-    // Check if already installed
-    if (await isInstalled(version)) {
+  Future<void> install(String version, {InstallOptions? options}) async {
+    final force = options?.force ?? false;
+
+    if (!force && await isInstalled(version)) {
+      _console.printError('PHP $version already installed. Use --force to reinstall');
       return;
     }
 
-    final versionDir = p.join(versionsPath, version);
+    // Security validation against path traversal
+    final phpVersion = PhpVersion.parse(version);
 
-    // Create directory for PHP version
-    await Directory(versionDir).create(recursive: true);
+    _console.print('Fetching available PHP versions...');
+    final releases = await _fetcher.fetchReleases();
 
-    // Note: Actual download from windows.php.net should be implemented
-    // using IReleaseSource to get the download URL
+    final major = phpVersion.major;
+    final minor = phpVersion.minor;
+    final patch = phpVersion.patch;
+
+    final arch = options?.architecture ?? Architecture.x64;
+    final buildType = options?.buildType ?? BuildType.nts;
+
+    final filter = PhpReleaseFilter(
+      major: major,
+      minor: minor,
+      patch: patch,
+      architecture: arch,
+      buildType: buildType,
+    );
+
+    final matching = releases.where((r) => filter.matches(r)).toList();
+
+    if (matching.isEmpty) {
+      _console.printError('No matching PHP release found for $version ($arch, $buildType)');
+      throw Exception('No matching PHP release found');
+    }
+
+    final release = matching.first;
+    final targetDir = p.join(versionsPath, release.displayVersion);
+
+    if (!force && await Directory(targetDir).exists()) {
+      _console.printError('PHP ${release.displayVersion} already installed. Use --force to reinstall');
+      return;
+    }
+
+    await preInstall(release.displayVersion);
+    await Directory(targetDir).create(recursive: true);
+
+    _console.print('Downloading PHP ${release.displayVersion}...');
+    final zipFile = await downloadPhp(release, versionsPath);
+
+    _console.print('Verifying SHA256...');
+    final valid = await verifySha256(zipFile, release.sha256);
+    if (!valid) {
+      await zipFile.delete();
+      final err = Exception('SHA256 verification failed');
+      await onInstallFailed(release.displayVersion, err);
+      throw err;
+    }
+
+    _console.print('Extracting...');
+    await _extractZip(zipFile.path, targetDir);
+    await zipFile.delete();
+
+    await postInstall(release.displayVersion);
   }
+
+  Future<void> _extractZip(String zipPath, String destPath) async {
+    final bytes = await File(zipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final destDir = Directory(p.normalize(destPath));
+    final destCanonical = destDir.path;
+
+    for (final file in archive.files) {
+      final filename = file.name;
+      final fullPath = p.join(destPath, filename);
+      final normalizedPath = p.normalize(fullPath);
+
+      if (!normalizedPath.startsWith(destCanonical) && normalizedPath != destCanonical) {
+        continue;
+      }
+
+      if (filename.endsWith('/')) {
+        await Directory(fullPath).create(recursive: true);
+      } else {
+        await Directory(p.dirname(fullPath)).create(recursive: true);
+        await File(fullPath).writeAsBytes(file.content);
+      }
+    }
+  }
+
+
 
   @override
   Future<File> downloadPhp(
@@ -79,11 +165,11 @@ class WindowsInstaller implements IInstaller {
     int downloadedBytes = 0;
     int totalBytes = 0;
 
-    for (int attempt = 0; attempt < _maxRetries; attempt++) {
+    for (int attempt = 0; attempt < PvmTimeouts.downloadMaxRetries; attempt++) {
       try {
         final request = http.Request('GET', Uri.parse(release.downloadUrl));
         final response = await _client.send(request).timeout(
-              Duration(seconds: _downloadTimeout),
+              Duration(seconds: PvmTimeouts.downloadTimeoutSeconds),
             );
 
         if (response.statusCode != 200) {
@@ -110,7 +196,7 @@ class WindowsInstaller implements IInstaller {
         await sink.close();
         break;
       } catch (e) {
-        if (attempt == _maxRetries - 1) {
+        if (attempt == PvmTimeouts.downloadMaxRetries - 1) {
           // Clean up partial download
           if (await existingFile.exists()) {
             await existingFile.delete();

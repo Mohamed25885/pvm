@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/core/platform_detector.dart';
 
 class IOProcessManager implements IProcessManager {
   final IOSManager _osManager;
@@ -72,7 +73,7 @@ class IOProcessManager implements IProcessManager {
   }
 
   bool _containsPathSeparator(String command) {
-    if (Platform.isWindows) {
+    if (PlatformDetector.isWindows) {
       return command.contains('\\') || command.contains('/');
     }
     return command.contains('/');
@@ -94,11 +95,11 @@ class IOProcessManager implements IProcessManager {
       return null;
     }
 
-    final separator = Platform.isWindows ? ';' : ':';
+    final separator = PlatformDetector.isWindows ? ';' : ':';
     final dirs = pathValue.split(separator).where((d) => d.trim().isNotEmpty);
     final hasExtension = p.extension(command).isNotEmpty;
 
-    final extensions = Platform.isWindows
+    final extensions = PlatformDetector.isWindows
         ? _windowsExecutableExtensions()
         : const <String>[''];
 

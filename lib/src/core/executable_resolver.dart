@@ -9,6 +9,17 @@ abstract class IExecutableResolver {
   String get phpExecutableName;
 }
 
+class PhpExecutableNotFoundException implements Exception {
+  final String path;
+  PhpExecutableNotFoundException(this.path);
+
+  @override
+  String toString() =>
+      'PHP executable not found at $path.\n'
+      'Run `pvm use <version>` to activate a version for this project, '
+      'or `pvm global <version>` to set a global default.';
+}
+
 class ExecutableResolver implements IExecutableResolver {
   final PlatformConstants _platformConstants;
   final IOSManager _osManager;
@@ -31,7 +42,7 @@ class ExecutableResolver implements IExecutableResolver {
     );
 
     if (!(await _osManager.fileExists(phpExe))) {
-      throw Exception('PHP executable not found at $phpExe');
+      throw PhpExecutableNotFoundException(phpExe);
     }
 
     return phpExe;

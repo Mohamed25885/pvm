@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:pvm/src/core/platform_detector.dart';
 
 abstract class PlatformInfo {
   String get osType;
@@ -61,9 +61,9 @@ class MacOSPlatformInfo implements PlatformInfo {
 }
 
 PlatformInfo createPlatformInfo() {
-  final os = Platform.operatingSystem;
-  if (os == 'windows') return WindowsPlatformInfo();
-  if (os == 'linux') return LinuxPlatformInfo();
-  if (os == 'macos') return MacOSPlatformInfo();
-  throw Exception('Unsupported platform: $os');
+  final platform = PlatformDetector.current;
+  if (platform == PlatformType.windows) return WindowsPlatformInfo();
+  if (platform == PlatformType.linux) return LinuxPlatformInfo();
+  if (platform == PlatformType.macos) return MacOSPlatformInfo();
+  throw Exception('Unsupported platform');
 }

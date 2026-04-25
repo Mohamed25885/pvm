@@ -5,11 +5,20 @@ import '../core/os_manager.dart';
 
 /// Linux OS Manager - implements all IOSManager operations for Linux.
 class LinuxOSManager implements IOSManager {
-  @override
-  String get programDirectory => p.join(homeDirectory, '.pvm');
+  String get _scriptDirectory => File(Platform.script.toFilePath()).parent.path;
 
   @override
-  String get phpVersionsPath => p.join(homeDirectory, '.pvm', 'versions');
+  String get programDirectory => _scriptDirectory;
+
+  @override
+  String get phpVersionsPath {
+    final preferred = p.join(programDirectory, 'versions');
+    final legacy = p.join(homeDirectory, '.pvm', 'versions');
+
+    if (Directory(preferred).existsSync()) return preferred;
+    if (Directory(legacy).existsSync()) return legacy;
+    return preferred;
+  }
 
   @override
   String get localPath => p.join(Directory.current.path, '.pvm');
@@ -30,14 +39,26 @@ class LinuxOSManager implements IOSManager {
   @override
   Future<({String from, String to})> createSymLink(
       String version, String from, String to) async {
-    // Use ln -s for Linux
-    final result = await Process.run('ln', ['-sf', to, from]);
-
-    if (result.exitCode != 0) {
-      throw Exception('Failed to create symlink: ${result.stderr}');
+    try {
+      // Replace existing link/dir if present (best-effort).
+      final existingType = await FileSystemEntity.type(to, followLinks: false);
+      if (existingType != FileSystemEntityType.notFound) {
+        if (existingType == FileSystemEntityType.directory) {
+          await Directory(to).delete(recursive: true);
+        } else {
+          await File(to).delete();
+        }
+      }
+    } catch (_) {
+      // ignore - create will surface meaningful failures
     }
 
-    return (from: from, to: to);
+    try {
+      await Link(to).create(from);
+      return (from: from, to: to);
+    } on FileSystemException catch (e) {
+      throw Exception('Failed to create symlink: ${e.message}');
+    }
   }
 
   @override

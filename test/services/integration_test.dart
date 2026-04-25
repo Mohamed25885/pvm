@@ -87,11 +87,9 @@ void main() {
 
   group('InstallCommand integration', () {
     test('command parses version argument', () {
-      final fetcher = createReleaseFetcher();
       final console = MockConsole();
 
       final cmd = InstallCommand(
-        fetcher,
         console,
         MockInstaller(),
       );
