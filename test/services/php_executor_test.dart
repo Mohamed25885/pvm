@@ -106,6 +106,18 @@ class FakeOSManager implements IOSManager {
   void setDirectoryExists(String path, bool exists) {
     directoryExistsMap[path] = exists;
   }
+
+  @override
+  Future<bool> isSymLink(String path) async => false;
+
+  @override
+  Future<String?> readSymLinkTarget(String path) async => null;
+
+  @override
+  Future<void> deleteSymLink(String path) async {}
+
+  @override
+  Future<void> deleteDirectory(String path) async {}
 }
 
 String getPhpExe(String rootPath) {
@@ -237,6 +249,73 @@ void main() {
         osManager.mockCurrentDirectory = root;
 
         await executor.runPhp(['-v']);
+
+        expect(processManager.lastSpec!.executable, equals(phpExe));
+      });
+    });
+
+    group('phpExecutable override', () {
+      test('runPhp uses provided phpExecutable verbatim and bypasses resolver',
+          () async {
+        final root = '/some/dir';
+        // No file registered for root/.pvm/php.exe, resolver would throw.
+        const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
+
+        final exitCode = await executor.runPhp(
+          ['-v'],
+          workingDirectory: root,
+          phpExecutable: overridePath,
+        );
+
+        expect(exitCode, equals(0));
+        expect(processManager.lastSpec!.executable, equals(overridePath));
+      });
+
+      test(
+          'runScript uses provided phpExecutable verbatim and bypasses '
+          'resolver', () async {
+        final root = '/some/dir';
+        const overridePath = r'C:\pvm\versions\8.2.10\php.exe';
+
+        final exitCode = await executor.runScript(
+          'tool.php',
+          ['--flag'],
+          workingDirectory: root,
+          phpExecutable: overridePath,
+        );
+
+        expect(exitCode, equals(0));
+        expect(processManager.lastSpec!.executable, equals(overridePath));
+        expect(
+          processManager.lastSpec!.arguments,
+          equals(['tool.php', '--flag']),
+        );
+      });
+
+      test('runPhp forwards custom environment to ProcessSpec', () async {
+        final root = '/another';
+        const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
+        final env = {'PATH': r'C:\pvm\versions\8.3.0', 'CUSTOM': 'yes'};
+
+        await executor.runPhp(
+          ['-v'],
+          workingDirectory: root,
+          phpExecutable: overridePath,
+          environment: env,
+        );
+
+        final spec = processManager.lastSpec!;
+        expect(spec.environment?['PATH'], equals(r'C:\pvm\versions\8.3.0'));
+        expect(spec.environment?['CUSTOM'], equals('yes'));
+      });
+
+      test('legacy callers without phpExecutable still go through resolver',
+          () async {
+        final root = '/legacy';
+        final phpExe = getPhpExe(root);
+        osManager.setFileExists(phpExe, true);
+
+        await executor.runPhp(['-v'], workingDirectory: root);
 
         expect(processManager.lastSpec!.executable, equals(phpExe));
       });

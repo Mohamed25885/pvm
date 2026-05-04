@@ -1,11 +1,8 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 
 import '../domain/php_version.dart';
-import '../domain/exceptions.dart';
+import '../domain/project.dart';
 import 'console.dart';
-import 'constants.dart';
 
 class PhpVersionManager {
   final Console console;
@@ -14,37 +11,24 @@ class PhpVersionManager {
 
   /// Read version from .php-version file.
   /// Returns null if file doesn't exist or is empty.
-  /// Throws [ProjectConfigurationException] on invalid format.
+  /// Throws [InvalidVersionFormatException] on invalid format.
+  ///
+  /// Delegates to [Project.getConfiguredVersion] to keep a single canonical
+  /// reader for the .php-version file format (JSON or plain text).
   Future<PhpVersion?> readLastUsedVersion({required String rootPath}) async {
-    final file = File(p.join(rootPath, PvmConstants.phpVersionFileName));
-    if (!await file.exists()) return null;
-
-    final raw = await file.readAsString();
-    final trimmed = raw.trim();
-    if (trimmed.isEmpty) return null;
-
-    try {
-      // Try JSON first
-      final json = jsonDecode(trimmed) as Map<String, dynamic>;
-      final versionStr = json['version'] as String?;
-      if (versionStr != null) {
-        return PhpVersion.parse(versionStr);
-      }
-    } catch (_) {
-      // Not JSON, try plain text
-    }
-
-    return PhpVersion.parse(trimmed);
+    final project = Project(Directory(rootPath));
+    return project.getConfiguredVersion();
   }
 
   /// Write version to .php-version file in JSON format.
+  ///
+  /// Delegates to [Project.setConfiguredVersion] for the canonical write path.
   Future<void> writeCurrentVersion({
     required String rootPath,
     required PhpVersion version,
   }) async {
-    final file = File(p.join(rootPath, PvmConstants.phpVersionFileName));
-    final data = {'version': version.toString()};
-    await file.writeAsString(const JsonEncoder.withIndent('  ').convert(data));
+    final project = Project(Directory(rootPath));
+    await project.setConfiguredVersion(version);
   }
 
   /// Prompt user to switch versions (returns true if user confirms).
@@ -53,16 +37,10 @@ class PhpVersionManager {
     required PhpVersion currentVersion,
     required PhpVersion requestedVersion,
   }) async {
-    if (!console.hasTerminal) return false;
-
-    final input = console.readLine(
-      prompt: 'Detected .php-version contains "$currentVersion". '
-          'Switch to "$requestedVersion"? (y/N): ',
+    return console.confirm(
+      'Detected .php-version contains "$currentVersion". '
+      'Switch to "$requestedVersion"?',
     );
-
-    if (input == null) return false;
-    final trimmed = input.trim().toLowerCase();
-    return trimmed == 'y';
   }
 
   /// Prompt user to pick a version from list.

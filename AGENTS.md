@@ -44,25 +44,43 @@ The `.agents` directory contains all resources for agentic coding:
 ### OS Abstraction Layer
 The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on any platform using mock/fake implementations.
 
-- **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations) and `IProcessManager` (process execution) interfaces.
+- **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations, symlink helpers) and `IProcessManager` (process execution) interfaces. `IOSManager` includes `isSymLink`, `readSymLinkTarget`, `deleteSymLink`, and `deleteDirectory` for cross-platform symlink and cleanup operations used by `SymLinkInspector`, `UninstallCommand`, and diagnostics.
 - **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`. Provides `currentEnvironment` getter for PATH access.
-- **`lib/src/managers/mock_os_manager.dart`**: Mock implementation for testing on non-Windows platforms. Includes configurable `environment` map for simulating PATH and other environment variables.
+- **`lib/src/managers/linux_os_manager.dart`** / **`lib/src/managers/mac_os_manager.dart`**: Non-Windows implementations used when running tests or tooling off Windows; keep behavior aligned with `IOSManager` contracts.
+- **`test/mocks/mock_os_manager.dart`**: `MockOSManager` / `MockProcessManager` for command tests. Use `mockEnvironment` for deterministic PATH; falls back to `Platform.environment` when unset.
+
+### Domain & resolution
+- **`lib/src/domain/project.dart`**: Project root discovery and `.php-version` reading; shared by activators and `PhpVersionManager`.
+- **`lib/src/domain/version_registry.dart`**: Lists installed versions under the configured versions directory.
+- **`lib/src/domain/version_diagnostics.dart`**: Shared “version not installed” messaging (`VersionDiagnostics.notInstalledMessage`) for consistent CLI output.
+- **`lib/src/domain/php_version.dart`**: Version parsing and normalization.
+
+### Symlink & active version
+- **`lib/src/core/symlink_inspector.dart`**: Resolves whether a path is a symlink and reads targets via `IOSManager` (no direct Windows APIs in callers).
+- **`lib/src/core/active_version_resolver.dart`**: Determines the effective PHP version from global/local `.pvm` symlink targets and optional `.php-version` hints.
 
 ### Process Management
 - **`lib/src/core/process_manager.dart`**: Defines `ProcessSpec` (executable, arguments, workingDirectory, environment) and `IProcessManager` interface with `runInteractive` and `runCaptured`.
 - **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation using `Process.start` with `ProcessStartMode.normal` (not `inheritStdio`) and manual streaming of stdin/stdout/stderr. This approach avoids Dart SDK issues with process hanging on exit and ensures long-running processes work reliably. **Note**: `PhpCommand` uses `inheritStdio` for interactive processes, while `IOProcessManager` uses `normal` for script execution (e.g., Composer version lookup).
 
 ### Service Layer
-- **`lib/src/services/php_executor.dart`**: Encapsulates PHP execution logic. Provides `runPhp()` for direct PHP invocation and `runScript()` for running PHP scripts (e.g., Composer). Resolves PHP executable from `.pvm` symlink and uses `IProcessManager` for actual execution. This service is used by both `PhpCommand` and `ComposerCommand`.
-- **`lib/src/commands/composer_command.dart`**: Implements the `pvm composer` proxy. Finds Composer script by scanning the system PATH (supports `composer`, `composer.bat`, `composer.phar` on Windows). Executes Composer using `PhpExecutor.runScript()` with the local PHP version.
+- **`lib/src/services/php_executor.dart`**: Encapsulates PHP execution logic. Provides `runPhp()` and `runScript()` with optional `phpExecutable` and `environment` overrides so commands like `pvm exec` can pin a specific installed `php.exe` and adjust `PATH` without relying on the default `.pvm` resolution. Used by `PhpCommand`, `ComposerCommand`, and `ExecCommand`.
+- **`lib/src/services/diagnostics/`**: Doctor checks (`DiagnosticCheck`, models, `doctor_checks.dart`) invoked by `DoctorCommand` for environment sanity checks.
+- **`lib/src/core/console.dart`**: `Console` abstraction; `ConsoleConfirm` extension adds `confirm()` for yes/no prompts (e.g. `PhpVersionManager.promptMismatch`).
+- **`lib/src/commands/composer_command.dart`**: Implements the `pvm composer` proxy. Finds Composer via `ComposerLocator` / PATH (supports `composer`, `composer.bat`, `composer.phar`). Executes Composer using `PhpExecutor.runScript()` with the local PHP version.
 
 ### CommandRunner Pattern
-The CLI uses `package:args`'s `CommandRunner` for modular command handling:
+The CLI uses `package:args`'s `CommandRunner` for modular command handling (registered in `pvm.dart`):
 - `GlobalCommand`: Sets system-wide PHP version.
 - `UseCommand`: Sets project-local PHP version.
 - `ListCommand`: Lists available PHP versions.
+- `CurrentCommand`: Prints the effective PHP version (`pvm current`) using `ActiveVersionResolver`.
+- `DoctorCommand`: Runs diagnostics (`pvm doctor`).
+- `UninstallCommand`: Removes an installed version (`pvm uninstall`); see flags below.
+- `ExecCommand`: Runs a command with a chosen PHP on `PATH` (`pvm exec`); supports `--version`, optional leading version token, `--cwd`, and `php` / `composer` / generic dispatch.
 - `PhpCommand`: Runs PHP using local version via `PhpExecutor`.
 - `ComposerCommand`: Runs Composer using local PHP and PATH lookup.
+- Plus install/list-remote/version helpers as defined in `pvm.dart`.
 
 ## Critical Commands
 
@@ -73,6 +91,10 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling:
 
 ### Execution
 - **Run locally:** `dart pvm.dart <command> [arguments]`
+- **Effective version:** `dart pvm.dart current`
+- **Diagnostics:** `dart pvm.dart doctor`
+- **Run with explicit PHP on PATH:** `dart pvm.dart exec [--version <ver>] [--cwd <dir>] -- <cmd> [args]` (optional first positional version, e.g. `pvm exec 8.3 -- php -v`)
+- **Remove a version:** `dart pvm.dart uninstall <version>` (`--yes` skips prompt; `--force` allows removing the active global version and implies `--yes`; `--keep-symlinks` leaves broken symlinks for manual cleanup)
 - **Run PHP proxy:** `dart pvm.dart php [arguments]`
 - **Run Composer proxy:** `dart pvm.dart composer [arguments]`
 
@@ -136,7 +158,7 @@ import 'utils/utils.dart';
 - In tests, use `MockOSManager` (for command tests) or `FakeOSManager` (for service tests) with configurable `environment` maps to simulate different PATH configurations.
 
 #### 7.1. Mocking Strategy
-- **Production-ready mocks**: `MockOSManager` and `MockProcessManager` in `lib/src/managers/` provide rich configurability, call tracking, and are used in command tests.
+- **Production-ready mocks**: `MockOSManager` and `MockProcessManager` in `test/mocks/mock_os_manager.dart` provide rich configurability, call tracking, and are used in command tests. For deterministic PATH in doctor/exec tests, set `mockEnvironment`.
 - **Lightweight fakes**: `FakeOSManager` and `FakeProcessManager` in `test/services/` provide simple stubbing for service tests.
 - **Always test on non-Windows platforms**: Use the mock/fake implementations to verify logic without needing Windows. See `MockOSManager` and `FakeOSManager`.
 
@@ -146,11 +168,12 @@ import 'utils/utils.dart';
 - **Test organization**: Place unit tests in dedicated files matching the feature:
   - Command tests: `test/commands/<command_name>_test.dart` — test CommandRunner integration
   - Service tests: `test/services/<service_name>_test.dart` — test service classes with fakes
-  - Core component tests: `test/core/` — test core abstractions (GitIgnoreService, PhpVersionManager)
+  - Core component tests: `test/core/` — GitIgnoreService, PhpVersionManager, `SymLinkInspector`, `ActiveVersionResolver`, `ComposerLocator` (where applicable), console extensions
+  - Domain tests: `test/domain/` — `Project`, `VersionRegistry`, `VersionDiagnostics`, etc.
   - Process manager tests: `test/process/` — test process execution (may use real subprocesses)
   - Adversarial tests: `test/adversarial_test.dart` — comprehensive edge case/security/race condition tests
 - **Test doubles**:
-  - **MockOSManager/MockProcessManager** (`lib/src/managers/`) — Production-ready mocks with call tracking, used in command tests
+  - **MockOSManager/MockProcessManager** (`test/mocks/mock_os_manager.dart`) — Production-ready mocks with call tracking, used in command tests
   - **FakeOSManager/FakeProcessManager** (`test/services/`) — Lightweight fakes with configurable maps, used in service tests
 - **Regression tests**: When modifying existing functionality, ensure all related tests still pass. Add new tests for uncovered edge cases.
 - **Test patterns**:
@@ -164,19 +187,23 @@ import 'utils/utils.dart';
 
 - `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
 - `lib/src/`:
-  - `commands/`: Command files (`global_command.dart`, `use_command.dart`, `list_command.dart`, `php_command.dart`, `composer_command.dart`).
-  - `core/`: Contains `os_manager.dart` (OS abstractions), `process_manager.dart` (process spec & interface), `php_version_manager.dart`, `gitignore_service.dart`.
+  - `commands/`: CLI commands, including `current_command.dart`, `doctor_command.dart`, `uninstall_command.dart`, `exec_command.dart`, `global_command.dart`, `use_command.dart`, `list_command.dart`, `php_command.dart`, `composer_command.dart`, install/list-remote, etc.
+  - `domain/`: Version/project/registry/diagnostics models and helpers.
+  - `core/`: `os_manager.dart`, `process_manager.dart`, `php_version_manager.dart`, `gitignore_service.dart`, `executable_resolver.dart`, `composer_locator.dart`, `symlink_inspector.dart`, `active_version_resolver.dart`, `console.dart`, platform constants/detection, exit codes.
+  - `console/`: `ConsoleIO` implementation of `Console`.
   - `managers/`:
-    - `windows_os_manager.dart`: Windows-specific implementation.
-    - `mock_os_manager.dart`: Mock implementation for testing.
+    - `windows_os_manager.dart`, `linux_os_manager.dart`, `mac_os_manager.dart`: Platform `IOSManager` implementations.
   - `process/`:
     - `io_process_manager.dart`: Cross-platform process execution using Dart's `Process` API.
     - `process.dart` (if present)
   - `services/`:
-    - `php_executor.dart`: Service for executing PHP and PHP scripts with local version.
+    - `php_executor.dart`: PHP/Composer execution; optional executable and environment overrides.
+    - `diagnostics/`: Doctor check implementations and models.
 - `test/`:
-  - `commands/`: Command tests (`php_command_test.dart`, `composer_command_test.dart`, etc.)
+  - `commands/`: Command tests (`php_command_test.dart`, `composer_command_test.dart`, `current_command_test.dart`, `doctor_command_test.dart`, `uninstall_command_test.dart`, `exec_command_test.dart`, etc.)
+  - `mocks/`: `mock_os_manager.dart` (`MockOSManager`, `MockProcessManager`)
   - `services/`: Service tests (`php_executor_test.dart`) and test doubles (`fake_os_manager.dart`, `fake_process_manager.dart`)
+  - `domain/`: Domain unit tests (`project_test.dart`, `version_diagnostics_test.dart`, etc.)
   - `core/`: Core component tests
   - `process/`: Process manager tests
   - `mock_test.dart`: Mock infrastructure tests
@@ -196,6 +223,12 @@ import 'utils/utils.dart';
 - Creating local/global versions relies on Windows symbolic links.
 - Requires either **Developer Mode** enabled or running as **Administrator**.
 - The `createSymLink` method in `IOSManager` handles the `mklink` command.
+- Inspection and cleanup use `IOSManager` symlink helpers; prefer `SymLinkInspector` in commands rather than ad hoc filesystem calls.
+
+### `pvm uninstall` behavior
+- Refuses to remove the version targeted by the active **global** symlink unless `--force` is passed (local project symlinks can still be cleaned up depending on options).
+- `--yes` only skips the confirmation prompt; it does **not** bypass the active-global guard (use `--force` for that).
+- `--keep-symlinks` skips removing symlinks that would become dangling after the version directory is deleted.
 
 ### Local Config
 - Local versions are managed via a `.pvm` directory in the current working directory.
@@ -212,8 +245,9 @@ import 'utils/utils.dart';
 ## Common Pitfalls
 
 1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
-  2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` - never try to run Windows-specific code directly.
+2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
+4. **`pvm exec`**: First positional token is treated as a version only if it parses as `PhpVersion` **and** is installed; otherwise the active resolved version is used and the full token list (after optional `--`) is the command line.
 
 ## Rule Integration
 

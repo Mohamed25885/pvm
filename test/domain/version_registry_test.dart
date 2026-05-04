@@ -58,6 +58,18 @@ class FakeVersionRegistryOSManager implements IOSManager {
   void setAvailableVersions(List<String> versions) {
     availableVersionsList = versions;
   }
+
+  @override
+  Future<bool> isSymLink(String path) async => false;
+
+  @override
+  Future<String?> readSymLinkTarget(String path) async => null;
+
+  @override
+  Future<void> deleteSymLink(String path) async {}
+
+  @override
+  Future<void> deleteDirectory(String path) async {}
 }
 
 void main() {

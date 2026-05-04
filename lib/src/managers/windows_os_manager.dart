@@ -91,9 +91,44 @@ class WindowsOSManager implements IOSManager {
     }
     return Directory(versionsPath)
         .listSync()
-        .where((FileSystemEntity entity) => entity is Directory)
-        .map((FileSystemEntity entity) =>
-            entity.path.split(Platform.pathSeparator).last)
+        .whereType<Directory>()
+        .map((Directory dir) => p.basename(dir.path))
         .toList();
+  }
+
+  @override
+  Future<bool> isSymLink(String path) async {
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    return type == FileSystemEntityType.link;
+  }
+
+  @override
+  Future<String?> readSymLinkTarget(String path) async {
+    if (!await isSymLink(path)) return null;
+    try {
+      return await Link(path).target();
+    } on FileSystemException {
+      return null;
+    }
+  }
+
+  @override
+  Future<void> deleteSymLink(String path) async {
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    if (type == FileSystemEntityType.notFound) return;
+    if (type != FileSystemEntityType.link) {
+      throw FileSystemException(
+        'Path is not a symbolic link',
+        path,
+      );
+    }
+    await Link(path).delete();
+  }
+
+  @override
+  Future<void> deleteDirectory(String path) async {
+    final dir = Directory(path);
+    if (!await dir.exists()) return;
+    await dir.delete(recursive: true);
   }
 }

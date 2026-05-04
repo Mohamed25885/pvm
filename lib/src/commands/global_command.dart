@@ -6,6 +6,8 @@ import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
+import '../domain/version_diagnostics.dart';
+import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
 
 class GlobalCommand extends Command<int> {
@@ -38,21 +40,25 @@ class GlobalCommand extends Command<int> {
       final versionStr = argResults!.rest.first;
       final version = PhpVersion.parse(versionStr);
 
-      final availableVersionStrs =
-          _osManager.getAvailableVersions(_osManager.phpVersionsPath);
-      if (!availableVersionStrs.contains(version.toString())) {
-        _console.printError('Version $version not found.');
-        _console
-            .print('Available versions: ${availableVersionStrs.join(", ")}');
-        return ExitCode.generalError;
+      final registry = VersionRegistry(_osManager);
+      final installed = await registry.getInstalledVersions();
+
+      if (!installed.contains(version)) {
+        _console.printError(VersionDiagnostics.notInstalledMessage(
+          requested: version,
+          installed: installed,
+        ));
+        return ExitCode.versionNotFound;
       }
 
-      final versionsPath = _osManager.phpVersionsPath;
-      final sourcePath = p.join(versionsPath, version.toString());
+      final sourcePath = p.join(_osManager.phpVersionsPath, version.toString());
 
       if (!await _osManager.directoryExists(sourcePath)) {
-        _console.printError('Version $version not found.');
-        return ExitCode.generalError;
+        _console.printError(VersionDiagnostics.notInstalledMessage(
+          requested: version,
+          installed: installed,
+        ));
+        return ExitCode.versionNotFound;
       }
 
       await _versionActivator.activateGlobal(version.toString());

@@ -126,17 +126,28 @@ class FakePhpExecutor implements PhpExecutor {
   FakePhpExecutor(this.osManager, this.processManager);
 
   @override
-  Future<int> runPhp(List<String> args, {String? workingDirectory}) {
+  Future<int> runPhp(
+    List<String> args, {
+    String? workingDirectory,
+    String? phpExecutable,
+    Map<String, String>? environment,
+  }) {
     throw UnimplementedError('Not needed for ComposerCommand tests');
   }
 
   @override
-  Future<int> runScript(String scriptPath, List<String> args,
-      {String? workingDirectory}) async {
+  Future<int> runScript(
+    String scriptPath,
+    List<String> args, {
+    String? workingDirectory,
+    String? phpExecutable,
+    Map<String, String>? environment,
+  }) async {
     // Record the call for verification
     lastScriptPath = scriptPath;
     lastArgs = args;
     lastWorkingDirectory = workingDirectory;
+    lastPhpExecutable = phpExecutable;
     return mockExitCode;
   }
 
@@ -144,5 +155,6 @@ class FakePhpExecutor implements PhpExecutor {
   String? lastScriptPath;
   List<String>? lastArgs;
   String? lastWorkingDirectory;
+  String? lastPhpExecutable;
   int mockExitCode = 0;
 }

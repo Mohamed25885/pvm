@@ -63,4 +63,32 @@ class FakeOSManager implements IOSManager {
   void setDirectoryExists(String path, bool exists) {
     directoryExistsMap[path] = exists;
   }
+
+  // --- New extension methods (Wave 2) -------------------------------------
+
+  final Map<String, String> symlinkTargets = {};
+  final List<String> deletedSymLinks = [];
+  final List<String> deletedDirectories = [];
+
+  void setSymLinkTarget(String path, String target) {
+    symlinkTargets[path] = target;
+  }
+
+  @override
+  Future<bool> isSymLink(String path) async => symlinkTargets.containsKey(path);
+
+  @override
+  Future<String?> readSymLinkTarget(String path) async => symlinkTargets[path];
+
+  @override
+  Future<void> deleteSymLink(String path) async {
+    deletedSymLinks.add(path);
+    symlinkTargets.remove(path);
+  }
+
+  @override
+  Future<void> deleteDirectory(String path) async {
+    deletedDirectories.add(path);
+    directoryExistsMap[path] = false;
+  }
 }

@@ -69,6 +69,10 @@ class MockOSManager implements IOSManager {
     createdSymlinks.clear();
     symlinkSourceExistsOverride = null;
     mockCurrentDirectory = null;
+    mockEnvironment = null;
+    symlinkTargets.clear();
+    deletedSymLinks.clear();
+    deletedDirectories.clear();
     resetCallCounts();
   }
 
@@ -92,8 +96,13 @@ class MockOSManager implements IOSManager {
   @override
   String get currentDirectory => mockCurrentDirectory ?? Directory.current.path;
 
+  /// When non-null, returned by [currentEnvironment] instead of
+  /// [Platform.environment] (useful for deterministic tests).
+  Map<String, String>? mockEnvironment;
+
   @override
-  Map<String, String> get currentEnvironment => Platform.environment;
+  Map<String, String> get currentEnvironment =>
+      mockEnvironment ?? Platform.environment;
 
   @override
   Future<({String from, String to})> createSymLink(
@@ -194,6 +203,47 @@ class MockOSManager implements IOSManager {
     }
 
     return mockHomeDir;
+  }
+
+  // --- New extension methods (Wave 2) -------------------------------------
+
+  /// Map of path -> target string. When a path is missing, [readSymLinkTarget]
+  /// returns null and [isSymLink] returns false.
+  final Map<String, String> symlinkTargets = {};
+
+  /// Tracks paths whose [deleteSymLink] / [deleteDirectory] was invoked.
+  final List<String> deletedSymLinks = [];
+  final List<String> deletedDirectories = [];
+
+  bool shouldThrowOnDeleteSymLink = false;
+  bool shouldThrowOnDeleteDirectory = false;
+  String? deleteSymLinkErrorMessage;
+  String? deleteDirectoryErrorMessage;
+
+  @override
+  Future<bool> isSymLink(String path) async => symlinkTargets.containsKey(path);
+
+  @override
+  Future<String?> readSymLinkTarget(String path) async => symlinkTargets[path];
+
+  @override
+  Future<void> deleteSymLink(String path) async {
+    if (shouldThrowOnDeleteSymLink) {
+      throw Exception(
+          deleteSymLinkErrorMessage ?? 'Mock: Failed to delete symlink');
+    }
+    deletedSymLinks.add(path);
+    symlinkTargets.remove(path);
+  }
+
+  @override
+  Future<void> deleteDirectory(String path) async {
+    if (shouldThrowOnDeleteDirectory) {
+      throw Exception(
+          deleteDirectoryErrorMessage ?? 'Mock: Failed to delete directory');
+    }
+    deletedDirectories.add(path);
+    _directoryExistsCache[path] = false;
   }
 }
 

@@ -7,6 +7,7 @@ import 'package:pvm/src/core/exit_codes.dart';
 import 'package:pvm/src/core/platform_detector.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/platform_constants.dart';
+import 'package:pvm/src/core/active_version_resolver.dart';
 import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/core/os_manager_factory.dart';
 import 'package:pvm/src/core/gitignore_service.dart';
@@ -14,6 +15,7 @@ import 'package:pvm/src/core/php_version_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
 import 'package:pvm/src/core/composer_locator.dart';
 import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/core/symlink_inspector.dart';
 import 'package:pvm/src/interfaces/i_installer.dart';
 import 'package:pvm/src/interfaces/i_version_activator.dart';
 import 'package:pvm/src/managers/windows_installer.dart';
@@ -31,6 +33,10 @@ import 'package:pvm/src/commands/global_command.dart';
 import 'package:pvm/src/commands/list_command.dart';
 import 'package:pvm/src/commands/php_command.dart';
 import 'package:pvm/src/commands/composer_command.dart';
+import 'package:pvm/src/commands/current_command.dart';
+import 'package:pvm/src/commands/doctor_command.dart';
+import 'package:pvm/src/commands/uninstall_command.dart';
+import 'package:pvm/src/commands/exec_command.dart';
 import 'package:pvm/src/commands/version_flag.dart';
 import 'package:pvm/src/commands/install_command.dart';
 import 'package:pvm/src/commands/list_remote_command.dart';
@@ -78,6 +84,14 @@ Future<void> setupServices() async {
       osManager: getIt<IOSManager>(),
       executableResolver: getIt<ExecutableResolver>(),
     ),
+  );
+
+  getIt.registerSingleton<SymLinkInspector>(
+    SymLinkInspector(getIt<IOSManager>()),
+  );
+
+  getIt.registerSingleton<ActiveVersionResolver>(
+    ActiveVersionResolver(getIt<SymLinkInspector>()),
   );
 
   // Platform-specific interfaces (Wave 2A)
@@ -173,6 +187,31 @@ Future<int> main(List<String> arguments) async {
   runner.addCommand(
       GlobalCommand(osManager, getIt<IVersionActivator>(), console));
   runner.addCommand(ListCommand(osManager, console));
+  runner.addCommand(CurrentCommand(
+    osManager,
+    getIt<ActiveVersionResolver>(),
+    console,
+  ));
+  runner.addCommand(DoctorCommand(
+    osManager: osManager,
+    platformConstants: getIt<PlatformConstants>(),
+    console: console,
+    resolver: getIt<ActiveVersionResolver>(),
+  ));
+  runner.addCommand(UninstallCommand(
+    osManager: osManager,
+    symlinkInspector: getIt<SymLinkInspector>(),
+    console: console,
+  ));
+  runner.addCommand(ExecCommand(
+    osManager: osManager,
+    platformConstants: getIt<PlatformConstants>(),
+    phpExecutor: phpExecutor,
+    processManager: getIt<IProcessManager>(),
+    composerLocator: composerLocator,
+    resolver: getIt<ActiveVersionResolver>(),
+    console: console,
+  ));
   runner.addCommand(PhpCommand(phpExecutor, osManager, console));
   runner.addCommand(ComposerCommand(
     phpExecutor,
