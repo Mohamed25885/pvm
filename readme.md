@@ -2,6 +2,8 @@
 
 A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows symbolic links for fast, zero-overhead version switching.
 
+**Latest release:** [v1.2.0](https://github.com/Mohamed25885/pvm/releases/tag/v1.2.0) — adds `pvm current`, `pvm doctor`, `pvm uninstall`, and `pvm exec`, plus diagnostics and symlink tooling. See [CHANGELOG.md](CHANGELOG.md).
+
 ---
 
 ## Table of Contents
@@ -11,8 +13,14 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 - [`pvm global <version>`](#pvm-global-version)
 - [`pvm use <version>`](#pvm-use-version)
 - [`pvm list`](#pvm-list)
+- [`pvm current`](#pvm-current)
+- [`pvm doctor`](#pvm-doctor)
+- [`pvm exec`](#pvm-exec)
+- [`pvm uninstall`](#pvm-uninstall)
+- [`pvm install` / `pvm list-remote`](#pvm-install--pvm-list-remote)
 - [`pvm php [arguments]`](#pvm-php-arguments)
 - [`pvm composer [arguments]`](#pvm-composer-arguments)
+- [`pvm version`](#pvm-version)
 - [How It Works](#how-it-works)
   - [Directory Structure](#directory-structure)
   - [Project Root Discovery](#project-root-discovery)
@@ -119,6 +127,78 @@ pvm list
 
 ---
 
+### `pvm current`
+
+Shows the **effective** PHP version for your environment: global (`%USERPROFILE%\.pvm`) and, from the current directory, project-local (`<project>\.pvm`). Local scope overrides global when both are set. Broken or orphaned symlinks are reported explicitly.
+
+```powershell
+pvm current
+pvm current --global-only
+pvm current --local-only
+pvm current --json
+```
+
+---
+
+### `pvm doctor`
+
+Runs environment checks (versions directory, symlink targets, PATH hints, and optionally a live symlink-creation probe). Use `--no-symlink-test` to skip the probe.
+
+```powershell
+pvm doctor
+pvm doctor --json
+pvm doctor --no-symlink-test
+```
+
+---
+
+### `pvm exec`
+
+Runs a command with a chosen **installed** PHP version on `PATH`. Use `--version <ver>` or an optional **first positional** version (only if that token parses as a version **and** is installed). Use `--cwd <dir>` to set the working directory. After optional `--`, the rest is the command line.
+
+- **`php …`** — forwarded through `PhpExecutor` with the selected PHP.
+- **`composer …`** — Composer is resolved via PATH / locator; runs with the selected PHP.
+- **Anything else** — spawned with the selected PHP’s `bin` directory prepended to `PATH`.
+
+```powershell
+pvm exec 8.2 -- php -v
+pvm exec --version 8.2 -- php -v
+pvm exec --cwd C:\Projects\MyApp -- composer install
+```
+
+If the first token looks like a version but is **not** installed, PVM exits with an error instead of treating it as part of the command.
+
+---
+
+### `pvm uninstall`
+
+Removes an installed version directory under `versions/`.
+
+| Flag | Meaning |
+|------|---------|
+| `--yes` / `-y` | Skip the confirmation prompt (does **not** bypass the active-global guard). |
+| `--force` | Allow uninstalling the version targeted by the **active global** symlink; implies `--yes`. |
+| `--keep-symlinks` | Do not remove symlinks that would become dangling after the directory is deleted. |
+
+```powershell
+pvm uninstall 8.1.0
+pvm uninstall 8.1.0 --yes
+pvm uninstall 8.1.0 --force
+```
+
+---
+
+### `pvm install` / `pvm list-remote`
+
+Download and install PHP builds from the configured release source, and list available remote versions. See `pvm install --help` and `pvm list-remote --help` for architecture and build-type options.
+
+```powershell
+pvm list-remote
+pvm install 8.3
+```
+
+---
+
 ### `pvm php [arguments]`
 
 Runs PHP using the **local** version configured for the current project. All arguments are forwarded unchanged to PHP.
@@ -169,6 +249,17 @@ pvm composer require laravel/framework
 
 ---
 
+### `pvm version`
+
+Prints the PVM CLI version (from `pubspec.yaml` / generated `lib/src/version.dart`).
+
+```powershell
+pvm version
+# PVM version: <matches your build, e.g. 1.2.0>
+```
+
+---
+
 ## How It Works
 
 ### Directory Structure
@@ -193,7 +284,7 @@ C:\Projects\MyApp\         <- Your project
 
 ### Project Root Discovery
 
-When you run `pvm use` or `pvm php`, PVM walks up from your current working directory looking for a `.php-version` file. The **parent directory** of `.php-version` is treated as the project root. This allows you to run PVM from any subdirectory of your project.
+When you run `pvm use`, `pvm php`, or `pvm composer`, PVM walks up from your current working directory looking for a `.php-version` file. The **parent directory** of `.php-version` is treated as the project root. This allows you to run PVM from any subdirectory of your project.
 
 ```
 C:\Projects\MyApp\src\api> pvm use 8.2
@@ -284,28 +375,14 @@ If Developer Mode is not enabled, run Command Prompt or PowerShell as Administra
 
 ### Project Structure
 
-```
-pvm/
-├── pvm.dart                    # Entry point & CommandRunner setup
-├── lib/src/
-│   ├── commands/
-│   │   ├── global_command.dart   # pvm global
-│   │   ├── use_command.dart      # pvm use
-│   │   ├── list_command.dart     # pvm list
-│   │   └── php_command.dart      # pvm php proxy
-│   ├── core/
-│   │   ├── os_manager.dart       # IOSManager interface
-│   │   ├── php_version_manager.dart  # .php-version read/write
-│   │   ├── gitignore_service.dart   # .gitignore management
-│   │   └── process_manager.dart  # Process abstraction
-│   ├── managers/
-│   │   ├── windows_os_manager.dart  # Windows implementation
-│   │   └── mock_os_manager.dart     # Mock for testing
-│   └── process/
-│       └── io_process_manager.dart  # Process execution (no Windows Job Objects)
-└── test/
-    └── ...
-```
+- `pvm.dart` — entry point and `CommandRunner` registration  
+- `lib/src/commands/` — `global`, `use`, `list`, `current`, `doctor`, `exec`, `uninstall`, `install`, `list-remote`, `php`, `composer`, `version`  
+- `lib/src/core/` — `IOSManager` (incl. symlink helpers), `SymLinkInspector`, `ActiveVersionResolver`, `PhpVersionManager`, `Console`, process/exec resolution, …  
+- `lib/src/domain/` — project root, version registry, `PhpVersion`, …  
+- `lib/src/services/` — `PhpExecutor`, `diagnostics/` (doctor checks)  
+- `lib/src/managers/` — Windows implementation; Linux/mac variants for tests and non-Windows runs  
+- `lib/src/process/` — `IOProcessManager`  
+- `test/mocks/mock_os_manager.dart` — primary test double for commands and services  
 
 ### Key Paths
 
@@ -336,7 +413,7 @@ dart compile exe pvm.dart -o builds/pvm.exe
 
 ### Testing
 
-Tests use `MockOSManager` to simulate filesystem operations without requiring Windows. The mock:
+Tests use `MockOSManager` (`test/mocks/mock_os_manager.dart`) to simulate filesystem operations without requiring Windows. The mock:
 
 - Uses a real `currentDirectory` override for PhpCommand root discovery
 - Has a conservative default (directories/files don't exist unless explicitly mocked)
