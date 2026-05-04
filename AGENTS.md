@@ -449,3 +449,28 @@ Use websearch and codesearch tools extensively in plan mode to gather relevant d
 - ✅ Build: Natively compiled successfully.
 
 **Deployment Notes**: Automated release orchestrating full architectural rewrites, dependency upgrades, and critical security patches on Windows symlinking bounds.
+
+---
+
+## Release Dossier - v1.2.0
+
+**Release Date**: 2026-05-04
+
+**Quality Gates Passed**:
+- Linting: 0 issues (`dart analyze --fatal-infos`)
+- Tests: All passed (`dart test`, full suite green)
+- Coverage: 74.35% (above CI 60% threshold via `coverde check`)
+- Format: Clean (`dart format --output=none --set-exit-if-changed .`)
+- Build: `builds/pvm.exe` compiled and `--version` smoke-test passed
+
+**New CLI surface**: `pvm current`, `pvm doctor`, `pvm uninstall`, `pvm exec`.
+
+**Foundation work**: `SymLinkInspector`, `ActiveVersionResolver`, `IOSManager` symlink helpers (`isSymLink`, `readSymLinkTarget`, `deleteSymLink`, `deleteDirectory`), `VersionDiagnostics`, `ConsoleConfirm`, `PhpExecutor` `phpExecutable` / `environment` overrides, diagnostics service.
+
+**DRY consolidation**: `PhpVersionManager` delegates to `Project`; `WindowsVersionActivator` uses `Project.findFromPath`; `GlobalCommand` uses `VersionRegistry` + `ExitCode.versionNotFound`; `WindowsOSManager.getAvailableVersions` now uses `p.basename`.
+
+**Deployment Notes**: Automated release implementing the pre-implementation refactoring roadmap (Waves 0–4) ahead of upcoming feature work.
+
+**Executable**:
+- File: `builds/pvm.exe`
+- SHA-256: `c9c2391dd93f24743ab3e084cd1c51352b9bf87bd167961c4b72afd925db87bc`
