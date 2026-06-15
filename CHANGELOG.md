@@ -2,13 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.2.0...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.0.0...HEAD)
+
+## [2.0.0] - 2026-05-25
+
+### Added
+- **`pvm setup`** — optional first-run configuration: validates directories and permissions, creates `versions/` when missing, may set user env vars (`PVM_HOME`, `PVM_VERSIONS_HOME`) and PATH entries (`pvm` directory + `%USERPROFILE%\.pvm`). Flags: `--dry-run`, `--yes`, `--versions-home <path>`.
+- **`PvmPaths`** — resolves install locations from optional `PVM_HOME` / `PVM_VERSIONS_HOME` with fallbacks to the executable directory and `<home>/versions` (unchanged behavior when env vars are unset).
+- **Privilege escalation** — `ElevatingOSManager` wraps symlink creation; on permission denial, prompts to retry (Developer Mode or Administrator). `WindowsPrivilegeEscalator` stub on Windows; full UAC re-launch not required when Developer Mode is enabled.
+- **`InstalledVersionResolver`** — shared `major.minor` shorthand for `use`, `global`, `exec`, and `uninstall`; `VersionDiagnostics.ambiguousVersionMessage` when multiple patches match.
+- **`ProjectPvmrcCheck`** in `pvm doctor` (replaces `.php-version` project check).
+- Policy test `test/policy/no_php_version_runtime_test.dart` — no `.php-version` string literals in `lib/src` runtime code.
+- FVM project config (`.fvmrc`, Flutter **3.41.6** → Dart **3.11.4**); CI runs via `fvm dart`.
+- Integration tests under `test/integration/`.
 
 ### Changed
-- **Version shorthand:** `pvm use`, `pvm global`, `pvm exec`, and `pvm uninstall` accept `major.minor` (e.g. `8.4`) when exactly one installed version matches; if multiple patches exist (e.g. `8.4.0` and `8.4.1`), the full `major.minor.patch` is required. **Breaking:** `pvm exec` and `pvm uninstall` no longer auto-select the newest patch when ambiguous.
-- **Breaking:** Project version configuration moved from `.php-version` to `.pvmrc` (JSON). PVM no longer reads, writes, or discovers `.php-version` at runtime. Re-run `pvm use <version>` (or create `.pvmrc` manually) to migrate existing projects.
-- Project root discovery walks for `.pvmrc` first, then `.pvm/` marker; legacy `.php-version` files are ignored.
-- `pvm doctor` project check renamed to `ProjectPvmrcCheck` (`.pvmrc` label).
+- **Breaking:** Project version file is **`.pvmrc`** (JSON, e.g. `{"version": "8.2"}`). PVM no longer reads, writes, or discovers **`.php-version`** at runtime (avoids conflicts with Apache and other tools that use that filename). Re-run `pvm use <version>` or create `.pvmrc` manually to migrate.
+- **Breaking:** Project root discovery walks **`.pvmrc`** first, then **`.pvm/`** marker; falls back to CWD when neither exists.
+- **Breaking:** **`pvm exec`** and **`pvm uninstall`** no longer auto-select the newest patch when `major.minor` is ambiguous — specify full `major.minor.patch` when multiple versions share the same line.
+- **Version shorthand:** `pvm use`, `pvm global`, `pvm exec`, and `pvm uninstall` accept `8.4` when exactly one installed `8.4.x` exists.
+- `WindowsOSManager`, `LinuxOSManager`, and `MacOSManager` delegate `programDirectory` / `phpVersionsPath` to `PvmPaths.fromEnvironment`.
+- Minimum Dart SDK: `>=3.11.0 <4.0.0` (development pinned via FVM).
+
+### Removed
+- Runtime dependency on `.php-version` filename and `phpVersionFileName` constant.
 
 ## [1.2.0] - 2026-05-04
 

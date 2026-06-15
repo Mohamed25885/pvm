@@ -31,12 +31,13 @@ The `.agents` directory contains all resources for agentic coding:
 
 ## Environment & Dependencies
 
-- **Language:** Dart (SDK `>=3.11.4 <4.0.0`, pinned via FVM Flutter **3.41.6** → Dart **3.11.4**)
+- **Language:** Dart (SDK `>=3.11.0 <4.0.0`, development pinned via FVM Flutter **3.41.6** → Dart **3.11.4**)
 - **Target Platform:** Windows (strictly uses Windows-specific APIs and path conventions)
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
-  - `ffi` & `win32`: Interaction with Windows APIs (e.g., for process management).
   - `path`: Path manipulation.
+  - `get_it`: Dependency injection in `pvm.dart`.
+  - `http`, `archive`, `crypto`: PHP download/install on Windows.
   - `test` & `mocktail`: Testing framework and mocking.
 
 ## Architecture
@@ -45,15 +46,26 @@ The `.agents` directory contains all resources for agentic coding:
 The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on any platform using mock/fake implementations.
 
 - **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations, symlink helpers) and `IProcessManager` (process execution) interfaces. `IOSManager` includes `isSymLink`, `readSymLinkTarget`, `deleteSymLink`, and `deleteDirectory` for cross-platform symlink and cleanup operations used by `SymLinkInspector`, `UninstallCommand`, and diagnostics.
-- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io` and `win32`. Provides `currentEnvironment` getter for PATH access.
+- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io`. `programDirectory` / `phpVersionsPath` via `PvmPaths`. Provides `currentEnvironment` for PATH lookup.
 - **`lib/src/managers/linux_os_manager.dart`** / **`lib/src/managers/mac_os_manager.dart`**: Non-Windows implementations used when running tests or tooling off Windows; keep behavior aligned with `IOSManager` contracts.
 - **`test/mocks/mock_os_manager.dart`**: `MockOSManager` / `MockProcessManager` for command tests. Use `mockEnvironment` for deterministic PATH; falls back to `Platform.environment` when unset.
 
 ### Domain & resolution
-- **`lib/src/domain/project.dart`**: Project root discovery and `.pvmrc` reading; shared by activators and `PhpVersionManager`.
+- **`lib/src/domain/project.dart`**: Project root discovery (`.pvmrc` then `.pvm/` marker) and `.pvmrc` read/write; shared by activators and `PhpVersionManager`.
+- **`lib/src/domain/installed_version_resolver.dart`**: Resolves `major.minor` shorthand against installed versions (`use`, `global`, `exec`, `uninstall`).
 - **`lib/src/domain/version_registry.dart`**: Lists installed versions under the configured versions directory.
-- **`lib/src/domain/version_diagnostics.dart`**: Shared “version not installed” messaging (`VersionDiagnostics.notInstalledMessage`) for consistent CLI output.
+- **`lib/src/domain/version_diagnostics.dart`**: `notInstalledMessage` and `ambiguousVersionMessage` for consistent CLI output.
 - **`lib/src/domain/php_version.dart`**: Version parsing and normalization.
+
+### Paths & installation
+- **`lib/src/core/pvm_paths.dart`**: `PvmPaths.fromEnvironment` — optional `PVM_HOME` / `PVM_VERSIONS_HOME` with legacy fallbacks.
+- **`lib/src/services/installation/`**: `PvmSetupService`, `SetupPreflight` for `pvm setup`.
+- **`lib/src/interfaces/i_environment_configurator.dart`**: Windows user env + PATH updates (`WindowsEnvironmentConfigurator`, `NoopEnvironmentConfigurator` for tests/CI).
+
+### Privilege escalation
+- **`lib/src/core/elevating_os_manager.dart`**: Decorator over `IOSManager` that retries `createSymLink` after user-approved elevation.
+- **`lib/src/services/privilege_escalation_service.dart`**: Orchestrates confirm-then-retry flow.
+- **`lib/src/core/permission_error.dart`**: Classifies permission-denied errors.
 
 ### Symlink & active version
 - **`lib/src/core/symlink_inspector.dart`**: Resolves whether a path is a symlink and reads targets via `IOSManager` (no direct Windows APIs in callers).
@@ -71,6 +83,7 @@ The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific
 
 ### CommandRunner Pattern
 The CLI uses `package:args`'s `CommandRunner` for modular command handling (registered in `pvm.dart`):
+- `SetupCommand`: Optional Windows setup (`pvm setup`); directories, env vars, PATH.
 - `GlobalCommand`: Sets system-wide PHP version.
 - `UseCommand`: Sets project-local PHP version.
 - `ListCommand`: Lists available PHP versions.
@@ -101,6 +114,7 @@ Use **FVM** so commands run on Dart 3.11.4 (see `.fvmrc`). Prefix with `fvm dart
 - **Remove a version:** `fvm dart run pvm.dart uninstall <version>` (`--yes` skips prompt; `--force` allows removing the active global version and implies `--yes`; `--keep-symlinks` leaves broken symlinks for manual cleanup)
 - **Run PHP proxy:** `fvm dart run pvm.dart php [arguments]`
 - **Run Composer proxy:** `fvm dart run pvm.dart composer [arguments]`
+- **First-time setup:** `fvm dart run pvm.dart setup [--dry-run] [--yes] [--versions-home <path>]`
 
 ### Build
 - **Compile Executable:** `fvm dart compile exe pvm.dart -o builds/pvm.exe`
@@ -173,7 +187,9 @@ import 'utils/utils.dart';
   - Command tests: `test/commands/<command_name>_test.dart` — test CommandRunner integration
   - Service tests: `test/services/<service_name>_test.dart` — test service classes with fakes
   - Core component tests: `test/core/` — GitIgnoreService, PhpVersionManager, `SymLinkInspector`, `ActiveVersionResolver`, `ComposerLocator` (where applicable), console extensions
-  - Domain tests: `test/domain/` — `Project`, `VersionRegistry`, `VersionDiagnostics`, etc.
+  - Domain tests: `test/domain/` — `Project`, `VersionRegistry`, `VersionDiagnostics`, `InstalledVersionResolver`, etc.
+  - Policy tests: `test/policy/` — e.g. no `.php-version` runtime references
+  - Integration tests: `test/integration/`
   - Process manager tests: `test/process/` — test process execution (may use real subprocesses)
   - Adversarial tests: `test/adversarial_test.dart` — comprehensive edge case/security/race condition tests
 - **Test doubles**:
@@ -191,17 +207,19 @@ import 'utils/utils.dart';
 
 - `pvm.dart`: The entry point. Uses `CommandRunner` for command dispatching.
 - `lib/src/`:
-  - `commands/`: CLI commands, including `current_command.dart`, `doctor_command.dart`, `uninstall_command.dart`, `exec_command.dart`, `global_command.dart`, `use_command.dart`, `list_command.dart`, `php_command.dart`, `composer_command.dart`, install/list-remote, etc.
-  - `domain/`: Version/project/registry/diagnostics models and helpers.
-  - `core/`: `os_manager.dart`, `process_manager.dart`, `php_version_manager.dart`, `gitignore_service.dart`, `executable_resolver.dart`, `composer_locator.dart`, `symlink_inspector.dart`, `active_version_resolver.dart`, `console.dart`, platform constants/detection, exit codes.
+  - `commands/`: CLI commands, including `setup_command.dart`, `current_command.dart`, `doctor_command.dart`, `uninstall_command.dart`, `exec_command.dart`, `global_command.dart`, `use_command.dart`, `list_command.dart`, `php_command.dart`, `composer_command.dart`, install/list-remote, etc.
+  - `domain/`: Version/project/registry/diagnostics models; `installed_version_resolver.dart`.
+  - `core/`: `os_manager.dart`, `elevating_os_manager.dart`, `permission_error.dart`, `pvm_paths.dart`, `process_manager.dart`, `php_version_manager.dart`, `gitignore_service.dart`, `executable_resolver.dart`, `composer_locator.dart`, `symlink_inspector.dart`, `active_version_resolver.dart`, `console.dart`, platform constants/detection, exit codes.
+  - `interfaces/`: `i_environment_configurator.dart` for `pvm setup`.
   - `console/`: `ConsoleIO` implementation of `Console`.
   - `managers/`:
     - `windows_os_manager.dart`, `linux_os_manager.dart`, `mac_os_manager.dart`: Platform `IOSManager` implementations.
   - `process/`:
     - `io_process_manager.dart`: Cross-platform process execution using Dart's `Process` API.
-    - `process.dart` (if present)
   - `services/`:
     - `php_executor.dart`: PHP/Composer execution; optional executable and environment overrides.
+    - `installation/`: `PvmSetupService`, setup preflight for `pvm setup`.
+    - `privilege_escalation_service.dart`: Confirm-then-retry symlink elevation.
     - `diagnostics/`: Doctor check implementations and models.
 - `test/`:
   - `commands/`: Command tests (`php_command_test.dart`, `composer_command_test.dart`, `current_command_test.dart`, `doctor_command_test.dart`, `uninstall_command_test.dart`, `exec_command_test.dart`, etc.)
@@ -224,19 +242,24 @@ import 'utils/utils.dart';
 - Requires local `.pvm` symlink to exist; shows helpful error if missing.
 
 ### Symlinks
-- Creating local/global versions relies on Windows symbolic links.
+- Creating local/global versions relies on Windows symbolic links (`Link.create` via `IOSManager`).
 - Requires either **Developer Mode** enabled or running as **Administrator**.
-- The `createSymLink` method in `IOSManager` handles the `mklink` command.
+- `ElevatingOSManager` may prompt and retry when symlink creation fails with permission errors.
 - Inspection and cleanup use `IOSManager` symlink helpers; prefer `SymLinkInspector` in commands rather than ad hoc filesystem calls.
+
+### `pvm setup` behavior
+- Preflight validates resolved paths (after `PvmPaths` fallbacks), permissions, and env writability.
+- `--dry-run` reports planned changes without mutating the system.
+- `PVM_HOME` and `PVM_VERSIONS_HOME` are **optional**; unset env vars preserve pre-v2 layout.
+
+### Local Config
+- Project version declared in **`.pvmrc`** (JSON). **Do not** use `.php-version` — PVM does not read it at runtime.
+- Local symlinks live in `<project-root>\.pvm`; global symlink in `%USERPROFILE%\.pvm` (or `PVM_HOME` when set).
 
 ### `pvm uninstall` behavior
 - Refuses to remove the version targeted by the active **global** symlink unless `--force` is passed (local project symlinks can still be cleaned up depending on options).
 - `--yes` only skips the confirmation prompt; it does **not** bypass the active-global guard (use `--force` for that).
 - `--keep-symlinks` skips removing symlinks that would become dangling after the version directory is deleted.
-
-### Local Config
-- Local versions are managed via a `.pvm` directory in the current working directory.
-- Global versions are stored in `%USERPROFILE%\.pvm`.
 
 ### Process Execution Details
 
@@ -252,6 +275,8 @@ import 'utils/utils.dart';
 2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
 4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` via `InstalledVersionResolver` when exactly one installed version matches; multiple patches require full `major.minor.patch`. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
+5. **FVM / Dart SDK**: Use `fvm dart` for `pub get`, analyze, test, and compile — system Dart may be too old for `dart_pre_commit` and the `>=3.11.0` constraint.
+6. **`.pvmrc` only**: Never reintroduce `.php-version` runtime reads; migration is manual (`pvm use` or hand-authored JSON).
 
 ## Rule Integration
 
@@ -478,3 +503,28 @@ Use websearch and codesearch tools extensively in plan mode to gather relevant d
 **Executable**:
 - File: `builds/pvm.exe`
 - SHA-256: `c9c2391dd93f24743ab3e084cd1c51352b9bf87bd167961c4b72afd925db87bc`
+
+---
+
+## Release Dossier - v2.0.0
+
+**Release Date**: 2026-05-25
+
+**Quality Gates Passed**:
+- Linting: 0 issues (`fvm dart analyze --fatal-infos`)
+- Tests: Full suite green (`fvm dart test`, 500+ tests)
+- Coverage: ~75% line coverage (above CI 60% threshold)
+- Format: Clean (`fvm dart format --output=none --set-exit-if-changed .`)
+- Build: `builds/pvm.exe` compiled and `--version` smoke-test passed
+
+**New CLI surface**: `pvm setup`; `.pvmrc` replaces `.php-version`; `major.minor` version shorthand via `InstalledVersionResolver`.
+
+**Foundation work**: `PvmPaths` (`PVM_HOME` / `PVM_VERSIONS_HOME` optional env), `ElevatingOSManager` + `PrivilegeEscalationService`, `PvmSetupService` / setup preflight, `Project` discovery (`.pvmrc` → `.pvm/`), policy test banning `.php-version` in runtime code, FVM-pinned Dart 3.11.4 toolchain.
+
+**Breaking changes**: No runtime `.php-version`; ambiguous `major.minor` on `exec`/`uninstall` no longer auto-picks newest patch.
+
+**Deployment Notes**: Major release integrating pvmrc migration, installer/setup, and privilege-escalation branches. Rebuild `pvm.exe` and publish GitHub release `v2.0.0` with SHA-256 after merge to `main`.
+
+**Executable**:
+- File: `builds/pvm.exe`
+- SHA-256: *(set at release publish time)*

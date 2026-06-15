@@ -2,7 +2,9 @@
 
 A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows symbolic links for fast, zero-overhead version switching.
 
-**Latest release:** [v1.2.0](https://github.com/Mohamed25885/pvm/releases/tag/v1.2.0) — adds `pvm current`, `pvm doctor`, `pvm uninstall`, and `pvm exec`, plus diagnostics and symlink tooling. See [CHANGELOG.md](CHANGELOG.md).
+**Latest release:** [v2.0.0](https://github.com/Mohamed25885/pvm/releases/tag/v2.0.0) — `.pvmrc` config (replaces `.php-version`), `pvm setup`, privilege-escalation for symlinks, `major.minor` version shorthand, optional `PVM_HOME` / `PVM_VERSIONS_HOME`. See [CHANGELOG.md](CHANGELOG.md).
+
+**Upgrading from v1.x:** Run `pvm use <version>` in each project to create `.pvmrc`, or add `.pvmrc` manually. Remove legacy `.php-version` files if present (PVM ignores them).
 
 ---
 
@@ -17,6 +19,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 - [`pvm doctor`](#pvm-doctor)
 - [`pvm exec`](#pvm-exec)
 - [`pvm uninstall`](#pvm-uninstall)
+- [`pvm setup`](#pvm-setup)
 - [`pvm install` / `pvm list-remote`](#pvm-install--pvm-list-remote)
 - [`pvm php [arguments]`](#pvm-php-arguments)
 - [`pvm composer [arguments]`](#pvm-composer-arguments)
@@ -24,7 +27,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 - [How It Works](#how-it-works)
   - [Directory Structure](#directory-structure)
   - [Project Root Discovery](#project-root-discovery)
-  - [The `.pvmrc` File](#the-php-version-file)
+  - [The `.pvmrc` File](#the-pvmrc-file)
   - [Global vs Local Versions](#global-vs-local-versions)
   - [The `pvm php` Proxy](#the-pvm-php-proxy)
 - [Interactive vs Non-Interactive Mode](#interactive-vs-non-interactive-mode)
@@ -46,9 +49,15 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 ## Installation
 
-1. **Download or build** the `pvm.exe` binary.
+1. **Download** `pvm.exe` from [GitHub Releases](https://github.com/Mohamed25885/pvm/releases) (or build locally; see [Development](#development)).
 2. **Place `pvm.exe` in a permanent location** (e.g., `C:\Tools\pvm\pvm.exe`).
-3. **Create the versions directory** alongside the executable:
+3. **Run setup** (recommended):
+   ```powershell
+   pvm setup --dry-run   # preview directories, env vars, and PATH changes
+   pvm setup             # apply after reviewing
+   ```
+   Setup may create `versions\` beside the executable, optionally set **`PVM_HOME`** (directory containing `pvm.exe`) and **`PVM_VERSIONS_HOME`** (PHP versions root, default `%PVM_HOME%\versions`), and add PATH entries for the `pvm` folder and `%USERPROFILE%\.pvm`. **Env vars are optional** — if unset, PVM uses the same layout as before (`<exe-dir>/versions`).
+4. **Manual layout** (if you skip `pvm setup`):
    ```
    C:\Tools\pvm\
    ├── pvm.exe
@@ -58,7 +67,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
        └── 8.2\
            └── php.exe
    ```
-4. **Add the pvm directory to your PATH**, or run pvm using its full path.
+   Add the `pvm` directory and `%USERPROFILE%\.pvm` to your PATH as needed.
 5. **Enable Developer Mode** (recommended) or run as Administrator — required for creating symbolic links on Windows.
 
 ---
@@ -100,7 +109,7 @@ pvm use 8.0
 **What happens on `pvm use`:**
 
 1. **GitIgnoreService runs** — ensures `.gitignore` exists and contains `.pvm` entry
-2. **Best-effort symlink creation** — attempts to create `.pvm` symlink pointing to `versions/`
+2. **Symlink creation** — creates `.pvm` symlink pointing to `versions/`; on permission denial, may prompt to retry with elevation
 3. **`.pvmrc` is written** with the selected version as JSON
 4. **Mismatch prompt** (interactive mode) — if `.pvmrc` has a different version, asks for confirmation. Default is **Yes** (press Enter to confirm).
 5. **Non-installed version** — if the requested version isn't in `versions/`, prompts you to pick from available versions
@@ -119,6 +128,31 @@ pvm use 8.2.1      # OK
 pvm use 8.2        # ERROR if both 8.2.0 and 8.2.1 installed (ambiguous)
 pvm use stable     # ERROR: Invalid version format. Expected: x.y or x.y.z
 ```
+
+---
+
+### `pvm setup`
+
+Configures PVM on Windows: preflight checks (directories, permissions), optional user environment variables, and PATH.
+
+| Flag | Meaning |
+|------|---------|
+| `--dry-run` | Show planned changes only; do not write env or create directories |
+| `--yes` / `-y` | Skip confirmation before applying changes |
+| `--versions-home <path>` | Override default `PVM_VERSIONS_HOME` before writing env |
+
+```powershell
+pvm setup --dry-run
+pvm setup --yes
+pvm setup --versions-home D:\php-versions
+```
+
+**Environment variables (optional):**
+
+| Variable | When set | When unset |
+|----------|----------|------------|
+| `PVM_HOME` | Directory containing `pvm.exe` | Executable's parent directory |
+| `PVM_VERSIONS_HOME` | Root of installed PHP versions | `%PVM_HOME%\versions` |
 
 ---
 
@@ -262,7 +296,7 @@ Prints the PVM CLI version (from `pubspec.yaml` / generated `lib/src/version.dar
 
 ```powershell
 pvm version
-# PVM version: <matches your build, e.g. 1.2.0>
+# PVM version: 2.0.0
 ```
 
 ---
@@ -301,11 +335,11 @@ C:\Projects\MyApp\src\api> pvm use 8.2
 # .pvm symlink: C:\Projects\MyApp\.pvm
 ```
 
-If no `.pvmrc` is found, the current working directory is used as the root.
+If no `.pvmrc` is found, PVM walks up for a **`.pvm/`** directory (existing local symlink). If neither exists, the current working directory is used as the root.
 
 ### The `.pvmrc` File
 
-Stores the project's selected PHP version in JSON format:
+Stores the project's selected PHP version as JSON (not plain text — this avoids filename clashes with Apache and other `.php-version` tooling):
 
 ```json
 {
@@ -372,9 +406,9 @@ If Developer Mode is not enabled, run Command Prompt or PowerShell as Administra
 
 ### Symlink Behavior
 
-- `pvm use` creates symlinks using `mklink /D`
-- Symlinks are **best-effort**: if creation fails (permissions, Developer Mode), the command reports the error but continues other operations
-- Existing `.pvm` files/directories are replaced with the symlink
+- `pvm use` / `pvm global` create symlinks using `Link.create` (Windows: requires Developer Mode or Administrator).
+- On permission denial, PVM may prompt to retry with elevated permissions when a terminal is attached.
+- Existing `.pvm` files/directories are replaced with the symlink when creation succeeds.
 
 ---
 
@@ -383,10 +417,10 @@ If Developer Mode is not enabled, run Command Prompt or PowerShell as Administra
 ### Project Structure
 
 - `pvm.dart` — entry point and `CommandRunner` registration  
-- `lib/src/commands/` — `global`, `use`, `list`, `current`, `doctor`, `exec`, `uninstall`, `install`, `list-remote`, `php`, `composer`, `version`  
-- `lib/src/core/` — `IOSManager` (incl. symlink helpers), `SymLinkInspector`, `ActiveVersionResolver`, `PhpVersionManager`, `Console`, process/exec resolution, …  
-- `lib/src/domain/` — project root, version registry, `PhpVersion`, …  
-- `lib/src/services/` — `PhpExecutor`, `diagnostics/` (doctor checks)  
+- `lib/src/commands/` — `setup`, `global`, `use`, `list`, `current`, `doctor`, `exec`, `uninstall`, `install`, `list-remote`, `php`, `composer`, `version`  
+- `lib/src/core/` — `IOSManager`, `ElevatingOSManager`, `PvmPaths`, `SymLinkInspector`, `ActiveVersionResolver`, `PhpVersionManager`, `Console`, …  
+- `lib/src/domain/` — `Project`, `InstalledVersionResolver`, version registry, `PhpVersion`, …  
+- `lib/src/services/` — `PhpExecutor`, `installation/` (`PvmSetupService`), `privilege_escalation_service.dart`, `diagnostics/`  
 - `lib/src/managers/` — Windows implementation; Linux/mac variants for tests and non-Windows runs  
 - `lib/src/process/` — `IOProcessManager`  
 - `test/mocks/mock_os_manager.dart` — primary test double for commands and services  
@@ -395,12 +429,14 @@ If Developer Mode is not enabled, run Command Prompt or PowerShell as Administra
 
 | Path | Meaning |
 |---|---|
-| `programDirectory` | Where `pvm.exe` lives — contains `versions/` |
-| `phpVersionsPath` | `<programDirectory>\versions` |
+| `PVM_HOME` (env) | Optional; directory containing `pvm.exe` (default: executable's parent) |
+| `PVM_VERSIONS_HOME` (env) | Optional; root of installed PHP versions (default: `<PVM_HOME>/versions`) |
+| `programDirectory` | Resolved install root — where `pvm.exe` lives |
+| `phpVersionsPath` | Resolved versions directory |
 | `currentDirectory` | Where the user runs PVM from |
-| `rootPath` | Project root — discovered by `.pvmrc` location |
+| `rootPath` | Project root — discovered by `.pvmrc` or `.pvm/` marker |
 | `localPath` | `<rootPath>\.pvm` — local version symlink |
-| `homeDirectory` | `%USERPROFILE%` — where global symlink lives |
+| `homeDirectory` | `%USERPROFILE%` — where global symlink lives (unless `PVM_HOME` overrides layout) |
 
 ### SDK (FVM)
 
