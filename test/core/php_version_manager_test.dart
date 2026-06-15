@@ -23,14 +23,14 @@ void main() {
   });
 
   group('readLastUsedVersion', () {
-    test('returns null when .php-version does not exist', () async {
+    test('returns null when .pvmrc does not exist', () async {
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
       expect(result, isNull);
     });
 
-    test('returns null when .php-version is empty', () async {
-      final file = File('${tempDir.path}\\.php-version');
+    test('returns null when .pvmrc is empty', () async {
+      final file = File('${tempDir.path}\\.pvmrc');
       await file.create();
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -38,7 +38,7 @@ void main() {
     });
 
     test('reads plain version string', () async {
-      final file = File('${tempDir.path}\\.php-version');
+      final file = File('${tempDir.path}\\.pvmrc');
       await file.writeAsString('8.2');
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -46,7 +46,7 @@ void main() {
     });
 
     test('reads JSON version field', () async {
-      final file = File('${tempDir.path}\\.php-version');
+      final file = File('${tempDir.path}\\.pvmrc');
       await file.writeAsString(jsonEncode({'version': '8.3'}));
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -54,18 +54,17 @@ void main() {
     });
 
     test('ignores extra JSON fields', () async {
-      final file = File('${tempDir.path}\\.php-version');
-      await file.writeAsString(jsonEncode({
-        'version': '8.1',
-        'someOtherField': 'ignored',
-      }));
+      final file = File('${tempDir.path}\\.pvmrc');
+      await file.writeAsString(
+        jsonEncode({'version': '8.1', 'someOtherField': 'ignored'}),
+      );
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
       expect(result, equals(PhpVersion.parse('8.1')));
     });
 
     test('strips whitespace', () async {
-      final file = File('${tempDir.path}\\.php-version');
+      final file = File('${tempDir.path}\\.pvmrc');
       await file.writeAsString('  7.4  \n');
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -81,7 +80,7 @@ void main() {
         version: PhpVersion.parse('8.0'),
       );
 
-      final file = File('${tempDir.path}\\.php-version');
+      final file = File('${tempDir.path}\\.pvmrc');
       expect(await file.exists(), isTrue);
 
       final content = await file.readAsString();
@@ -90,7 +89,7 @@ void main() {
     });
 
     test('overwrites existing content', () async {
-      final file = File('${tempDir.path}\\.php-version');
+      final file = File('${tempDir.path}\\.pvmrc');
       await file.writeAsString('old-version');
 
       final manager = PhpVersionManager(console);
@@ -129,9 +128,7 @@ void main() {
 
     test('returns null when no versions available', () async {
       final manager = PhpVersionManager(console);
-      final result = await manager.promptVersionPick(
-        availableVersions: [],
-      );
+      final result = await manager.promptVersionPick(availableVersions: []);
       expect(result, isNull);
     });
   });

@@ -7,8 +7,8 @@ void main() {
       expect(PvmConstants.pvmDirName, '.pvm');
     });
 
-    test('phpVersionFileName is .php-version', () {
-      expect(PvmConstants.phpVersionFileName, '.php-version');
+    test('pvmrcFileName is .pvmrc', () {
+      expect(PvmConstants.pvmrcFileName, '.pvmrc');
     });
 
     test('gitignoreFileName is .gitignore', () {

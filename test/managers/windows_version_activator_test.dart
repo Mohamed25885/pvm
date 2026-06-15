@@ -18,23 +18,27 @@ void main() {
     });
 
     group('activateGlobal', () {
-      test('creates symlink at <home>/.pvm pointing to versionsPath/<version>',
-          () async {
-        final activator = WindowsVersionActivator(
-          osManager: osManager,
-          versionsPath: r'C:\pvm\versions',
-          homeDirectory: r'C:\Users\sam',
-        );
+      test(
+        'creates symlink at <home>/.pvm pointing to versionsPath/<version>',
+        () async {
+          final activator = WindowsVersionActivator(
+            osManager: osManager,
+            versionsPath: r'C:\pvm\versions',
+            homeDirectory: r'C:\Users\sam',
+          );
 
-        await activator.activateGlobal('8.2.10');
+          await activator.activateGlobal('8.2.10');
 
-        expect(osManager.createdSymlinks, hasLength(1));
-        final call = osManager.createdSymlinks.single;
-        expect(call.version, equals('8.2.10'));
-        expect(call.from, equals(p.join(r'C:\pvm\versions', '8.2.10')));
-        expect(
-            call.to, equals(p.join(r'C:\Users\sam', PvmConstants.pvmDirName)));
-      });
+          expect(osManager.createdSymlinks, hasLength(1));
+          final call = osManager.createdSymlinks.single;
+          expect(call.version, equals('8.2.10'));
+          expect(call.from, equals(p.join(r'C:\pvm\versions', '8.2.10')));
+          expect(
+            call.to,
+            equals(p.join(r'C:\Users\sam', PvmConstants.pvmDirName)),
+          );
+        },
+      );
 
       test('forwards version string verbatim (does not mutate)', () async {
         final activator = WindowsVersionActivator(
@@ -60,8 +64,13 @@ void main() {
 
         await expectLater(
           activator.activateGlobal('8.2'),
-          throwsA(isA<Exception>().having(
-              (e) => e.toString(), 'message', contains('Permission denied'))),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Permission denied'),
+            ),
+          ),
         );
       });
     });
@@ -80,31 +89,37 @@ void main() {
       });
 
       test(
-          'creates symlink at <projectRoot>/.pvm when .php-version found in cwd',
-          () async {
-        final phpVersion =
-            File(p.join(tempDir.path, PvmConstants.phpVersionFileName));
-        await phpVersion.writeAsString('8.2');
+        'creates symlink at <projectRoot>/.pvm when .pvmrc found in cwd',
+        () async {
+          final phpVersion = File(
+            p.join(tempDir.path, PvmConstants.pvmrcFileName),
+          );
+          await phpVersion.writeAsString('8.2');
 
-        osManager.mockCurrentDirectory = tempDir.path;
+          osManager.mockCurrentDirectory = tempDir.path;
 
-        final activator = WindowsVersionActivator(
-          osManager: osManager,
-          versionsPath: r'C:\pvm\versions',
-          homeDirectory: r'C:\Users\sam',
+          final activator = WindowsVersionActivator(
+            osManager: osManager,
+            versionsPath: r'C:\pvm\versions',
+            homeDirectory: r'C:\Users\sam',
+          );
+
+          await activator.activateLocal('8.2');
+
+          expect(osManager.createdSymlinks, hasLength(1));
+          final call = osManager.createdSymlinks.single;
+          expect(call.from, equals(p.join(r'C:\pvm\versions', '8.2')));
+          expect(
+            call.to,
+            equals(p.join(tempDir.path, PvmConstants.pvmDirName)),
+          );
+        },
+      );
+
+      test('walks up to ancestor directory containing .pvmrc', () async {
+        final phpVersion = File(
+          p.join(tempDir.path, PvmConstants.pvmrcFileName),
         );
-
-        await activator.activateLocal('8.2');
-
-        expect(osManager.createdSymlinks, hasLength(1));
-        final call = osManager.createdSymlinks.single;
-        expect(call.from, equals(p.join(r'C:\pvm\versions', '8.2')));
-        expect(call.to, equals(p.join(tempDir.path, PvmConstants.pvmDirName)));
-      });
-
-      test('walks up to ancestor directory containing .php-version', () async {
-        final phpVersion =
-            File(p.join(tempDir.path, PvmConstants.phpVersionFileName));
         await phpVersion.writeAsString('8.2');
 
         final nested = Directory(p.join(tempDir.path, 'a', 'b'));
@@ -123,8 +138,7 @@ void main() {
         expect(call.to, equals(p.join(tempDir.path, PvmConstants.pvmDirName)));
       });
 
-      test('falls back to current directory when no .php-version found',
-          () async {
+      test('falls back to current directory when no .pvmrc found', () async {
         osManager.mockCurrentDirectory = tempDir.path;
 
         final activator = WindowsVersionActivator(

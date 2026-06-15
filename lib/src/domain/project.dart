@@ -12,8 +12,8 @@ class Project {
 
   Project(this.rootDirectory);
 
-  File get phpVersionFile =>
-      File(p.join(rootDirectory.path, PvmConstants.phpVersionFileName));
+  File get pvmrcFile =>
+      File(p.join(rootDirectory.path, PvmConstants.pvmrcFileName));
 
   File get gitignoreFile =>
       File(p.join(rootDirectory.path, PvmConstants.gitignoreFileName));
@@ -21,15 +21,15 @@ class Project {
   Directory get pvmDirectory =>
       Directory(p.join(rootDirectory.path, PvmConstants.pvmDirName));
 
-  /// Read configured version from .php-version file.
+  /// Read configured version from `.pvmrc` file.
   /// Returns null if file doesn't exist.
   /// Throws [ProjectConfigurationException] if file contains invalid data.
   Future<PhpVersion?> getConfiguredVersion() async {
-    if (!await phpVersionFile.exists()) {
+    if (!await pvmrcFile.exists()) {
       return null;
     }
 
-    final raw = await phpVersionFile.readAsString();
+    final raw = await pvmrcFile.readAsString();
     final trimmed = raw.trim();
     if (trimmed.isEmpty) {
       return null;
@@ -50,10 +50,10 @@ class Project {
     return PhpVersion.parse(trimmed);
   }
 
-  /// Write version to .php-version file in JSON format.
+  /// Write version to `.pvmrc` file in JSON format.
   Future<void> setConfiguredVersion(PhpVersion version) async {
     final data = {'version': version.toString()};
-    await phpVersionFile.writeAsString(
+    await pvmrcFile.writeAsString(
       const JsonEncoder.withIndent('  ').convert(data),
     );
   }
@@ -64,21 +64,33 @@ class Project {
   }
 
   /// Find project root by walking up from current directory.
-  /// Returns project at current directory if no .php-version found.
   static Future<Project> findFromCurrentDirectory() async {
     return findFromPath(Directory.current.path);
   }
 
   /// Find project root by walking up from specified path.
+  ///
+  /// 1. If `.pvmrc` exists → root is that directory
+  /// 2. Else if `.pvm/` exists → root is that directory
+  /// 3. Else → root is [startPath]
   static Future<Project> findFromPath(String startPath) async {
     var current = Directory(startPath);
+    final userProfile =
+        Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
+    final normalizedHome = userProfile != null
+        ? p.normalize(userProfile)
+        : null;
 
     while (true) {
-      final versionFile = File(
-        p.join(current.path, PvmConstants.phpVersionFileName),
-      );
+      final pvmrc = File(p.join(current.path, PvmConstants.pvmrcFileName));
+      if (await pvmrc.exists()) {
+        return Project(current);
+      }
 
-      if (await versionFile.exists()) {
+      final pvmDir = Directory(p.join(current.path, PvmConstants.pvmDirName));
+      final isGlobalHomeSlot =
+          normalizedHome != null && p.normalize(current.path) == normalizedHome;
+      if (await pvmDir.exists() && !isGlobalHomeSlot) {
         return Project(current);
       }
 
@@ -89,7 +101,6 @@ class Project {
       current = current.parent;
     }
 
-    // No .php-version found, use start path as root
     return Project(Directory(startPath));
   }
 }

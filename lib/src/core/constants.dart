@@ -2,8 +2,11 @@
 class PvmConstants {
   // Directory and file names
   static const pvmDirName = '.pvm';
-  static const phpVersionFileName = '.php-version';
+  static const pvmrcFileName = '.pvmrc';
   static const gitignoreFileName = '.gitignore';
+
+  static const envPvmHome = 'PVM_HOME';
+  static const envPvmVersionsHome = 'PVM_VERSIONS_HOME';
 
   // Executables (Windows)
   static const phpExecutable = 'php.exe';

@@ -42,12 +42,12 @@ class _FakePhpExecutor extends PhpExecutor {
     required IProcessManager processManager,
     required IOSManager osManager,
     required IExecutableResolver executableResolver,
-  })  : _processManager = processManager,
-        super(
-          processManager: processManager,
-          osManager: osManager,
-          executableResolver: executableResolver,
-        );
+  }) : _processManager = processManager,
+       super(
+         processManager: processManager,
+         osManager: osManager,
+         executableResolver: executableResolver,
+       );
 
   final IProcessManager _processManager;
 
@@ -149,15 +149,17 @@ void main() {
 
     Future<int> runExec(List<String> args) async {
       final runner = CommandRunner<int>('pvm', 'test');
-      runner.addCommand(ExecCommand(
-        osManager: osManager,
-        platformConstants: PlatformConstants(WindowsPlatformInfo()),
-        phpExecutor: phpExecutor,
-        processManager: processManager,
-        composerLocator: composerLocator,
-        resolver: resolver,
-        console: console,
-      ));
+      runner.addCommand(
+        ExecCommand(
+          osManager: osManager,
+          platformConstants: PlatformConstants(WindowsPlatformInfo()),
+          phpExecutor: phpExecutor,
+          processManager: processManager,
+          composerLocator: composerLocator,
+          resolver: resolver,
+          console: console,
+        ),
+      );
       return await runner.run(['exec', ...args]) ?? 1;
     }
 
@@ -165,23 +167,29 @@ void main() {
       final code = await runExec(['8.3.0', 'php', '-v']);
 
       expect(code, equals(ExitCode.success));
-      expect(phpExecutor.lastPhpExecutable,
-          equals(r'C:\pvm\versions\8.3.0\php.exe'));
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+      );
       expect(processManager.lastInteractive!.arguments, equals(['-v']));
     });
 
     test('supports -- separator', () async {
       await runExec(['8.3.0', '--', 'php', '-r', 'echo 1;']);
 
-      expect(phpExecutor.lastPhpExecutable,
-          equals(r'C:\pvm\versions\8.3.0\php.exe'));
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+      );
     });
 
     test('--version flag selects PHP', () async {
       await runExec(['--version', '8.3.0', 'php', '-v']);
 
-      expect(phpExecutor.lastPhpExecutable,
-          equals(r'C:\pvm\versions\8.3.0\php.exe'));
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+      );
     });
 
     test('uses effective version when version omitted', () async {
@@ -191,8 +199,10 @@ void main() {
 
       await runExec(['php', '-v']);
 
-      expect(phpExecutor.lastPhpExecutable,
-          equals(r'C:\pvm\versions\8.3.0\php.exe'));
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+      );
     });
 
     test('versionNotFound when explicit missing', () async {
@@ -200,6 +210,40 @@ void main() {
 
       expect(code, equals(ExitCode.versionNotFound));
     });
+
+    test('major.minor shorthand resolves when one matching version', () async {
+      osManager.mockVersions = ['8.4.1', '8.3.0'];
+      for (final v in ['8.4.1', '8.3.0']) {
+        final dir = p.join(r'C:\pvm\versions', v);
+        osManager.setDirectoryExistsResult(dir, true);
+        osManager.setFileExistsResult(p.join(dir, 'php.exe'), true);
+      }
+
+      final code = await runExec(['8.4', 'php', '-v']);
+
+      expect(code, ExitCode.success);
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(p.join(r'C:\pvm\versions', '8.4.1', 'php.exe')),
+      );
+    });
+
+    test(
+      'major.minor shorthand fails when multiple patches installed',
+      () async {
+        osManager.mockVersions = ['8.4.0', '8.4.1', '8.3.0'];
+        for (final v in ['8.4.0', '8.4.1', '8.3.0']) {
+          final dir = p.join(r'C:\pvm\versions', v);
+          osManager.setDirectoryExistsResult(dir, true);
+          osManager.setFileExistsResult(p.join(dir, 'php.exe'), true);
+        }
+
+        final code = await runExec(['8.4', 'php', '-v']);
+
+        expect(code, ExitCode.versionNotFound);
+        expect(console.errors.last, contains('ambiguous'));
+      },
+    );
 
     test('usage when command empty', () async {
       final code = await runExec(['8.3.0']);
@@ -218,10 +262,14 @@ void main() {
     test('composer dispatches through composer locator + runScript', () async {
       await runExec(['8.3.0', 'composer', '--version']);
 
-      expect(phpExecutor.lastPhpExecutable,
-          equals(r'C:\pvm\versions\8.3.0\php.exe'));
-      expect(processManager.lastInteractive!.arguments.first,
-          equals(r'C:\bin\composer.phar'));
+      expect(
+        phpExecutor.lastPhpExecutable,
+        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+      );
+      expect(
+        processManager.lastInteractive!.arguments.first,
+        equals(r'C:\bin\composer.phar'),
+      );
     });
   });
 }

@@ -170,18 +170,12 @@ void main() {
     });
 
     test('unknown command throws exception', () async {
-      expect(
-        () => runner.run(['unknown']),
-        throwsException,
-      );
+      expect(() => runner.run(['unknown']), throwsException);
     });
 
     test('unknown flag passed to global throws exception', () async {
       osManager.mockVersions = ['8.0', '8.2'];
-      expect(
-        () => runner.run(['global', '--unknown', '8.0']),
-        throwsException,
-      );
+      expect(() => runner.run(['global', '--unknown', '8.0']), throwsException);
     });
 
     test('list command with extra arguments ignores them', () async {
@@ -263,8 +257,9 @@ void main() {
       osManager.mockCurrentDirectory = tempDir.path;
       osManager.shouldThrowOnSymlink = false;
 
-      final processManager =
-          _AdversarialRecordingProcessManager(exitCodeToReturn: 37);
+      final processManager = _AdversarialRecordingProcessManager(
+        exitCodeToReturn: 37,
+      );
       runner = TestPvmCommandRunner(
         osManager: osManager,
         processManager: processManager,
@@ -273,10 +268,14 @@ void main() {
       final exitCode = await runner.run(['php', '-v']);
 
       expect(exitCode, equals(37));
-      expect(processManager.lastInteractiveSpec?.executable,
-          equals('${tempDir.path}\\.pvm\\php.exe'));
       expect(
-          processManager.lastInteractiveSpec?.arguments, orderedEquals(['-v']));
+        processManager.lastInteractiveSpec?.executable,
+        equals('${tempDir.path}\\.pvm\\php.exe'),
+      );
+      expect(
+        processManager.lastInteractiveSpec?.arguments,
+        orderedEquals(['-v']),
+      );
 
       await tempDir.delete(recursive: true);
     });
@@ -302,8 +301,10 @@ void main() {
       final exitCode = await runner.run(['php', longArg]);
 
       expect(exitCode, equals(ExitCode.success));
-      expect(processManager.lastInteractiveSpec?.executable,
-          equals('${tempDir.path}\\.pvm\\php.exe'));
+      expect(
+        processManager.lastInteractiveSpec?.executable,
+        equals('${tempDir.path}\\.pvm\\php.exe'),
+      );
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
 
@@ -434,7 +435,7 @@ void main() {
         '8.0',
         '8.1',
         '8.2',
-        '8.3'
+        '8.3',
       ];
       final exitCode = await runner.run(['list']);
       expect(exitCode, equals(ExitCode.success));
@@ -537,14 +538,13 @@ void main() {
       runner = TestPvmCommandRunner(osManager: osManager);
     });
 
-    test('version with leading dash treated as flag throws exception',
-        () async {
-      osManager.mockVersions = ['8.0'];
-      expect(
-        () => runner.run(['global', '-8.0']),
-        throwsException,
-      );
-    });
+    test(
+      'version with leading dash treated as flag throws exception',
+      () async {
+        osManager.mockVersions = ['8.0'];
+        expect(() => runner.run(['global', '-8.0']), throwsException);
+      },
+    );
 
     test('version with double dots', () async {
       osManager.mockVersions = ['8.0'];
@@ -584,10 +584,7 @@ void main() {
 
     test('negative version number treated as flag throws exception', () async {
       osManager.mockVersions = ['8.0'];
-      expect(
-        () => runner.run(['global', '-1.0']),
-        throwsException,
-      );
+      expect(() => runner.run(['global', '-1.0']), throwsException);
     });
 
     test('version with letters only', () async {
@@ -620,27 +617,21 @@ void main() {
     });
 
     test('command name case sensitivity throws exception', () async {
-      expect(
-        () => runner.run(['GLOBAL', '8.0']),
-        throwsException,
-      );
+      expect(() => runner.run(['GLOBAL', '8.0']), throwsException);
     });
 
     test('mixed case command name throws exception', () async {
-      expect(
-        () => runner.run(['Use', '8.0']),
-        throwsException,
-      );
+      expect(() => runner.run(['Use', '8.0']), throwsException);
     });
   });
 }
 
-/// Walk up from [dir] and delete any .php-version files found.
+/// Walk up from [dir] and delete any .pvmrc files found.
 Future<void> _cleanupPhpVersionInParents(Directory dir) async {
   while (true) {
-    final phpVersion = File('${dir.path}\\.php-version');
-    if (await phpVersion.exists()) {
-      await phpVersion.delete();
+    final pvmrc = File('${dir.path}\\.pvmrc');
+    if (await pvmrc.exists()) {
+      await pvmrc.delete();
     }
     if (dir.parent.path == dir.path) break;
     dir = dir.parent;

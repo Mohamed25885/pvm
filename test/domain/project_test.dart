@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 
 import 'package:pvm/src/core/constants.dart';
 import 'package:pvm/src/domain/exceptions.dart';
+import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/domain/project.dart';
 
 void main() {
@@ -21,24 +22,23 @@ void main() {
       }
     });
 
-    Future<File> writeVersionFile(String dirPath, String contents) async {
-      final file = File(p.join(dirPath, PvmConstants.phpVersionFileName));
+    Future<File> writePvmrcFile(String dirPath, String contents) async {
+      final file = File(p.join(dirPath, PvmConstants.pvmrcFileName));
       await file.writeAsString(contents);
       return file;
     }
 
     group('findFromPath', () {
-      test('returns project at start path when .php-version is present',
-          () async {
-        await writeVersionFile(tempDir.path, '8.2');
+      test('returns project at start path when .pvmrc is present', () async {
+        await writePvmrcFile(tempDir.path, '8.2');
 
         final project = await Project.findFromPath(tempDir.path);
 
         expect(project.rootDirectory.path, equals(tempDir.path));
       });
 
-      test('walks up to parent when .php-version is in ancestor', () async {
-        await writeVersionFile(tempDir.path, '8.2');
+      test('walks up to parent when .pvmrc is in ancestor', () async {
+        await writePvmrcFile(tempDir.path, '8.2');
         final nested = Directory(p.join(tempDir.path, 'a', 'b', 'c'));
         await nested.create(recursive: true);
 
@@ -47,7 +47,40 @@ void main() {
         expect(project.rootDirectory.path, equals(tempDir.path));
       });
 
-      test('falls back to start path when no .php-version exists', () async {
+      test(
+        'skips user-profile .pvm when walking up from nested path',
+        () async {
+          final nested = Directory(p.join(tempDir.path, 'src'));
+          await nested.create(recursive: true);
+
+          final project = await Project.findFromPath(nested.path);
+
+          expect(project.rootDirectory.path, equals(nested.path));
+        },
+      );
+
+      test('returns project when .pvm marker exists without .pvmrc', () async {
+        final pvmDir = Directory(p.join(tempDir.path, PvmConstants.pvmDirName));
+        await pvmDir.create();
+        final nested = Directory(p.join(tempDir.path, 'src'));
+        await nested.create(recursive: true);
+
+        final project = await Project.findFromPath(nested.path);
+
+        expect(project.rootDirectory.path, equals(tempDir.path));
+      });
+
+      test('ignores .php-version when only legacy file present', () async {
+        await File(p.join(tempDir.path, '.php-version')).writeAsString('8.2\n');
+        final nested = Directory(p.join(tempDir.path, 'src'));
+        await nested.create(recursive: true);
+
+        final project = await Project.findFromPath(nested.path);
+
+        expect(project.rootDirectory.path, equals(nested.path));
+      });
+
+      test('falls back to start path when no .pvmrc or .pvm exists', () async {
         final nested = Directory(p.join(tempDir.path, 'a', 'b'));
         await nested.create(recursive: true);
 
@@ -68,7 +101,7 @@ void main() {
     });
 
     group('getConfiguredVersion', () {
-      test('returns null when .php-version file does not exist', () async {
+      test('returns null when .pvmrc file does not exist', () async {
         final project = Project(tempDir);
 
         final version = await project.getConfiguredVersion();
@@ -77,7 +110,7 @@ void main() {
       });
 
       test('returns null when file is empty', () async {
-        await writeVersionFile(tempDir.path, '');
+        await writePvmrcFile(tempDir.path, '');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -86,7 +119,7 @@ void main() {
       });
 
       test('returns null when file is whitespace only', () async {
-        await writeVersionFile(tempDir.path, '   \n\t  ');
+        await writePvmrcFile(tempDir.path, '   \n\t  ');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -95,7 +128,7 @@ void main() {
       });
 
       test('reads plain text major.minor', () async {
-        await writeVersionFile(tempDir.path, '8.2');
+        await writePvmrcFile(tempDir.path, '8.2');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -105,7 +138,7 @@ void main() {
       });
 
       test('reads plain text major.minor.patch', () async {
-        await writeVersionFile(tempDir.path, '8.2.10');
+        await writePvmrcFile(tempDir.path, '8.2.10');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -114,7 +147,7 @@ void main() {
       });
 
       test('strips trailing whitespace and newlines from plain text', () async {
-        await writeVersionFile(tempDir.path, '  8.2.10\n');
+        await writePvmrcFile(tempDir.path, '  8.2.10\n');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -123,7 +156,7 @@ void main() {
       });
 
       test('reads JSON object with version field', () async {
-        await writeVersionFile(tempDir.path, '{"version": "8.3.0"}');
+        await writePvmrcFile(tempDir.path, '{"version": "8.3.0"}');
 
         final project = Project(tempDir);
         final version = await project.getConfiguredVersion();
@@ -132,7 +165,7 @@ void main() {
       });
 
       test('reads pretty-printed JSON object', () async {
-        await writeVersionFile(tempDir.path, '''
+        await writePvmrcFile(tempDir.path, '''
 {
   "version": "8.1.5"
 }''');
@@ -144,7 +177,7 @@ void main() {
       });
 
       test('throws on invalid version format in plain text', () async {
-        await writeVersionFile(tempDir.path, 'not-a-version');
+        await writePvmrcFile(tempDir.path, 'not-a-version');
 
         final project = Project(tempDir);
 
@@ -156,22 +189,20 @@ void main() {
     });
 
     group('setConfiguredVersion', () {
-      test('writes JSON file readable by getConfiguredVersion', () async {
-        await writeVersionFile(tempDir.path, '8.2');
+      test(
+        'writes JSON file with version key readable by getConfiguredVersion',
+        () async {
+          final project = Project(tempDir);
+          await project.setConfiguredVersion(PhpVersion.parse('8.2'));
 
-        final project = Project(tempDir);
-        final initial = await project.getConfiguredVersion();
-        expect(initial, isNotNull);
+          final raw = await project.pvmrcFile.readAsString();
+          expect(raw, contains('"version"'));
+          expect(raw, contains('"8.2"'));
 
-        await project.setConfiguredVersion(initial!);
-
-        final raw = await project.phpVersionFile.readAsString();
-        expect(raw, contains('"version"'));
-        expect(raw, contains('"8.2"'));
-
-        final reread = await project.getConfiguredVersion();
-        expect(reread, equals(initial));
-      });
+          final reread = await project.getConfiguredVersion();
+          expect(reread.toString(), equals('8.2'));
+        },
+      );
     });
 
     group('hasActiveVersion', () {
@@ -190,16 +221,20 @@ void main() {
     });
 
     group('paths', () {
-      test('phpVersionFile is rooted under project directory', () {
+      test('pvmrcFile is rooted under project directory', () {
         final project = Project(tempDir);
-        expect(project.phpVersionFile.path,
-            equals(p.join(tempDir.path, PvmConstants.phpVersionFileName)));
+        expect(
+          project.pvmrcFile.path,
+          equals(p.join(tempDir.path, PvmConstants.pvmrcFileName)),
+        );
       });
 
       test('pvmDirectory is rooted under project directory', () {
         final project = Project(tempDir);
-        expect(project.pvmDirectory.path,
-            equals(p.join(tempDir.path, PvmConstants.pvmDirName)));
+        expect(
+          project.pvmDirectory.path,
+          equals(p.join(tempDir.path, PvmConstants.pvmDirName)),
+        );
       });
     });
   });

@@ -3,10 +3,10 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/os_manager.dart';
+import '../core/pvm_paths.dart';
 
 class WindowsOSManager implements IOSManager {
-  @override
-  String get programDirectory {
+  String get _programDirectoryFallback {
     final exePath = Platform.resolvedExecutable;
     if (p.basename(exePath).startsWith('dart')) {
       return File(Platform.script.toFilePath()).parent.path;
@@ -14,8 +14,16 @@ class WindowsOSManager implements IOSManager {
     return File(exePath).parent.path;
   }
 
+  PvmPaths get _paths => PvmPaths.fromEnvironment(
+    currentEnvironment,
+    programDirectoryFallback: _programDirectoryFallback,
+  );
+
   @override
-  String get phpVersionsPath => p.join(programDirectory, 'versions');
+  String get programDirectory => _paths.pvmHome;
+
+  @override
+  String get phpVersionsPath => _paths.versionsHome;
 
   @override
   String get localPath =>
@@ -41,7 +49,10 @@ class WindowsOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     final homeDir = Directory(to).parent;
 
     if (homeDir.path.isEmpty || !(await directoryExists(homeDir.path))) {
@@ -117,10 +128,7 @@ class WindowsOSManager implements IOSManager {
     final type = await FileSystemEntity.type(path, followLinks: false);
     if (type == FileSystemEntityType.notFound) return;
     if (type != FileSystemEntityType.link) {
-      throw FileSystemException(
-        'Path is not a symbolic link',
-        path,
-      );
+      throw FileSystemException('Path is not a symbolic link', path);
     }
     await Link(path).delete();
   }

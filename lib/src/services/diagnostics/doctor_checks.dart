@@ -155,17 +155,15 @@ class InstalledVersionsCheck implements DiagnosticCheck {
       final ok = await _osManager.fileExists(phpExe);
       if (!ok) hasBroken = true;
       lines.add(
-          '  - ${v.toString()}${ok ? '' : '  (missing ${p.basename(phpExe)})'}');
+        '  - ${v.toString()}${ok ? '' : '  (missing ${p.basename(phpExe)})'}',
+      );
     }
 
     return DiagnosticResult(
       id: id,
       label: label,
       status: hasBroken ? DiagnosticStatus.warn : DiagnosticStatus.ok,
-      lines: [
-        'count: ${versions.length}',
-        ...lines,
-      ],
+      lines: ['count: ${versions.length}', ...lines],
     );
   }
 }
@@ -190,7 +188,8 @@ class ActiveVersionsCheck implements DiagnosticCheck {
       'local   : ${_formatSlot(active.local)}',
       'effective: ${active.isNone ? 'none' : '${active.version} (${active.scope.name})'}',
     ];
-    final anyBroken = active.global.status == SymLinkStatus.broken ||
+    final anyBroken =
+        active.global.status == SymLinkStatus.broken ||
         active.local.status == SymLinkStatus.broken;
     return DiagnosticResult(
       id: id,
@@ -252,17 +251,14 @@ class SymlinkProbeCheck implements DiagnosticCheck {
         id: id,
         label: label,
         status: DiagnosticStatus.ok,
-        lines: [
-          'Created and removed a test symlink under:',
-          '  ${temp.path}',
-        ],
+        lines: ['Created and removed a test symlink under:', '  ${temp.path}'],
       );
     } on Exception catch (e) {
       final hint = PlatformDetector.isWindows
           ? 'Enable Developer Mode (Settings -> Privacy & security -> '
-              'For developers) or run pvm as Administrator.'
+                'For developers) or run pvm as Administrator.'
           : 'Filesystem may not allow symlinks (e.g. FAT/exFAT). '
-              'Try a different temp directory.';
+                'Try a different temp directory.';
       return DiagnosticResult(
         id: id,
         label: label,
@@ -341,8 +337,10 @@ class PathContainsGlobalCheck implements DiagnosticCheck {
     final globalDir = p.join(home, PvmConstants.pvmDirName);
     final pathEnv = _osManager.currentEnvironment['PATH'] ?? '';
     final sep = _platformConstants.pathSeparator;
-    final entries =
-        pathEnv.split(sep).map((e) => e.trim()).where((e) => e.isNotEmpty);
+    final entries = pathEnv
+        .split(sep)
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty);
 
     var found = false;
     for (final entry in entries) {
@@ -370,14 +368,14 @@ class PathContainsGlobalCheck implements DiagnosticCheck {
   }
 }
 
-/// `.php-version` in the current project (informational).
-class ProjectPhpVersionCheck implements DiagnosticCheck {
+/// `.pvmrc` in the current project (informational).
+class ProjectPvmrcCheck implements DiagnosticCheck {
   final IOSManager _osManager;
 
-  ProjectPhpVersionCheck(this._osManager);
+  ProjectPvmrcCheck(this._osManager);
 
   @override
-  String get id => 'project-php-version';
+  String get id => 'project-pvmrc';
 
   @override
   String get label => 'Project';
@@ -385,7 +383,7 @@ class ProjectPhpVersionCheck implements DiagnosticCheck {
   @override
   Future<DiagnosticResult> run() async {
     final project = await Project.findFromPath(_osManager.currentDirectory);
-    final file = project.phpVersionFile;
+    final file = project.pvmrcFile;
     final exists = await file.exists();
     if (!exists) {
       return DiagnosticResult(
@@ -394,7 +392,7 @@ class ProjectPhpVersionCheck implements DiagnosticCheck {
         status: DiagnosticStatus.info,
         lines: [
           'root         : ${project.rootDirectory.path}',
-          '.php-version : (not found)',
+          '.pvmrc     : (not found)',
         ],
       );
     }
@@ -402,15 +400,16 @@ class ProjectPhpVersionCheck implements DiagnosticCheck {
     try {
       final configured = await project.getConfiguredVersion();
       final registry = VersionRegistry(_osManager);
-      final installed =
-          configured == null ? false : await registry.isInstalled(configured);
+      final installed = configured == null
+          ? false
+          : await registry.isInstalled(configured);
       return DiagnosticResult(
         id: id,
         label: label,
         status: DiagnosticStatus.info,
         lines: [
           'root         : ${project.rootDirectory.path}',
-          '.php-version : ${configured ?? '(empty)'}',
+          '.pvmrc     : ${configured ?? '(empty)'}',
           if (configured != null) 'installed    : ${installed ? 'yes' : 'no'}',
         ],
       );
@@ -421,7 +420,7 @@ class ProjectPhpVersionCheck implements DiagnosticCheck {
         status: DiagnosticStatus.warn,
         lines: [
           'root         : ${project.rootDirectory.path}',
-          '.php-version : invalid format',
+          '.pvmrc     : invalid format',
           'reason       : ${e.message}',
         ],
       );

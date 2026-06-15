@@ -9,18 +9,18 @@ class PhpVersionManager {
 
   PhpVersionManager(this.console);
 
-  /// Read version from .php-version file.
+  /// Read version from `.pvmrc` file.
   /// Returns null if file doesn't exist or is empty.
   /// Throws [InvalidVersionFormatException] on invalid format.
   ///
   /// Delegates to [Project.getConfiguredVersion] to keep a single canonical
-  /// reader for the .php-version file format (JSON or plain text).
+  /// reader for the `.pvmrc` file format (JSON or plain text).
   Future<PhpVersion?> readLastUsedVersion({required String rootPath}) async {
     final project = Project(Directory(rootPath));
     return project.getConfiguredVersion();
   }
 
-  /// Write version to .php-version file in JSON format.
+  /// Write version to `.pvmrc` file in JSON format.
   ///
   /// Delegates to [Project.setConfiguredVersion] for the canonical write path.
   Future<void> writeCurrentVersion({
@@ -38,7 +38,7 @@ class PhpVersionManager {
     required PhpVersion requestedVersion,
   }) async {
     return console.confirm(
-      'Detected .php-version contains "$currentVersion". '
+      'Detected .pvmrc contains "$currentVersion". '
       'Switch to "$requestedVersion"?',
     );
   }

@@ -60,48 +60,55 @@ void main() {
     });
 
     test(
-        'pvm php --version delegates to PhpCommand (does not show PVM version)',
-        () async {
-      // Setup: create a project directory with .php-version and .pvm/php.exe
-      final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
-      await File('${tempDir.path}\\.php-version').writeAsString('8.2\n');
-      await Directory('${tempDir.path}\\.pvm').create();
-      await File('${tempDir.path}\\.pvm\\php.exe').create();
+      'pvm php --version delegates to PhpCommand (does not show PVM version)',
+      () async {
+        // Setup: create a project directory with .pvmrc and .pvm/php.exe
+        final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
+        await File('${tempDir.path}\\.pvmrc').writeAsString('8.2\n');
+        await Directory('${tempDir.path}\\.pvm').create();
+        await File('${tempDir.path}\\.pvm\\php.exe').create();
 
-      osManager.mockCurrentDirectory = tempDir.path;
+        osManager.mockCurrentDirectory = tempDir.path;
 
-      // Use a custom process manager to simulate PHP --version output
-      final processManager = RecordingProcessManager(
-        exitCodeToReturn: 0,
-        stdoutToReturn: 'PHP 8.2.0 (cli) ...',
-      );
+        // Use a custom process manager to simulate PHP --version output
+        final processManager = RecordingProcessManager(
+          exitCodeToReturn: 0,
+          stdoutToReturn: 'PHP 8.2.0 (cli) ...',
+        );
 
-      final runner = TestPvmCommandRunner(
-        osManager: osManager,
-        processManager: processManager,
-      );
-      final output = <String>[];
+        final runner = TestPvmCommandRunner(
+          osManager: osManager,
+          processManager: processManager,
+        );
+        final output = <String>[];
 
-      final exitCode = await runner
-          .runAndCapture(['php', '--version'], capturedOutput: output);
+        final exitCode = await runner.runAndCapture([
+          'php',
+          '--version',
+        ], capturedOutput: output);
 
-      // Verify delegation: exit code from PhpCommand (0)
-      expect(exitCode, equals(0));
+        // Verify delegation: exit code from PhpCommand (0)
+        expect(exitCode, equals(0));
 
-      // Verify that the process manager was called (PhpCommand executed)
-      expect(processManager.runInteractiveCallCount, equals(1));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments,
-          orderedEquals(['--version']));
+        // Verify that the process manager was called (PhpCommand executed)
+        expect(processManager.runInteractiveCallCount, equals(1));
+        expect(
+          processManager.lastInteractiveSpec?.executable,
+          endsWith(r'\.pvm\php.exe'),
+        );
+        expect(
+          processManager.lastInteractiveSpec?.arguments,
+          orderedEquals(['--version']),
+        );
 
-      // Verify PVM version was NOT printed
-      expect(output.join('\n'), isNot(contains('PVM version:')));
-    });
+        // Verify PVM version was NOT printed
+        expect(output.join('\n'), isNot(contains('PVM version:')));
+      },
+    );
 
     test('pvm php --help delegates to PhpCommand help', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
-      await File('${tempDir.path}\\.php-version').writeAsString('8.2\n');
+      await File('${tempDir.path}\\.pvmrc').writeAsString('8.2\n');
       await Directory('${tempDir.path}\\.pvm').create();
       await File('${tempDir.path}\\.pvm\\php.exe').create();
 
@@ -118,15 +125,21 @@ void main() {
       );
       final output = <String>[];
 
-      final exitCode =
-          await runner.runAndCapture(['php', '--help'], capturedOutput: output);
+      final exitCode = await runner.runAndCapture([
+        'php',
+        '--help',
+      ], capturedOutput: output);
 
       expect(exitCode, equals(0));
       expect(processManager.runInteractiveCallCount, equals(1));
-      expect(processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'));
-      expect(processManager.lastInteractiveSpec?.arguments,
-          orderedEquals(['--help']));
+      expect(
+        processManager.lastInteractiveSpec?.executable,
+        endsWith(r'\.pvm\php.exe'),
+      );
+      expect(
+        processManager.lastInteractiveSpec?.arguments,
+        orderedEquals(['--help']),
+      );
 
       expect(output.join('\n'), isNot(contains('Usage:')));
     });

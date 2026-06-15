@@ -5,6 +5,7 @@ import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../domain/exceptions.dart';
+import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
@@ -38,26 +39,44 @@ class GlobalCommand extends Command<int> {
       }
 
       final versionStr = argResults!.rest.first;
-      final version = PhpVersion.parse(versionStr);
+      final requested = PhpVersion.parse(versionStr);
 
       final registry = VersionRegistry(_osManager);
       final installed = await registry.getInstalledVersions();
 
-      if (!installed.contains(version)) {
-        _console.printError(VersionDiagnostics.notInstalledMessage(
-          requested: version,
-          installed: installed,
-        ));
+      final resolveResult = InstalledVersionResolver.resolve(
+        requested,
+        installed,
+      );
+      if (resolveResult is AmbiguousInstalledVersion) {
+        _console.printError(
+          VersionDiagnostics.ambiguousVersionMessage(
+            requested: requested,
+            matches: resolveResult.candidates,
+          ),
+        );
         return ExitCode.versionNotFound;
       }
+      if (resolveResult is NotFoundInstalledVersion) {
+        _console.printError(
+          VersionDiagnostics.notInstalledMessage(
+            requested: requested,
+            installed: installed,
+          ),
+        );
+        return ExitCode.versionNotFound;
+      }
+      final version = (resolveResult as ResolvedInstalledVersion).version;
 
       final sourcePath = p.join(_osManager.phpVersionsPath, version.toString());
 
       if (!await _osManager.directoryExists(sourcePath)) {
-        _console.printError(VersionDiagnostics.notInstalledMessage(
-          requested: version,
-          installed: installed,
-        ));
+        _console.printError(
+          VersionDiagnostics.notInstalledMessage(
+            requested: version,
+            installed: installed,
+          ),
+        );
         return ExitCode.versionNotFound;
       }
 
