@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v1.2.0...HEAD)
 
+### Changed
+- **Version shorthand:** `pvm use`, `pvm global`, `pvm exec`, and `pvm uninstall` accept `major.minor` (e.g. `8.4`) when exactly one installed version matches; if multiple patches exist (e.g. `8.4.0` and `8.4.1`), the full `major.minor.patch` is required. **Breaking:** `pvm exec` and `pvm uninstall` no longer auto-select the newest patch when ambiguous.
+- **Breaking:** Project version configuration moved from `.php-version` to `.pvmrc` (JSON). PVM no longer reads, writes, or discovers `.php-version` at runtime. Re-run `pvm use <version>` (or create `.pvmrc` manually) to migrate existing projects.
+- Project root discovery walks for `.pvmrc` first, then `.pvm/` marker; legacy `.php-version` files are ignored.
+- `pvm doctor` project check renamed to `ProjectPvmrcCheck` (`.pvmrc` label).
+
 ## [1.2.0] - 2026-05-04
 
 ### Added

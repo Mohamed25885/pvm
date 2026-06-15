@@ -34,11 +34,13 @@ void main() {
 
     Future<int> run(List<String> args) async {
       final runner = CommandRunner<int>('pvm', 'test');
-      runner.addCommand(UninstallCommand(
-        osManager: osManager,
-        symlinkInspector: inspector,
-        console: console,
-      ));
+      runner.addCommand(
+        UninstallCommand(
+          osManager: osManager,
+          symlinkInspector: inspector,
+          console: console,
+        ),
+      );
       return await runner.run(['uninstall', ...args]) ?? 1;
     }
 
@@ -75,12 +77,25 @@ void main() {
       expect(osManager.deletedSymLinks, contains(globalLink));
     });
 
-    test('short 8.2 resolves to highest patch', () async {
+    test('short 8.2 resolves when only one 8.2.x installed', () async {
+      osManager.mockVersions = ['8.2.15', '8.3.0'];
+      for (final v in ['8.2.15', '8.3.0']) {
+        osManager.setDirectoryExistsResult(p.join(r'C:\pvm\versions', v), true);
+      }
+
       final code = await run(['8.2', '--yes']);
 
       expect(code, equals(ExitCode.success));
       final expected = p.join(r'C:\pvm\versions', '8.2.15');
       expect(osManager.deletedDirectories, contains(expected));
+    });
+
+    test('short 8.2 fails when multiple 8.2.x installed', () async {
+      final code = await run(['8.2', '--yes']);
+
+      expect(code, equals(ExitCode.versionNotFound));
+      expect(console.errors.last, contains('ambiguous'));
+      expect(osManager.deletedDirectories, isEmpty);
     });
 
     test('--yes skips confirmation', () async {

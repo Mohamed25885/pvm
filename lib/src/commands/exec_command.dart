@@ -10,6 +10,7 @@ import '../core/os_manager.dart';
 import '../core/platform_constants.dart';
 import '../core/process_manager.dart';
 import '../domain/exceptions.dart';
+import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
@@ -44,13 +45,13 @@ class ExecCommand extends Command<int> {
     required IComposerLocator composerLocator,
     required ActiveVersionResolver resolver,
     required Console console,
-  })  : _osManager = osManager,
-        _platformConstants = platformConstants,
-        _phpExecutor = phpExecutor,
-        _processManager = processManager,
-        _composerLocator = composerLocator,
-        _resolver = resolver,
-        _console = console;
+  }) : _osManager = osManager,
+       _platformConstants = platformConstants,
+       _phpExecutor = phpExecutor,
+       _processManager = processManager,
+       _composerLocator = composerLocator,
+       _resolver = resolver,
+       _console = console;
 
   @override
   Future<int> run() async {
@@ -60,8 +61,10 @@ class ExecCommand extends Command<int> {
     var tokens = List<String>.from(parsed.command);
     if (tokens.isEmpty) {
       _console.printError('No command specified.');
-      _console.print('Usage: pvm exec [version] [--] <command> [args...]\n'
-          '   or: pvm exec --version <ver> [--] <command> [args...]');
+      _console.print(
+        'Usage: pvm exec [version] [--] <command> [args...]\n'
+        '   or: pvm exec --version <ver> [--] <command> [args...]',
+      );
       return ExitCode.usageError;
     }
 
@@ -75,12 +78,17 @@ class ExecCommand extends Command<int> {
     if (parsed.versionFromFlag != null) {
       try {
         final parsedVer = PhpVersion.parse(parsed.versionFromFlag!);
-        final resolved = _resolveFromInstalled(parsedVer, installed);
-        if (resolved == null || !await registry.isInstalled(resolved)) {
-          _console.printError(VersionDiagnostics.notInstalledMessage(
-            requested: parsedVer,
-            installed: installed,
-          ));
+        final resolved = _resolveInstalledVersion(parsedVer, installed);
+        if (resolved == null) {
+          return ExitCode.versionNotFound;
+        }
+        if (!await registry.isInstalled(resolved)) {
+          _console.printError(
+            VersionDiagnostics.notInstalledMessage(
+              requested: parsedVer,
+              installed: installed,
+            ),
+          );
           return ExitCode.versionNotFound;
         }
         version = resolved;
@@ -97,19 +105,25 @@ class ExecCommand extends Command<int> {
       }
 
       if (maybeVersionToken != null) {
-        final resolved = _resolveFromInstalled(maybeVersionToken, installed);
-        if (resolved == null || !await registry.isInstalled(resolved)) {
-          _console.printError(VersionDiagnostics.notInstalledMessage(
-            requested: maybeVersionToken,
-            installed: installed,
-          ));
+        final resolved = _resolveInstalledVersion(maybeVersionToken, installed);
+        if (resolved == null) {
+          return ExitCode.versionNotFound;
+        }
+        if (!await registry.isInstalled(resolved)) {
+          _console.printError(
+            VersionDiagnostics.notInstalledMessage(
+              requested: maybeVersionToken,
+              installed: installed,
+            ),
+          );
           return ExitCode.versionNotFound;
         }
         version = resolved;
         tokens = tokens.sublist(1);
       } else {
-        final active =
-            await _resolver.resolve(projectRoot: project.rootDirectory.path);
+        final active = await _resolver.resolve(
+          projectRoot: project.rootDirectory.path,
+        );
         if (active.version == null) {
           _console.printError(
             'No active PHP version. Run `pvm global <version>` first, '
@@ -134,9 +148,7 @@ class ExecCommand extends Command<int> {
     final phpExe = p.join(phpDir, _platformConstants.phpExecutableName);
 
     if (!await _osManager.fileExists(phpExe)) {
-      _console.printError(
-        'PHP executable missing for $version at:\n  $phpExe',
-      );
+      _console.printError('PHP executable missing for $version at:\n  $phpExe');
       return ExitCode.generalError;
     }
 
@@ -241,19 +253,30 @@ class ExecCommand extends Command<int> {
     );
   }
 
-  PhpVersion? _resolveFromInstalled(
-    PhpVersion parsed,
+  PhpVersion? _resolveInstalledVersion(
+    PhpVersion requested,
     List<PhpVersion> installed,
   ) {
-    if (installed.contains(parsed)) return parsed;
-    if (parsed.hasPatch) return null;
-
-    final candidates = installed
-        .where((v) => v.major == parsed.major && v.minor == parsed.minor)
-        .toList();
-    if (candidates.isEmpty) return null;
-    candidates.sort((a, b) => b.compareTo(a));
-    return candidates.first;
+    switch (InstalledVersionResolver.resolve(requested, installed)) {
+      case ResolvedInstalledVersion(:final version):
+        return version;
+      case AmbiguousInstalledVersion(:final candidates):
+        _console.printError(
+          VersionDiagnostics.ambiguousVersionMessage(
+            requested: requested,
+            matches: candidates,
+          ),
+        );
+        return null;
+      case NotFoundInstalledVersion():
+        _console.printError(
+          VersionDiagnostics.notInstalledMessage(
+            requested: requested,
+            installed: installed,
+          ),
+        );
+        return null;
+    }
   }
 }
 

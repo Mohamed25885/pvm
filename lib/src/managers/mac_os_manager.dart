@@ -1,23 +1,34 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 
+import '../core/constants.dart';
 import '../core/os_manager.dart';
+import '../core/pvm_paths.dart';
 
 /// macOS OS Manager - implements all IOSManager operations for macOS.
 class MacOSManager implements IOSManager {
   String get _scriptDirectory => File(Platform.script.toFilePath()).parent.path;
 
+  PvmPaths get _paths => PvmPaths.fromEnvironment(
+    Platform.environment,
+    programDirectoryFallback: _scriptDirectory,
+  );
+
   @override
-  String get programDirectory => _scriptDirectory;
+  String get programDirectory => _paths.pvmHome;
 
   @override
   String get phpVersionsPath {
-    final preferred = p.join(programDirectory, 'versions');
+    final envVersions = Platform.environment[PvmConstants.envPvmVersionsHome];
+    if (envVersions != null && envVersions.trim().isNotEmpty) {
+      return _paths.versionsHome;
+    }
+    final preferred = p.join(_scriptDirectory, 'versions');
     final legacy = p.join(homeDirectory, '.pvm', 'versions');
 
     if (Directory(preferred).existsSync()) return preferred;
     if (Directory(legacy).existsSync()) return legacy;
-    return preferred;
+    return _paths.versionsHome;
   }
 
   @override
@@ -38,7 +49,10 @@ class MacOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     try {
       // Replace existing link/dir if present (best-effort).
       final existingType = await FileSystemEntity.type(to, followLinks: false);

@@ -28,8 +28,9 @@ class _Harness {
     tempProjectDir = await Directory.systemTemp.createTemp('pvm_current_cmd_');
     osManager.mockCurrentDirectory = tempProjectDir.path;
     if (phpVersionContent != null) {
-      await File(p.join(tempProjectDir.path, PvmConstants.phpVersionFileName))
-          .writeAsString(phpVersionContent);
+      await File(
+        p.join(tempProjectDir.path, PvmConstants.pvmrcFileName),
+      ).writeAsString(phpVersionContent);
     }
   }
 
@@ -132,8 +133,7 @@ void main() {
       }
     });
 
-    test('flags drift when local link version differs from .php-version',
-        () async {
+    test('flags drift when local link version differs from .pvmrc', () async {
       final h = _Harness();
       await h.initProject(phpVersionContent: '8.2.10');
       try {

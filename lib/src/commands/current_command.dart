@@ -59,14 +59,16 @@ class CurrentCommand extends Command<int> {
     final asJson = flags['json'] as bool;
 
     if (globalOnly && localOnly) {
-      _console
-          .printError('--global-only and --local-only are mutually exclusive');
+      _console.printError(
+        '--global-only and --local-only are mutually exclusive',
+      );
       return ExitCode.usageError;
     }
 
     final project = await Project.findFromPath(_osManager.currentDirectory);
-    final active =
-        await _resolver.resolve(projectRoot: project.rootDirectory.path);
+    final active = await _resolver.resolve(
+      projectRoot: project.rootDirectory.path,
+    );
 
     PhpVersion? declared;
     try {
@@ -76,11 +78,21 @@ class CurrentCommand extends Command<int> {
     }
 
     if (asJson) {
-      _console.print(_renderJson(active, declared,
-          globalOnly: globalOnly, localOnly: localOnly));
+      _console.print(
+        _renderJson(
+          active,
+          declared,
+          globalOnly: globalOnly,
+          localOnly: localOnly,
+        ),
+      );
     } else {
-      _renderHuman(active, declared,
-          globalOnly: globalOnly, localOnly: localOnly);
+      _renderHuman(
+        active,
+        declared,
+        globalOnly: globalOnly,
+        localOnly: localOnly,
+      );
     }
 
     return active.isNone ? ExitCode.configurationError : ExitCode.success;
@@ -96,22 +108,29 @@ class CurrentCommand extends Command<int> {
     _console.print('');
 
     if (!localOnly) {
-      _renderScope('Global', active.global,
-          isEffective: active.scope == VersionScope.global);
+      _renderScope(
+        'Global',
+        active.global,
+        isEffective: active.scope == VersionScope.global,
+      );
     }
 
     if (!globalOnly) {
-      _renderScope('Local', active.local,
-          isEffective: active.scope == VersionScope.local,
-          declaredVersion: declared);
+      _renderScope(
+        'Local',
+        active.local,
+        isEffective: active.scope == VersionScope.local,
+        declaredVersion: declared,
+      );
     }
 
     _console.print('');
     if (active.isNone) {
       _console.print('Effective: none');
     } else {
-      final scopeLabel =
-          active.scope == VersionScope.local ? 'local' : 'global';
+      final scopeLabel = active.scope == VersionScope.local
+          ? 'local'
+          : 'global';
       _console.print('Effective: ${active.version} ($scopeLabel)');
     }
   }
@@ -137,12 +156,12 @@ class CurrentCommand extends Command<int> {
         _console.print('  -> ok : ${info.target}');
         if (label == 'Local' && declaredVersion != null) {
           if (info.version != declaredVersion) {
+            _console.print('  declared in .pvmrc: $declaredVersion (mismatch)');
             _console.print(
-                '  declared in .php-version: $declaredVersion (mismatch)');
-            _console.print(
-                '  Hint: run `pvm use` to re-activate the declared version.');
+              '  Hint: run `pvm use` to re-activate the declared version.',
+            );
           } else {
-            _console.print('  declared in .php-version: $declaredVersion');
+            _console.print('  declared in .pvmrc: $declaredVersion');
           }
         }
         break;
@@ -150,23 +169,29 @@ class CurrentCommand extends Command<int> {
         _console.print('$label   : BROKEN');
         _console.print('  link  : ${info.linkPath}');
         _console.print(
-            '  -> X  : ${info.target ?? '(unreadable)'} (target missing)');
+          '  -> X  : ${info.target ?? '(unreadable)'} (target missing)',
+        );
         _console.print(
-            '  Hint: run `pvm ${label.toLowerCase()} <version>` to repair, '
-            'or `pvm doctor`.');
+          '  Hint: run `pvm ${label.toLowerCase()} <version>` to repair, '
+          'or `pvm doctor`.',
+        );
         break;
       case SymLinkStatus.orphaned:
         _console.print('$label   : ORPHANED');
         _console.print('  link  : ${info.linkPath}');
         _console.print('  -> ?  : ${info.target}');
-        _console.print('  Hint: target is outside the pvm versions directory; '
-            'was this created by pvm?');
+        _console.print(
+          '  Hint: target is outside the pvm versions directory; '
+          'was this created by pvm?',
+        );
         break;
       case SymLinkStatus.corrupt:
         _console.print('$label   : CORRUPT');
         _console.print('  link  : ${info.linkPath}');
-        _console.print('  Slot exists but is not a symbolic link. '
-            'Run `pvm doctor` to investigate.');
+        _console.print(
+          '  Slot exists but is not a symbolic link. '
+          'Run `pvm doctor` to investigate.',
+        );
         break;
     }
     _console.print('');
@@ -186,7 +211,8 @@ class CurrentCommand extends Command<int> {
       payload['local'] = {
         ..._scopeJson(active.local),
         'declaredVersion': declared?.toString(),
-        'drift': declared != null &&
+        'drift':
+            declared != null &&
             active.local.version != null &&
             declared != active.local.version,
       };
@@ -199,9 +225,9 @@ class CurrentCommand extends Command<int> {
   }
 
   Map<String, Object?> _scopeJson(SymLinkInfo info) => {
-        'status': info.status.name,
-        'version': info.version?.toString(),
-        'link': info.linkPath,
-        'target': info.target,
-      };
+    'status': info.status.name,
+    'version': info.version?.toString(),
+    'link': info.linkPath,
+    'target': info.target,
+  };
 }

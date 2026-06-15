@@ -42,10 +42,10 @@ class DoctorCommand extends Command<int> {
     required PlatformConstants platformConstants,
     required Console console,
     required ActiveVersionResolver resolver,
-  })  : _osManager = osManager,
-        _platformConstants = platformConstants,
-        _console = console,
-        _resolver = resolver;
+  }) : _osManager = osManager,
+       _platformConstants = platformConstants,
+       _console = console,
+       _resolver = resolver;
 
   @override
   Future<int> run() async {
@@ -58,13 +58,10 @@ class DoctorCommand extends Command<int> {
       () => VersionsDirectoryCheck(_osManager).run(),
       () => InstalledVersionsCheck(_osManager, _platformConstants).run(),
       () => ActiveVersionsCheck(_resolver).run(),
-      () => SymlinkProbeCheck(
-            _osManager,
-            enabled: !noSymlinkTest,
-          ).run(),
+      () => SymlinkProbeCheck(_osManager, enabled: !noSymlinkTest).run(),
       () => HomeWritableCheck(_osManager).run(),
       () => PathContainsGlobalCheck(_osManager, _platformConstants).run(),
-      () => ProjectPhpVersionCheck(_osManager).run(),
+      () => ProjectPvmrcCheck(_osManager).run(),
     ];
 
     final results = <DiagnosticResult>[];
@@ -73,15 +70,14 @@ class DoctorCommand extends Command<int> {
       try {
         results.add(await runCheck());
       } catch (e, st) {
-        results.add(DiagnosticResult(
-          id: 'check-$index',
-          label: 'Check $index',
-          status: DiagnosticStatus.fail,
-          lines: [
-            'Unexpected error: $e',
-            st.toString().split('\n').first,
-          ],
-        ));
+        results.add(
+          DiagnosticResult(
+            id: 'check-$index',
+            label: 'Check $index',
+            status: DiagnosticStatus.fail,
+            lines: ['Unexpected error: $e', st.toString().split('\n').first],
+          ),
+        );
       }
       index++;
     }
@@ -95,8 +91,9 @@ class DoctorCommand extends Command<int> {
     final failCount = results.where((r) => r.isFail).length;
     if (failCount == 0) return ExitCode.success;
 
-    final symlinkFailed =
-        results.any((r) => r.id == 'symlink-probe' && r.isFail);
+    final symlinkFailed = results.any(
+      (r) => r.id == 'symlink-probe' && r.isFail,
+    );
     if (symlinkFailed) return ExitCode.permissionDenied;
 
     return ExitCode.generalError;
@@ -143,12 +140,14 @@ class DoctorCommand extends Command<int> {
 
   String _jsonPayload(List<DiagnosticResult> results) {
     final list = results
-        .map((r) => {
-              'id': r.id,
-              'label': r.label,
-              'status': r.status.name,
-              'lines': r.lines,
-            })
+        .map(
+          (r) => {
+            'id': r.id,
+            'label': r.label,
+            'status': r.status.name,
+            'lines': r.lines,
+          },
+        )
         .toList();
     return const JsonEncoder.withIndent('  ').convert({'checks': list});
   }

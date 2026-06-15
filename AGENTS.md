@@ -31,7 +31,7 @@ The `.agents` directory contains all resources for agentic coding:
 
 ## Environment & Dependencies
 
-- **Language:** Dart (SDK ^3.4.0)
+- **Language:** Dart (SDK `>=3.11.4 <4.0.0`, pinned via FVM Flutter **3.41.6** → Dart **3.11.4**)
 - **Target Platform:** Windows (strictly uses Windows-specific APIs and path conventions)
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
@@ -50,14 +50,14 @@ The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific
 - **`test/mocks/mock_os_manager.dart`**: `MockOSManager` / `MockProcessManager` for command tests. Use `mockEnvironment` for deterministic PATH; falls back to `Platform.environment` when unset.
 
 ### Domain & resolution
-- **`lib/src/domain/project.dart`**: Project root discovery and `.php-version` reading; shared by activators and `PhpVersionManager`.
+- **`lib/src/domain/project.dart`**: Project root discovery and `.pvmrc` reading; shared by activators and `PhpVersionManager`.
 - **`lib/src/domain/version_registry.dart`**: Lists installed versions under the configured versions directory.
 - **`lib/src/domain/version_diagnostics.dart`**: Shared “version not installed” messaging (`VersionDiagnostics.notInstalledMessage`) for consistent CLI output.
 - **`lib/src/domain/php_version.dart`**: Version parsing and normalization.
 
 ### Symlink & active version
 - **`lib/src/core/symlink_inspector.dart`**: Resolves whether a path is a symlink and reads targets via `IOSManager` (no direct Windows APIs in callers).
-- **`lib/src/core/active_version_resolver.dart`**: Determines the effective PHP version from global/local `.pvm` symlink targets and optional `.php-version` hints.
+- **`lib/src/core/active_version_resolver.dart`**: Determines the effective PHP version from global/local `.pvm` symlink targets and optional `.pvmrc` hints.
 
 ### Process Management
 - **`lib/src/core/process_manager.dart`**: Defines `ProcessSpec` (executable, arguments, workingDirectory, environment) and `IProcessManager` interface with `runInteractive` and `runCaptured`.
@@ -85,25 +85,29 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling (regi
 ## Critical Commands
 
 ### Development & Maintenance
-- **Analyze Code:** `dart analyze`
-- **Format Code:** `dart format .`
-- **Fix Lints:** `dart fix --apply`
+
+Use **FVM** so commands run on Dart 3.11.4 (see `.fvmrc`). Prefix with `fvm dart` (or `fvm flutter` only if needed).
+
+- **Install SDK:** `fvm install` then `fvm use 3.41.6 --force`
+- **Analyze Code:** `fvm dart analyze`
+- **Format Code:** `fvm dart format .`
+- **Fix Lints:** `fvm dart fix --apply`
 
 ### Execution
-- **Run locally:** `dart pvm.dart <command> [arguments]`
-- **Effective version:** `dart pvm.dart current`
-- **Diagnostics:** `dart pvm.dart doctor`
-- **Run with explicit PHP on PATH:** `dart pvm.dart exec [--version <ver>] [--cwd <dir>] -- <cmd> [args]` (optional first positional version, e.g. `pvm exec 8.3 -- php -v`)
-- **Remove a version:** `dart pvm.dart uninstall <version>` (`--yes` skips prompt; `--force` allows removing the active global version and implies `--yes`; `--keep-symlinks` leaves broken symlinks for manual cleanup)
-- **Run PHP proxy:** `dart pvm.dart php [arguments]`
-- **Run Composer proxy:** `dart pvm.dart composer [arguments]`
+- **Run locally:** `fvm dart run pvm.dart <command> [arguments]`
+- **Effective version:** `fvm dart run pvm.dart current`
+- **Diagnostics:** `fvm dart run pvm.dart doctor`
+- **Run with explicit PHP on PATH:** `fvm dart run pvm.dart exec [--version <ver>] [--cwd <dir>] -- <cmd> [args]` (optional first positional version, e.g. `pvm exec 8.3 -- php -v`)
+- **Remove a version:** `fvm dart run pvm.dart uninstall <version>` (`--yes` skips prompt; `--force` allows removing the active global version and implies `--yes`; `--keep-symlinks` leaves broken symlinks for manual cleanup)
+- **Run PHP proxy:** `fvm dart run pvm.dart php [arguments]`
+- **Run Composer proxy:** `fvm dart run pvm.dart composer [arguments]`
 
 ### Build
-- **Compile Executable:** `dart compile exe pvm.dart -o builds/pvm.exe`
+- **Compile Executable:** `fvm dart compile exe pvm.dart -o builds/pvm.exe`
 
 ### Testing
-- **Run all tests:** `dart test`
-- **Run single test:** `dart test test/path_to_test.dart`
+- **Run all tests:** `fvm dart test`
+- **Run single test:** `fvm dart test test/path_to_test.dart`
 
 ## Code Style & Guidelines
 
@@ -216,7 +220,7 @@ import 'utils/utils.dart';
 - Uses `Process.start` with `ProcessStartMode.inheritStdio` for high-performance, low-latency piping.
 - Ideal for long-running interactive processes like `php artisan serve`.
 - Correctly handles interactive prompts and terminal colors.
-- Discovers project root by walking up from current directory to find `.php-version`.
+- Discovers project root by walking up from current directory to find `.pvmrc` or `.pvm` marker.
 - Requires local `.pvm` symlink to exist; shows helpful error if missing.
 
 ### Symlinks
@@ -247,7 +251,7 @@ import 'utils/utils.dart';
 1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
 2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
-4. **`pvm exec`**: First positional token is treated as a version only if it parses as `PhpVersion` **and** is installed; otherwise the active resolved version is used and the full token list (after optional `--`) is the command line.
+4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` via `InstalledVersionResolver` when exactly one installed version matches; multiple patches require full `major.minor.patch`. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
 
 ## Rule Integration
 

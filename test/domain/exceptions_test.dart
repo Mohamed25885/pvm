@@ -49,8 +49,8 @@ void main() {
 
   group('CorruptedConfigurationException', () {
     test('includes path', () {
-      final ex = CorruptedConfigurationException('.php-version');
-      expect(ex.toString(), contains('.php-version'));
+      final ex = CorruptedConfigurationException('.pvmrc');
+      expect(ex.toString(), contains('.pvmrc'));
     });
   });
 }

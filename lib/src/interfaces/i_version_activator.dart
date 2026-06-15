@@ -23,7 +23,7 @@
 ///   Creates a project-local symlink (e.g., `<project-root>\.pvm`) that
 ///   points to the PHP installation in the versions directory. The
 ///   project root is discovered by walking up from the current directory
-///   until a `.php-version` file is found.
+///   until a `.pvmrc` or `.pvm` marker is found.
 abstract class IVersionActivator {
   /// Activate a version as the system-wide/global PHP.
   ///
@@ -37,7 +37,7 @@ abstract class IVersionActivator {
   /// Activate a version for the current project (local).
   ///
   /// Called when the user runs `pvm use <version>`. Creates a symlink
-  /// in the project root directory (discovered via `.php-version` location).
+  /// in the project root directory (discovered via `.pvmrc` / `.pvm` location).
   /// This allows `pvm php` to resolve the correct PHP executable for the
   /// current project.
   ///

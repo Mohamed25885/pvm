@@ -10,6 +10,10 @@ import 'package:pvm/src/core/platform_constants.dart';
 import 'package:pvm/src/core/active_version_resolver.dart';
 import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/core/os_manager_factory.dart';
+import 'package:pvm/src/core/elevating_os_manager.dart';
+import 'package:pvm/src/core/privilege_escalator_factory.dart';
+import 'package:pvm/src/interfaces/i_privilege_escalator.dart';
+import 'package:pvm/src/services/privilege_escalation_service.dart';
 import 'package:pvm/src/core/gitignore_service.dart';
 import 'package:pvm/src/core/php_version_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
@@ -40,6 +44,9 @@ import 'package:pvm/src/commands/exec_command.dart';
 import 'package:pvm/src/commands/version_flag.dart';
 import 'package:pvm/src/commands/install_command.dart';
 import 'package:pvm/src/commands/list_remote_command.dart';
+import 'package:pvm/src/commands/setup_command.dart';
+import 'package:pvm/src/core/environment_configurator_factory.dart';
+import 'package:pvm/src/interfaces/i_environment_configurator.dart';
 import 'package:pvm/src/version.dart';
 
 final getIt = GetIt.instance;
@@ -50,11 +57,19 @@ Future<void> setupServices() async {
 
   getIt.registerSingleton<PlatformInfo>(platformInfo);
   getIt.registerSingleton<PlatformConstants>(platformConstants);
-  getIt.registerSingleton<IOSManager>(createOSManager());
+  final console = ConsoleIO();
+  getIt.registerSingleton<ConsoleIO>(console);
+  getIt.registerSingleton<IPrivilegeEscalator>(createPrivilegeEscalator());
+  final escalationService = PrivilegeEscalationService(
+    console,
+    getIt<IPrivilegeEscalator>(),
+  );
+  getIt.registerSingleton<IOSManager>(
+    ElevatingOSManager(createBaseOSManager(), escalationService),
+  );
   getIt.registerSingleton<IProcessManager>(
     IOProcessManager(osManager: getIt<IOSManager>()),
   );
-  getIt.registerSingleton<ConsoleIO>(ConsoleIO());
 
   getIt.registerSingleton<ExecutableResolver>(
     ExecutableResolver(
@@ -94,6 +109,10 @@ Future<void> setupServices() async {
     ActiveVersionResolver(getIt<SymLinkInspector>()),
   );
 
+  getIt.registerSingleton<IEnvironmentConfigurator>(
+    createEnvironmentConfigurator(),
+  );
+
   // Platform-specific interfaces (Wave 2A)
   // Using PlatformModule pattern - register by platform
   _registerPlatformServices(platformInfo);
@@ -126,7 +145,9 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
   } else if (PlatformDetector.isLinux) {
     getIt.registerLazySingleton<IInstaller>(
       () => LinuxInstaller(
-          versionsPath: versionsPath, processManager: processManager),
+        versionsPath: versionsPath,
+        processManager: processManager,
+      ),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => LinuxVersionActivator(
@@ -139,7 +160,9 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
   } else if (PlatformDetector.isMacOS) {
     getIt.registerLazySingleton<IInstaller>(
       () => MacOSInstaller(
-          versionsPath: versionsPath, processManager: processManager),
+        versionsPath: versionsPath,
+        processManager: processManager,
+      ),
     );
     getIt.registerLazySingleton<IVersionActivator>(
       () => MacOSVersionActivator(
@@ -177,48 +200,59 @@ Future<int> main(List<String> arguments) async {
   runner.addCommand(InstallCommand(console, installer));
   runner.addCommand(ListRemoteCommand(fetcher, console));
 
-  runner.addCommand(UseCommand(
-    osManager,
-    phpVersionManager,
-    gitIgnoreService,
-    getIt<IVersionActivator>(),
-    console,
-  ));
   runner.addCommand(
-      GlobalCommand(osManager, getIt<IVersionActivator>(), console));
+    UseCommand(
+      osManager,
+      phpVersionManager,
+      gitIgnoreService,
+      getIt<IVersionActivator>(),
+      console,
+    ),
+  );
+  runner.addCommand(
+    GlobalCommand(osManager, getIt<IVersionActivator>(), console),
+  );
   runner.addCommand(ListCommand(osManager, console));
-  runner.addCommand(CurrentCommand(
-    osManager,
-    getIt<ActiveVersionResolver>(),
-    console,
-  ));
-  runner.addCommand(DoctorCommand(
-    osManager: osManager,
-    platformConstants: getIt<PlatformConstants>(),
-    console: console,
-    resolver: getIt<ActiveVersionResolver>(),
-  ));
-  runner.addCommand(UninstallCommand(
-    osManager: osManager,
-    symlinkInspector: getIt<SymLinkInspector>(),
-    console: console,
-  ));
-  runner.addCommand(ExecCommand(
-    osManager: osManager,
-    platformConstants: getIt<PlatformConstants>(),
-    phpExecutor: phpExecutor,
-    processManager: getIt<IProcessManager>(),
-    composerLocator: composerLocator,
-    resolver: getIt<ActiveVersionResolver>(),
-    console: console,
-  ));
+  runner.addCommand(
+    CurrentCommand(osManager, getIt<ActiveVersionResolver>(), console),
+  );
+  runner.addCommand(
+    DoctorCommand(
+      osManager: osManager,
+      platformConstants: getIt<PlatformConstants>(),
+      console: console,
+      resolver: getIt<ActiveVersionResolver>(),
+    ),
+  );
+  runner.addCommand(
+    UninstallCommand(
+      osManager: osManager,
+      symlinkInspector: getIt<SymLinkInspector>(),
+      console: console,
+    ),
+  );
+  runner.addCommand(
+    ExecCommand(
+      osManager: osManager,
+      platformConstants: getIt<PlatformConstants>(),
+      phpExecutor: phpExecutor,
+      processManager: getIt<IProcessManager>(),
+      composerLocator: composerLocator,
+      resolver: getIt<ActiveVersionResolver>(),
+      console: console,
+    ),
+  );
   runner.addCommand(PhpCommand(phpExecutor, osManager, console));
-  runner.addCommand(ComposerCommand(
-    phpExecutor,
-    osManager,
-    composerLocator,
-    console,
-  ));
+  runner.addCommand(
+    ComposerCommand(phpExecutor, osManager, composerLocator, console),
+  );
+  runner.addCommand(
+    SetupCommand(
+      osManager: osManager,
+      configurator: getIt<IEnvironmentConfigurator>(),
+      console: console,
+    ),
+  );
   runner.addCommand(VersionFlag(console));
 
   if (arguments.isNotEmpty &&

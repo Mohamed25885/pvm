@@ -18,38 +18,47 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Setup Dart
+      - name: Setup Dart (bootstrap for FVM)
         uses: dart-lang/setup-dart@v1
         with:
           sdk: stable
 
+      - name: Install FVM and project SDK
+        shell: pwsh
+        run: |
+          dart pub global activate fvm
+          "$env:LOCALAPPDATA\Pub\Cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          fvm install
+          fvm use 3.41.6 --force
+          fvm dart --version
+
       - name: Install dependencies
-        run: dart pub get
+        run: fvm dart pub get
 
       - name: Check outdated packages
-        run: dart pub outdated
+        run: fvm dart pub outdated
 
       - name: Verify formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: fvm dart format --output=none --set-exit-if-changed .
 
       - name: Generate version code
-        run: dart run build_runner build
+        run: fvm dart run build_runner build
 
       - name: Analyze code
-        run: dart analyze --fatal-infos
+        run: fvm dart analyze --fatal-infos
 
       - name: Run tests with coverage
-        run: dart test --coverage=coverage --reporter=expanded
+        run: fvm dart test --coverage=coverage --reporter=expanded
 
       - name: Format coverage to LCOV
         run: |
-          dart pub global activate coverage
-          dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib,pvm.dart
-            
+          fvm dart pub global activate coverage
+          fvm dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib,pvm.dart
+
       - name: Check coverage threshold
         run: |
-          dart pub global activate coverde
-          dart pub global run coverde check 60 --input coverage/lcov.info
+          fvm dart pub global activate coverde
+          fvm dart pub global run coverde check 60 --input coverage/lcov.info
 
       - name: Create Build Directory
         if: matrix.os == 'windows-latest'
@@ -57,7 +66,7 @@ jobs:
 
       - name: Build executable
         if: matrix.os == 'windows-latest'
-        run: dart compile exe pvm.dart -o builds/pvm.exe
+        run: fvm dart compile exe pvm.dart -o builds/pvm.exe
 
       - name: Upload Windows Binary
         if: matrix.os == 'windows-latest'

@@ -3,16 +3,15 @@
 builds
 coverage
 
-# FVM Version Cache
-.fvm/
+# FVM — commit .fvmrc and .fvm/fvm_config.json; ignore SDK symlink only
 
 # Local project version file (user-specific, not repo)
-.php-version
+.pvmrc
 
 # IDE
-.vscode/
 .idea/
 *.code-workspace
+# .vscode/settings.json is committed (FVM Dart SDK path)
 
 # OS generated files
 .DS_Store
@@ -28,3 +27,6 @@ test_all_output.txt
 test_output.txt
 test_manual_qa/
 test_verify_qa/
+
+# FVM Version Cache
+.fvm/

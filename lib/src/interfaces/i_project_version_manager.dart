@@ -1,6 +1,6 @@
-/// Project version manager interface for managing .php-version file.
+/// Project version manager interface for managing `.pvmrc` file.
 ///
-/// Handles reading/writing the .php-version file in project directories.
+/// Handles reading/writing the `.pvmrc` file in project directories.
 abstract class IProjectVersionManager {
   /// Set the local PHP version for a project.
   /// [version] - the PHP version to set

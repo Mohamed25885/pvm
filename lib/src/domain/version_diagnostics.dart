@@ -39,4 +39,17 @@ class VersionDiagnostics {
 
     return buffer.toString();
   }
+
+  /// Message when [requested] matches multiple installed versions (same major.minor).
+  static String ambiguousVersionMessage({
+    required PhpVersion requested,
+    required List<PhpVersion> matches,
+  }) {
+    final sorted = List<PhpVersion>.from(matches)
+      ..sort((a, b) => b.compareTo(a));
+    final example = sorted.first.toString();
+    return 'Version ${requested.toString()} is ambiguous '
+        '(multiple installed: ${sorted.map((v) => v.toString()).join(', ')}).\n'
+        'Specify the full version including patch, e.g. pvm use $example';
+  }
 }

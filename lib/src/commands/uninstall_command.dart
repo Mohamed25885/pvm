@@ -9,6 +9,7 @@ import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../core/symlink_inspector.dart';
 import '../domain/exceptions.dart';
+import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
@@ -50,9 +51,9 @@ class UninstallCommand extends Command<int> {
     required IOSManager osManager,
     required SymLinkInspector symlinkInspector,
     required Console console,
-  })  : _osManager = osManager,
-        _inspector = symlinkInspector,
-        _console = console;
+  }) : _osManager = osManager,
+       _inspector = symlinkInspector,
+       _console = console;
 
   @override
   Future<int> run() async {
@@ -77,21 +78,36 @@ class UninstallCommand extends Command<int> {
 
     final registry = VersionRegistry(_osManager);
     final installed = await registry.getInstalledVersions();
-    final resolved = _resolveVersion(parsed, installed);
-    if (resolved == null) {
-      _console.printError(VersionDiagnostics.notInstalledMessage(
-        requested: parsed,
-        installed: installed,
-      ));
-      return ExitCode.versionNotFound;
+    final PhpVersion resolved;
+    switch (InstalledVersionResolver.resolve(parsed, installed)) {
+      case ResolvedInstalledVersion(:final version):
+        resolved = version;
+      case AmbiguousInstalledVersion(:final candidates):
+        _console.printError(
+          VersionDiagnostics.ambiguousVersionMessage(
+            requested: parsed,
+            matches: candidates,
+          ),
+        );
+        return ExitCode.versionNotFound;
+      case NotFoundInstalledVersion():
+        _console.printError(
+          VersionDiagnostics.notInstalledMessage(
+            requested: parsed,
+            installed: installed,
+          ),
+        );
+        return ExitCode.versionNotFound;
     }
 
     final versionDir = registry.getVersionPath(resolved);
     if (!await _osManager.directoryExists(versionDir)) {
-      _console.printError(VersionDiagnostics.notInstalledMessage(
-        requested: resolved,
-        installed: installed,
-      ));
+      _console.printError(
+        VersionDiagnostics.notInstalledMessage(
+          requested: resolved,
+          installed: installed,
+        ),
+      );
       return ExitCode.versionNotFound;
     }
 
@@ -167,24 +183,12 @@ class UninstallCommand extends Command<int> {
     }
     if (configured != null && configured == resolved) {
       _console.printWarning(
-        '.php-version still declares $resolved. Run `pvm use <other>` to switch.',
+        '.pvmrc still declares $resolved. Run `pvm use <other>` to switch.',
       );
     }
 
     _console.print('Removed $versionDir');
     return ExitCode.success;
-  }
-
-  PhpVersion? _resolveVersion(PhpVersion parsed, List<PhpVersion> installed) {
-    if (installed.contains(parsed)) return parsed;
-    if (parsed.hasPatch) return null;
-
-    final candidates = installed
-        .where((v) => v.major == parsed.major && v.minor == parsed.minor)
-        .toList();
-    if (candidates.isEmpty) return null;
-    candidates.sort((a, b) => b.compareTo(a));
-    return candidates.first;
   }
 
   Future<void> _cleanupSymlinkIfPointsTo(

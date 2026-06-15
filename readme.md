@@ -24,7 +24,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 - [How It Works](#how-it-works)
   - [Directory Structure](#directory-structure)
   - [Project Root Discovery](#project-root-discovery)
-  - [The `.php-version` File](#the-php-version-file)
+  - [The `.pvmrc` File](#the-php-version-file)
   - [Global vs Local Versions](#global-vs-local-versions)
   - [The `pvm php` Proxy](#the-pvm-php-proxy)
 - [Interactive vs Non-Interactive Mode](#interactive-vs-non-interactive-mode)
@@ -65,6 +65,12 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 ## Commands
 
+### Version shorthand (`major.minor`)
+
+For **`pvm use`**, **`pvm global`**, **`pvm exec`**, and **`pvm uninstall`**, you may pass `major.minor` (e.g. `8.4`) instead of a full patch when **exactly one** installed version matches that line (e.g. only `8.4.1` is installed). If multiple patches are installed (e.g. `8.4.0` and `8.4.1`), you must specify the full version (`8.4.1`). `pvm install` is unchanged (it selects from remote releases, not installed folders).
+
+---
+
 ### `pvm global <version>`
 
 Sets the **system-wide** PHP version. The symlink is created at `%USERPROFILE%\.pvm`, which must be added to your PATH to use globally.
@@ -77,13 +83,13 @@ pvm global 8.2
 
 **Requirements:**
 - Version must already exist in the `versions/` directory
-- Version format: `x.y` or `x.y.z` (e.g., `8.2`, `8.2.1`)
+- Version format: `x.y` or `x.y.z` (e.g., `8.2`, `8.2.1`); `x.y` resolves automatically when unambiguous (see [Version shorthand](#version-shorthand-majorminor))
 
 ---
 
 ### `pvm use <version>`
 
-Sets the **project-local** PHP version by creating a `.pvm` symlink in the project root and writing the version to `.php-version`.
+Sets the **project-local** PHP version by creating a `.pvm` symlink in the project root and writing the version to `.pvmrc`.
 
 ```powershell
 cd C:\Projects\MyApp
@@ -95,21 +101,22 @@ pvm use 8.0
 
 1. **GitIgnoreService runs** — ensures `.gitignore` exists and contains `.pvm` entry
 2. **Best-effort symlink creation** — attempts to create `.pvm` symlink pointing to `versions/`
-3. **`.php-version` is written** with the selected version as JSON
-4. **Mismatch prompt** (interactive mode) — if `.php-version` has a different version, asks for confirmation. Default is **Yes** (press Enter to confirm).
+3. **`.pvmrc` is written** with the selected version as JSON
+4. **Mismatch prompt** (interactive mode) — if `.pvmrc` has a different version, asks for confirmation. Default is **Yes** (press Enter to confirm).
 5. **Non-installed version** — if the requested version isn't in `versions/`, prompts you to pick from available versions
 
-**No version argument:** Reads from `.php-version` file in the project root and applies that version.
+**No version argument:** Reads from `.pvmrc` file in the project root and applies that version.
 
 ```powershell
-cd C:\Projects\MyApp  # .php-version exists here
-pvm use               # reads .php-version and applies that version
+cd C:\Projects\MyApp  # .pvmrc exists here
+pvm use               # reads .pvmrc and applies that version
 ```
 
 **Version format validation:**
 ```
-pvm use 8.2        # OK
+pvm use 8.2        # OK (resolves to 8.2.x when only one match)
 pvm use 8.2.1      # OK
+pvm use 8.2        # ERROR if both 8.2.0 and 8.2.1 installed (ambiguous)
 pvm use stable     # ERROR: Invalid version format. Expected: x.y or x.y.z
 ```
 
@@ -166,7 +173,7 @@ pvm exec --version 8.2 -- php -v
 pvm exec --cwd C:\Projects\MyApp -- composer install
 ```
 
-If the first token looks like a version but is **not** installed, PVM exits with an error instead of treating it as part of the command.
+If the first token looks like a version but is **not** installed (or is ambiguous — multiple `8.2.x` installed), PVM exits with an error instead of treating it as part of the command.
 
 ---
 
@@ -212,7 +219,7 @@ pvm php -d memory_limit=256M script.php
 
 **How it works:**
 
-1. **Project root discovery** — walks up from the current directory looking for a `.php-version` file. Its parent directory is the project root.
+1. **Project root discovery** — walks up from the current directory looking for a `.pvmrc` file. Its parent directory is the project root.
 2. **Local symlink check** — looks for `<project-root>\.pvm` pointing to a PHP installation.
 3. **Executes** the PHP executable from the symlink target, with `workingDirectory` set to the project root.
 
@@ -235,7 +242,7 @@ pvm composer require laravel/framework
 
 **How it works:**
 
-1. **Project root discovery** — walks up from the current directory looking for a `.php-version` file. Its parent directory is the project root.
+1. **Project root discovery** — walks up from the current directory looking for a `.pvmrc` file. Its parent directory is the project root.
 2. **Local symlink check** — looks for `<project-root>\.pvm` pointing to a PHP installation.
 3. **Composer script lookup** — searches the system PATH for an executable named `composer` (or `composer.bat` / `composer.phar` on Windows).
 4. **Executes** Composer using the local PHP interpreter, with `workingDirectory` set to the project root.
@@ -277,26 +284,26 @@ C:\Users\<you>\            <- Your user home directory
 └── .pvm -> C:\Tools\pvm\versions\8.2   <- Global symlink (add to PATH)
 
 C:\Projects\MyApp\         <- Your project
-├── .php-version           <- Stores the selected version (JSON)
+├── .pvmrc           <- Stores the selected version (JSON)
 ├── .pvm -> C:\Tools\pvm\versions\8.0   <- Local symlink
 └── .gitignore             <- Contains ".pvm/" entry
 ```
 
 ### Project Root Discovery
 
-When you run `pvm use`, `pvm php`, or `pvm composer`, PVM walks up from your current working directory looking for a `.php-version` file. The **parent directory** of `.php-version` is treated as the project root. This allows you to run PVM from any subdirectory of your project.
+When you run `pvm use`, `pvm php`, or `pvm composer`, PVM walks up from your current working directory looking for a `.pvmrc` file. The **parent directory** of `.pvmrc` is treated as the project root. This allows you to run PVM from any subdirectory of your project.
 
 ```
 C:\Projects\MyApp\src\api> pvm use 8.2
-# Walks up: src/api → src → MyApp (finds .php-version here)
+# Walks up: src/api → src → MyApp (finds .pvmrc here)
 # Project root: C:\Projects\MyApp
-# .php-version: C:\Projects\MyApp\.php-version
+# .pvmrc: C:\Projects\MyApp\.pvmrc
 # .pvm symlink: C:\Projects\MyApp\.pvm
 ```
 
-If no `.php-version` is found, the current working directory is used as the root.
+If no `.pvmrc` is found, the current working directory is used as the root.
 
-### The `.php-version` File
+### The `.pvmrc` File
 
 Stores the project's selected PHP version in JSON format:
 
@@ -306,9 +313,9 @@ Stores the project's selected PHP version in JSON format:
 }
 ```
 
-- **`pvm use <version>`** — writes the version to `.php-version`
-- **`pvm use`** (no argument) — reads from `.php-version` and applies that version
-- **Mismatch detection** — when switching versions, if `.php-version` differs from the requested version, prompts for confirmation (interactive) or auto-applies without updating the file (non-interactive)
+- **`pvm use <version>`** — writes the version to `.pvmrc`
+- **`pvm use`** (no argument) — reads from `.pvmrc` and applies that version
+- **Mismatch detection** — when switching versions, if `.pvmrc` differs from the requested version, prompts for confirmation (interactive) or auto-applies without updating the file (non-interactive)
 
 ### Global vs Local Versions
 
@@ -317,7 +324,7 @@ Stores the project's selected PHP version in JSON format:
 | **Command** | `pvm global <version>` | `pvm use <version>` |
 | **Symlink location** | `%USERPROFILE%\.pvm` | `<project-root>\.pvm` |
 | **Scope** | System-wide | Project-specific |
-| **Version file** | None | `.php-version` |
+| **Version file** | None | `.pvmrc` |
 | **PATH required?** | Yes (add `%USERPROFILE%\.pvm` to PATH) | No |
 | **Use with `pvm php`** | No | Yes |
 
@@ -338,13 +345,13 @@ This means commands like `php artisan` and `composer` run in the correct project
 PVM detects whether it has a terminal attached:
 
 **Interactive** (has TTY):
-- Mismatch prompt: `Detected .php-version contains "8.0". Switch to "8.2"? (Y/n): `
+- Mismatch prompt: `Detected .pvmrc contains "8.0". Switch to "8.2"? (Y/n): `
 - Default is **Yes** — press Enter to confirm
 - Version picker when a version isn't installed
 
 **Non-Interactive** (no TTY — CI/CD pipelines, scripts):
 - No prompts
-- Mismatch: auto-applies the requested version, does **not** update `.php-version`
+- Mismatch: auto-applies the requested version, does **not** update `.pvmrc`
 - Missing version: exits with error code 1
 
 ---
@@ -391,24 +398,41 @@ If Developer Mode is not enabled, run Command Prompt or PowerShell as Administra
 | `programDirectory` | Where `pvm.exe` lives — contains `versions/` |
 | `phpVersionsPath` | `<programDirectory>\versions` |
 | `currentDirectory` | Where the user runs PVM from |
-| `rootPath` | Project root — discovered by `.php-version` location |
+| `rootPath` | Project root — discovered by `.pvmrc` location |
 | `localPath` | `<rootPath>\.pvm` — local version symlink |
 | `homeDirectory` | `%USERPROFILE%` — where global symlink lives |
+
+### SDK (FVM)
+
+This project uses [FVM](https://fvm.app) with **Flutter 3.41.6**, which bundles **Dart 3.11.4** (see [`.fvmrc`](.fvmrc)). PVM is a Dart CLI app, not a Flutter app; the Flutter SDK is only used to supply a pinned Dart toolchain.
+
+```powershell
+# One-time: install FVM (https://fvm.app) and the project SDK
+fvm install
+fvm use 3.41.6 --force
+
+# Always prefix Dart commands with fvm (or use IDE .vscode/settings.json)
+fvm dart pub get
+fvm dart --version   # Dart SDK version: 3.11.4
+```
 
 ### Commands
 
 ```powershell
 # Analyze code
-dart analyze
+fvm dart analyze
 
 # Format code
-dart format .
+fvm dart format .
 
 # Run tests
-dart test
+fvm dart test
+
+# Run CLI locally
+fvm dart run pvm.dart current
 
 # Build executable
-dart compile exe pvm.dart -o builds/pvm.exe
+fvm dart compile exe pvm.dart -o builds/pvm.exe
 ```
 
 ### Testing
@@ -435,6 +459,6 @@ The version doesn't exist in the `versions/` directory. Run `pvm list` to see wh
 
 Run `pvm use <version>` first to create the local `.pvm` symlink.
 
-### Multiple `.php-version` files found
+### Multiple `.pvmrc` files found
 
-PVM uses the **first** `.php-version` found when walking up from the current directory. Make sure you don't have stray `.php-version` files in parent directories.
+PVM uses the **first** `.pvmrc` found when walking up from the current directory. Make sure you don't have stray `.pvmrc` files in parent directories.

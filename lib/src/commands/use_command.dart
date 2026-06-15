@@ -8,8 +8,10 @@ import '../core/gitignore_service.dart';
 import '../core/os_manager.dart';
 import '../core/php_version_manager.dart';
 import '../domain/exceptions.dart';
+import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
+import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
 
@@ -18,8 +20,9 @@ class UseCommand extends Command<int> {
   final String name = 'use';
 
   @override
-  final String description = 'Set the local PHP version (project-specific). '
-      'Without a version argument, uses the version from .php-version if present.';
+  final String description =
+      'Set the local PHP version (project-specific). '
+      'Without a version argument, uses the version from .pvmrc if present.';
 
   final IOSManager _osManager;
   final PhpVersionManager _phpVersionManager;
@@ -36,8 +39,9 @@ class UseCommand extends Command<int> {
   );
 
   List<PhpVersion> _getAvailableVersions() {
-    final versionStrings =
-        _osManager.getAvailableVersions(_osManager.phpVersionsPath);
+    final versionStrings = _osManager.getAvailableVersions(
+      _osManager.phpVersionsPath,
+    );
     return versionStrings.map((v) => PhpVersion.parse(v)).toList();
   }
 
@@ -82,11 +86,11 @@ class UseCommand extends Command<int> {
     VersionRegistry registry,
   ) async {
     final configured = await _phpVersionManager.readLastUsedVersion(
-        rootPath: project.rootDirectory.path);
+      rootPath: project.rootDirectory.path,
+    );
 
     if (configured == null) {
-      _console
-          .printError('No version specified and no .php-version file found.');
+      _console.printError('No version specified and no .pvmrc file found.');
       _console.print('Usage: pvm use <version>');
       return ExitCode.usageError;
     }
@@ -101,26 +105,47 @@ class UseCommand extends Command<int> {
     bool updateFile = true,
   }) async {
     final available = _getAvailableVersions();
-
-    // Check if version is in available list
-    if (!available.any((v) => v == requestedVersion)) {
-      if (_console.hasTerminal) {
-        final picked = await _phpVersionManager.promptVersionPick(
-          availableVersions: available,
-        );
-        if (picked == null) {
-          _console.print('Cancelled.');
-          return ExitCode.userCancelled;
-        }
-        // Recursively call with the same updateFile flag
-        return _useSpecificVersion(project, picked, registry,
-            updateFile: updateFile);
-      } else {
+    final resolveResult = InstalledVersionResolver.resolve(
+      requestedVersion,
+      available,
+    );
+    final PhpVersion resolvedVersion;
+    switch (resolveResult) {
+      case ResolvedInstalledVersion(:final version):
+        resolvedVersion = version;
+      case AmbiguousInstalledVersion(:final candidates):
         _console.printError(
-            'Requested version $requestedVersion is not available.');
+          VersionDiagnostics.ambiguousVersionMessage(
+            requested: requestedVersion,
+            matches: candidates,
+          ),
+        );
         return ExitCode.versionNotFound;
-      }
+      case NotFoundInstalledVersion():
+        if (_console.hasTerminal) {
+          final picked = await _phpVersionManager.promptVersionPick(
+            availableVersions: available,
+          );
+          if (picked == null) {
+            _console.print('Cancelled.');
+            return ExitCode.userCancelled;
+          }
+          return _useSpecificVersion(
+            project,
+            picked,
+            registry,
+            updateFile: updateFile,
+          );
+        }
+        _console.printError(
+          VersionDiagnostics.notInstalledMessage(
+            requested: requestedVersion,
+            installed: available,
+          ),
+        );
+        return ExitCode.versionNotFound;
     }
+    requestedVersion = resolvedVersion;
 
     // Sanity check: directory exists
     final sourcePath = registry.getVersionPath(requestedVersion);
@@ -142,18 +167,30 @@ class UseCommand extends Command<int> {
           return ExitCode.userCancelled;
         }
         // User confirmed, apply with updateFile: true
-        return _applyVersion(project, requestedVersion, registry,
-            updateFile: true);
+        return _applyVersion(
+          project,
+          requestedVersion,
+          registry,
+          updateFile: true,
+        );
       } else {
         // Non-interactive: apply but don't update file
-        return _applyVersion(project, requestedVersion, registry,
-            updateFile: false);
+        return _applyVersion(
+          project,
+          requestedVersion,
+          registry,
+          updateFile: false,
+        );
       }
     }
 
     // No mismatch or same version: apply with caller's updateFile preference
-    return _applyVersion(project, requestedVersion, registry,
-        updateFile: updateFile);
+    return _applyVersion(
+      project,
+      requestedVersion,
+      registry,
+      updateFile: updateFile,
+    );
   }
 
   Future<int> _applyVersion(
@@ -162,8 +199,10 @@ class UseCommand extends Command<int> {
     VersionRegistry registry, {
     required bool updateFile,
   }) async {
-    final localPath =
-        p.join(project.rootDirectory.path, PvmConstants.pvmDirName);
+    final localPath = p.join(
+      project.rootDirectory.path,
+      PvmConstants.pvmDirName,
+    );
     final sourcePath = registry.getVersionPath(version);
 
     try {
