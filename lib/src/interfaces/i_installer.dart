@@ -29,11 +29,7 @@ class InstallOptions {
   final BuildType? buildType;
   final bool force;
 
-  const InstallOptions({
-    this.architecture,
-    this.buildType,
-    this.force = false,
-  });
+  const InstallOptions({this.architecture, this.buildType, this.force = false});
 }
 
 /// Installer interface for PHP installation across platforms.

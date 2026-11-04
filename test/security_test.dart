@@ -30,12 +30,18 @@ void main() {
       });
 
       test('Rejects empty or purely malicious payloads', () {
-        expect(() => PhpVersion.parse(''),
-            throwsA(isA<InvalidVersionFormatException>()));
-        expect(() => PhpVersion.parse('sudo'),
-            throwsA(isA<InvalidVersionFormatException>()));
-        expect(() => PhpVersion.parse('<script>'),
-            throwsA(isA<InvalidVersionFormatException>()));
+        expect(
+          () => PhpVersion.parse(''),
+          throwsA(isA<InvalidVersionFormatException>()),
+        );
+        expect(
+          () => PhpVersion.parse('sudo'),
+          throwsA(isA<InvalidVersionFormatException>()),
+        );
+        expect(
+          () => PhpVersion.parse('<script>'),
+          throwsA(isA<InvalidVersionFormatException>()),
+        );
       });
     });
 

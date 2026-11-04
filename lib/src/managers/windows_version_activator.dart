@@ -29,8 +29,10 @@ class WindowsVersionActivator implements IVersionActivator {
   Future<void> activateLocal(String version) async {
     final project = await Project.findFromPath(_osManager.currentDirectory);
     final targetPath = p.join(versionsPath, version);
-    final linkPath =
-        p.join(project.rootDirectory.path, PvmConstants.pvmDirName);
+    final linkPath = p.join(
+      project.rootDirectory.path,
+      PvmConstants.pvmDirName,
+    );
 
     await _osManager.createSymLink(version, targetPath, linkPath);
   }

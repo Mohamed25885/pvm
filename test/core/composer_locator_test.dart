@@ -42,19 +42,23 @@ void main() {
       expect(result, equals(r'C:\bin\composer.phar'));
     });
 
-    test('finds composer.bat and resolves to composer.phar in same dir',
-        () async {
-      osManager.setFileExists(r'C:\bin\composer.bat', true);
-      osManager.setFileExists(r'C:\bin\composer.phar', true);
-
-      final result = await locator.findComposer({'PATH': r'C:\bin'});
-
-      expect(result, equals(r'C:\bin\composer.phar'),
-          reason: '.bat shim should resolve to its sibling .phar');
-    });
-
     test(
-        'returns the .bat path when no sibling composer.phar exists '
+      'finds composer.bat and resolves to composer.phar in same dir',
+      () async {
+        osManager.setFileExists(r'C:\bin\composer.bat', true);
+        osManager.setFileExists(r'C:\bin\composer.phar', true);
+
+        final result = await locator.findComposer({'PATH': r'C:\bin'});
+
+        expect(
+          result,
+          equals(r'C:\bin\composer.phar'),
+          reason: '.bat shim should resolve to its sibling .phar',
+        );
+      },
+    );
+
+    test('returns the .bat path when no sibling composer.phar exists '
         '(preserves existing behavior)', () async {
       osManager.setFileExists(r'C:\bin\composer.bat', true);
 
@@ -66,22 +70,26 @@ void main() {
     test('searches multiple directories in PATH order', () async {
       osManager.setFileExists(r'C:\second\composer.phar', true);
 
-      final result =
-          await locator.findComposer({'PATH': r'C:\first;C:\second;C:\third'});
+      final result = await locator.findComposer({
+        'PATH': r'C:\first;C:\second;C:\third',
+      });
 
       expect(result, equals(r'C:\second\composer.phar'));
     });
 
-    test('first hit wins when multiple PATH entries contain composer',
-        () async {
-      osManager.setFileExists(r'C:\first\composer.phar', true);
-      osManager.setFileExists(r'C:\second\composer.phar', true);
+    test(
+      'first hit wins when multiple PATH entries contain composer',
+      () async {
+        osManager.setFileExists(r'C:\first\composer.phar', true);
+        osManager.setFileExists(r'C:\second\composer.phar', true);
 
-      final result =
-          await locator.findComposer({'PATH': r'C:\first;C:\second'});
+        final result = await locator.findComposer({
+          'PATH': r'C:\first;C:\second',
+        });
 
-      expect(result, equals(r'C:\first\composer.phar'));
-    });
+        expect(result, equals(r'C:\first\composer.phar'));
+      },
+    );
 
     test('candidate order is bat, cmd, phar (Windows constants)', () {
       final constants = PlatformConstants(WindowsPlatformInfo());

@@ -32,10 +32,7 @@ void main() {
     test('preserves order of installed list (caller-controlled sort)', () {
       final msg = VersionDiagnostics.notInstalledMessage(
         requested: PhpVersion.parse('9.0'),
-        installed: [
-          PhpVersion.parse('7.4'),
-          PhpVersion.parse('8.2'),
-        ],
+        installed: [PhpVersion.parse('7.4'), PhpVersion.parse('8.2')],
       );
 
       expect(msg, contains('Installed versions: 7.4, 8.2'));

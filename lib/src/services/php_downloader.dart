@@ -37,13 +37,13 @@ class PhpDownloader {
 
   /// Create with default allowed domains
   PhpDownloader()
-      : allowedDomains = ['windows.php.net', 'downloads.php.net'],
-        _client = http.Client();
+    : allowedDomains = ['windows.php.net', 'downloads.php.net'],
+      _client = http.Client();
 
   /// Create with custom allowed domains
   PhpDownloader.withDomains(List<String> domains)
-      : allowedDomains = domains,
-        _client = http.Client();
+    : allowedDomains = domains,
+      _client = http.Client();
 
   Future<List<PhpRelease>> fetchReleases(IReleaseFetcher fetcher) async {
     return fetcher.fetchReleases();
@@ -67,14 +67,13 @@ class PhpDownloader {
       attempts++;
       try {
         final response = await _client
-            .send(
-              http.Request('GET', Uri.parse(release.downloadUrl)),
-            )
+            .send(http.Request('GET', Uri.parse(release.downloadUrl)))
             .timeout(const Duration(seconds: _downloadTimeout));
 
         if (response.statusCode != 200) {
           throw PhpDownloaderException(
-              'Download failed: HTTP ${response.statusCode}');
+            'Download failed: HTTP ${response.statusCode}',
+          );
         }
 
         final totalBytes = response.contentLength ?? 0;
@@ -86,11 +85,13 @@ class PhpDownloader {
           downloadedBytes += chunk.length;
 
           if (onProgress != null && totalBytes > 0) {
-            onProgress(DownloadProgress(
-              downloadedBytes: downloadedBytes,
-              totalBytes: totalBytes,
-              percentComplete: downloadedBytes / totalBytes,
-            ));
+            onProgress(
+              DownloadProgress(
+                downloadedBytes: downloadedBytes,
+                totalBytes: totalBytes,
+                percentComplete: downloadedBytes / totalBytes,
+              ),
+            );
           }
         }
 
@@ -107,7 +108,8 @@ class PhpDownloader {
     }
 
     throw PhpDownloaderException(
-        'Download failed after $_maxRetries attempts: $lastError');
+      'Download failed after $_maxRetries attempts: $lastError',
+    );
   }
 
   Future<bool> verifySha256(File file, String expectedHash) async {

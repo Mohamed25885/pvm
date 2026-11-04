@@ -5,8 +5,8 @@ class InvalidVersionFormatException extends PvmException {
   final String invalidVersion;
 
   InvalidVersionFormatException(this.invalidVersion)
-      : super(
-          'Invalid version format: "$invalidVersion".\n'
-          'Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)',
-        );
+    : super(
+        'Invalid version format: "$invalidVersion".\n'
+        'Expected: x.y or x.y.z (e.g., 8.2, 8.2.1)',
+      );
 }

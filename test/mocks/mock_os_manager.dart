@@ -106,7 +106,10 @@ class MockOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     symlinkCallCount++;
 
     if (shouldThrowOnSymlink) {
@@ -136,7 +139,8 @@ class MockOSManager implements IOSManager {
 
     if (shouldThrowOnDirectoryExists) {
       throw Exception(
-          directoryExistsErrorMessage ?? 'Mock: Directory check failed');
+        directoryExistsErrorMessage ?? 'Mock: Directory check failed',
+      );
     }
 
     // Explicit cache takes priority
@@ -186,8 +190,10 @@ class MockOSManager implements IOSManager {
     getAvailableVersionsCallCount++;
 
     if (shouldThrowOnGetAvailableVersions) {
-      throw Exception(getAvailableVersionsErrorMessage ??
-          'Mock: Failed to get available versions');
+      throw Exception(
+        getAvailableVersionsErrorMessage ??
+            'Mock: Failed to get available versions',
+      );
     }
 
     return mockVersions;
@@ -199,7 +205,8 @@ class MockOSManager implements IOSManager {
 
     if (shouldThrowOnGetHomeDirectory) {
       throw Exception(
-          getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory');
+        getHomeDirectoryErrorMessage ?? 'Mock: Failed to get home directory',
+      );
     }
 
     return mockHomeDir;
@@ -230,7 +237,8 @@ class MockOSManager implements IOSManager {
   Future<void> deleteSymLink(String path) async {
     if (shouldThrowOnDeleteSymLink) {
       throw Exception(
-          deleteSymLinkErrorMessage ?? 'Mock: Failed to delete symlink');
+        deleteSymLinkErrorMessage ?? 'Mock: Failed to delete symlink',
+      );
     }
     deletedSymLinks.add(path);
     symlinkTargets.remove(path);
@@ -240,7 +248,8 @@ class MockOSManager implements IOSManager {
   Future<void> deleteDirectory(String path) async {
     if (shouldThrowOnDeleteDirectory) {
       throw Exception(
-          deleteDirectoryErrorMessage ?? 'Mock: Failed to delete directory');
+        deleteDirectoryErrorMessage ?? 'Mock: Failed to delete directory',
+      );
     }
     deletedDirectories.add(path);
     _directoryExistsCache[path] = false;

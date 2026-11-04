@@ -46,9 +46,7 @@ void main() {
       osManager.symlinkTargets[globalLink] = v82;
       osManager.setDirectoryExistsResult(v82, true);
 
-      osManager.mockEnvironment = {
-        'PATH': '$globalLink;C:\\Windows',
-      };
+      osManager.mockEnvironment = {'PATH': '$globalLink;C:\\Windows'};
     });
 
     tearDown(() async {
@@ -59,12 +57,14 @@ void main() {
 
     Future<int> runDoctor(List<String> args) async {
       final runner = CommandRunner<int>('pvm', 'test');
-      runner.addCommand(DoctorCommand(
-        osManager: osManager,
-        platformConstants: PlatformConstants(WindowsPlatformInfo()),
-        console: console,
-        resolver: resolver,
-      ));
+      runner.addCommand(
+        DoctorCommand(
+          osManager: osManager,
+          platformConstants: PlatformConstants(WindowsPlatformInfo()),
+          console: console,
+          resolver: resolver,
+        ),
+      );
       return await runner.run(['doctor', ...args]) ?? 1;
     }
 

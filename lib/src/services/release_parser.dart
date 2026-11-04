@@ -22,8 +22,9 @@ class ReleaseParser {
 
         final major = int.tryParse(versionParts[0]);
         final minor = int.tryParse(versionParts[1]);
-        final patch =
-            versionParts.length >= 3 ? int.tryParse(versionParts[2]) : 0;
+        final patch = versionParts.length >= 3
+            ? int.tryParse(versionParts[2])
+            : 0;
 
         if (major == null || minor == null) continue;
 
@@ -74,18 +75,20 @@ class ReleaseParser {
             sizeBytes = _parseSize(sizeStr);
           }
 
-          releases.add(PhpRelease(
-            versionString: version,
-            major: major,
-            minor: minor,
-            patch: patch ?? 0,
-            architecture: architecture,
-            buildType: buildType,
-            downloadUrl: downloadUrl,
-            sha256: zipData['sha256'] as String? ?? '',
-            sizeBytes: sizeBytes,
-            lastModified: DateTime.now(),
-          ));
+          releases.add(
+            PhpRelease(
+              versionString: version,
+              major: major,
+              minor: minor,
+              patch: patch ?? 0,
+              architecture: architecture,
+              buildType: buildType,
+              downloadUrl: downloadUrl,
+              sha256: zipData['sha256'] as String? ?? '',
+              sizeBytes: sizeBytes,
+              lastModified: DateTime.now(),
+            ),
+          );
         }
       }
     } catch (e) {
@@ -97,8 +100,10 @@ class ReleaseParser {
 
   static int _parseSize(String sizeStr) {
     // Parse size string like "25.02MB" to bytes
-    final match = RegExp(r'([\d.]+)\s*(MB|GB|KB)?', caseSensitive: false)
-        .firstMatch(sizeStr);
+    final match = RegExp(
+      r'([\d.]+)\s*(MB|GB|KB)?',
+      caseSensitive: false,
+    ).firstMatch(sizeStr);
     if (match == null) return 0;
 
     final value = double.tryParse(match.group(1)!) ?? 0;

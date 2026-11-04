@@ -85,7 +85,10 @@ class FakeOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     throw UnimplementedError();
   }
 
@@ -160,18 +163,20 @@ void main() {
         expect(spec.environment, equals(Platform.environment));
       });
 
-      test('uses currentDirectory from osManager when workingDirectory is null',
-          () async {
-        final root = '/default/dir';
-        osManager.mockCurrentDirectory = root;
-        final phpExe = getPhpExe(root);
-        osManager.setFileExists(phpExe, true);
+      test(
+        'uses currentDirectory from osManager when workingDirectory is null',
+        () async {
+          final root = '/default/dir';
+          osManager.mockCurrentDirectory = root;
+          final phpExe = getPhpExe(root);
+          osManager.setFileExists(phpExe, true);
 
-        await executor.runPhp(['-v']);
+          await executor.runPhp(['-v']);
 
-        final spec = processManager.lastSpec!;
-        expect(spec.workingDirectory, equals(root));
-      });
+          final spec = processManager.lastSpec!;
+          expect(spec.workingDirectory, equals(root));
+        },
+      );
 
       test('uses provided workingDirectory override', () async {
         final root = '/override/path';
@@ -193,16 +198,18 @@ void main() {
         final phpExe = getPhpExe(root);
         osManager.setFileExists(phpExe, true);
 
-        final exitCode = await executor.runScript(
-          'scripts/deploy.php',
-          ['--env=production', '--force'],
-        );
+        final exitCode = await executor.runScript('scripts/deploy.php', [
+          '--env=production',
+          '--force',
+        ]);
 
         expect(exitCode, equals(0));
         final spec = processManager.lastSpec!;
         expect(spec.executable, equals(phpExe));
-        expect(spec.arguments,
-            equals(['scripts/deploy.php', '--env=production', '--force']));
+        expect(
+          spec.arguments,
+          equals(['scripts/deploy.php', '--env=production', '--force']),
+        );
       });
 
       test('script path is first arg even with empty args list', () async {
@@ -229,50 +236,57 @@ void main() {
         expect(processManager.lastSpec!.executable, equals(phpExe));
       });
 
-      test('throws when PHP executable does not exist', () async {
-        final root = '/missing';
-        final phpExe = getPhpExe(root);
-        osManager.setFileExists(phpExe, false);
+      test(
+        'throws when PHP executable does not exist',
+        () async {
+          final root = '/missing';
+          final phpExe = getPhpExe(root);
+          osManager.setFileExists(phpExe, false);
 
-        // Note: Code doesn't validate executable existence before running.
-        // Process will fail at OS level, not at PVM level.
-        // This test is skipped to reflect current behavior.
-      }, skip: 'Code does not validate executable existence');
+          // Note: Code doesn't validate executable existence before running.
+          // Process will fail at OS level, not at PVM level.
+          // This test is skipped to reflect current behavior.
+        },
+        skip: 'Code does not validate executable existence',
+      );
     });
 
     group('File operations use _osManager exclusively', () {
-      test('runPhp uses osManager.fileExists() not direct File calls',
-          () async {
-        final root = '/test';
-        final phpExe = getPhpExe(root);
-        osManager.setFileExists(phpExe, true);
-        osManager.mockCurrentDirectory = root;
+      test(
+        'runPhp uses osManager.fileExists() not direct File calls',
+        () async {
+          final root = '/test';
+          final phpExe = getPhpExe(root);
+          osManager.setFileExists(phpExe, true);
+          osManager.mockCurrentDirectory = root;
 
-        await executor.runPhp(['-v']);
+          await executor.runPhp(['-v']);
 
-        expect(processManager.lastSpec!.executable, equals(phpExe));
-      });
+          expect(processManager.lastSpec!.executable, equals(phpExe));
+        },
+      );
     });
 
     group('phpExecutable override', () {
-      test('runPhp uses provided phpExecutable verbatim and bypasses resolver',
-          () async {
-        final root = '/some/dir';
-        // No file registered for root/.pvm/php.exe, resolver would throw.
-        const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
-
-        final exitCode = await executor.runPhp(
-          ['-v'],
-          workingDirectory: root,
-          phpExecutable: overridePath,
-        );
-
-        expect(exitCode, equals(0));
-        expect(processManager.lastSpec!.executable, equals(overridePath));
-      });
-
       test(
-          'runScript uses provided phpExecutable verbatim and bypasses '
+        'runPhp uses provided phpExecutable verbatim and bypasses resolver',
+        () async {
+          final root = '/some/dir';
+          // No file registered for root/.pvm/php.exe, resolver would throw.
+          const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
+
+          final exitCode = await executor.runPhp(
+            ['-v'],
+            workingDirectory: root,
+            phpExecutable: overridePath,
+          );
+
+          expect(exitCode, equals(0));
+          expect(processManager.lastSpec!.executable, equals(overridePath));
+        },
+      );
+
+      test('runScript uses provided phpExecutable verbatim and bypasses '
           'resolver', () async {
         final root = '/some/dir';
         const overridePath = r'C:\pvm\versions\8.2.10\php.exe';
@@ -309,16 +323,18 @@ void main() {
         expect(spec.environment?['CUSTOM'], equals('yes'));
       });
 
-      test('legacy callers without phpExecutable still go through resolver',
-          () async {
-        final root = '/legacy';
-        final phpExe = getPhpExe(root);
-        osManager.setFileExists(phpExe, true);
+      test(
+        'legacy callers without phpExecutable still go through resolver',
+        () async {
+          final root = '/legacy';
+          final phpExe = getPhpExe(root);
+          osManager.setFileExists(phpExe, true);
 
-        await executor.runPhp(['-v'], workingDirectory: root);
+          await executor.runPhp(['-v'], workingDirectory: root);
 
-        expect(processManager.lastSpec!.executable, equals(phpExe));
-      });
+          expect(processManager.lastSpec!.executable, equals(phpExe));
+        },
+      );
     });
   });
 }

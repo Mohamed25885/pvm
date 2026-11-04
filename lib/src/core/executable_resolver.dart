@@ -14,7 +14,8 @@ class PhpExecutableNotFoundException implements Exception {
   PhpExecutableNotFoundException(this.path);
 
   @override
-  String toString() => 'PHP executable not found at $path.\n'
+  String toString() =>
+      'PHP executable not found at $path.\n'
       'Run `pvm use <version>` to activate a version for this project, '
       'or `pvm global <version>` to set a global default.';
 }
@@ -26,8 +27,8 @@ class ExecutableResolver implements IExecutableResolver {
   ExecutableResolver({
     required PlatformConstants platformConstants,
     required IOSManager osManager,
-  })  : _platformConstants = platformConstants,
-        _osManager = osManager;
+  }) : _platformConstants = platformConstants,
+       _osManager = osManager;
 
   @override
   String get phpExecutableName => _platformConstants.phpExecutableName;

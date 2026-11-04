@@ -14,8 +14,8 @@ class ComposerLocator implements IComposerLocator {
   ComposerLocator({
     required PlatformConstants platformConstants,
     required IOSManager osManager,
-  })  : _platformConstants = platformConstants,
-        _osManager = osManager;
+  }) : _platformConstants = platformConstants,
+       _osManager = osManager;
 
   @override
   Future<String?> findComposer(Map<String, String> environment) async {

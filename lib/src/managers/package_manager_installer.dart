@@ -19,10 +19,7 @@ abstract class PackageManagerInstaller implements IInstaller {
   @override
   Future<bool> isInstalled(String version) async {
     final versionResult = await processManager.runCaptured(
-      ProcessSpec(
-        executable: 'php',
-        arguments: ['-r', 'echo PHP_VERSION;'],
-      ),
+      ProcessSpec(executable: 'php', arguments: ['-r', 'echo PHP_VERSION;']),
     );
     if (versionResult.exitCode != 0) return false;
 

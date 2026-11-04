@@ -26,8 +26,9 @@ void main() {
     });
 
     test('interactive execution preserves exit code', () async {
-      final scriptFile =
-          File('${tempDirectory.path}${Platform.pathSeparator}exit_code.dart');
+      final scriptFile = File(
+        '${tempDirectory.path}${Platform.pathSeparator}exit_code.dart',
+      );
       await scriptFile.writeAsString('''
 import 'dart:io';
 
@@ -46,11 +47,13 @@ void main() {
       expect(exitCode, equals(73));
     });
 
-    test('interactive execution preserves working directory and environment',
-        () async {
-      final scriptFile =
-          File('${tempDirectory.path}${Platform.pathSeparator}cwd_env.dart');
-      await scriptFile.writeAsString('''
+    test(
+      'interactive execution preserves working directory and environment',
+      () async {
+        final scriptFile = File(
+          '${tempDirectory.path}${Platform.pathSeparator}cwd_env.dart',
+        );
+        await scriptFile.writeAsString('''
 import 'dart:io';
 
 void main() {
@@ -62,30 +65,32 @@ void main() {
 }
 ''');
 
-      final workingDirectory =
-          await Directory.systemTemp.createTemp('pvm io cwd ');
-      addTearDown(() async {
-        if (await workingDirectory.exists()) {
-          await workingDirectory.delete(recursive: true);
-        }
-      });
+        final workingDirectory = await Directory.systemTemp.createTemp(
+          'pvm io cwd ',
+        );
+        addTearDown(() async {
+          if (await workingDirectory.exists()) {
+            await workingDirectory.delete(recursive: true);
+          }
+        });
 
-      final markerFile = File(
-        '${workingDirectory.path}${Platform.pathSeparator}cwd_marker.txt',
-      );
-      await markerFile.writeAsString('marker');
+        final markerFile = File(
+          '${workingDirectory.path}${Platform.pathSeparator}cwd_marker.txt',
+        );
+        await markerFile.writeAsString('marker');
 
-      final exitCode = await processManager.runInteractive(
-        ProcessSpec(
-          executable: Platform.resolvedExecutable,
-          arguments: [scriptFile.path],
-          workingDirectory: workingDirectory.path,
-          environment: {'PVM_TEST_INTERACTIVE_ENV': 'expected-value'},
-        ),
-      );
+        final exitCode = await processManager.runInteractive(
+          ProcessSpec(
+            executable: Platform.resolvedExecutable,
+            arguments: [scriptFile.path],
+            workingDirectory: workingDirectory.path,
+            environment: {'PVM_TEST_INTERACTIVE_ENV': 'expected-value'},
+          ),
+        );
 
-      expect(exitCode, equals(0));
-    });
+        expect(exitCode, equals(0));
+      },
+    );
 
     test('interactive execution reports process start failures', () async {
       final missingExecutable =
@@ -117,12 +122,13 @@ void main() {
       }
     });
 
-    test('captured execution returns stdout stderr and exit code separately',
-        () async {
-      final scriptFile = File(
-        '${tempDirectory.path}${Platform.pathSeparator}captured_split.dart',
-      );
-      await scriptFile.writeAsString('''
+    test(
+      'captured execution returns stdout stderr and exit code separately',
+      () async {
+        final scriptFile = File(
+          '${tempDirectory.path}${Platform.pathSeparator}captured_split.dart',
+        );
+        await scriptFile.writeAsString('''
 import 'dart:io';
 
 void main() {
@@ -132,19 +138,20 @@ void main() {
 }
 ''');
 
-      final result = await processManager.runCaptured(
-        ProcessSpec(
-          executable: Platform.resolvedExecutable,
-          arguments: [scriptFile.path],
-        ),
-      );
+        final result = await processManager.runCaptured(
+          ProcessSpec(
+            executable: Platform.resolvedExecutable,
+            arguments: [scriptFile.path],
+          ),
+        );
 
-      expect(result.stdout, contains('captured-stdout'));
-      expect(result.stdout, isNot(contains('captured-stderr')));
-      expect(result.stderr, contains('captured-stderr'));
-      expect(result.stderr, isNot(contains('captured-stdout')));
-      expect(result.exitCode, equals(23));
-    });
+        expect(result.stdout, contains('captured-stdout'));
+        expect(result.stdout, isNot(contains('captured-stderr')));
+        expect(result.stderr, contains('captured-stderr'));
+        expect(result.stderr, isNot(contains('captured-stdout')));
+        expect(result.exitCode, equals(23));
+      },
+    );
 
     test('captured execution does not require terminal inheritance', () async {
       final scriptFile = File(
@@ -167,8 +174,9 @@ void main() {
 }
 ''');
 
-      final workingDirectory =
-          await Directory.systemTemp.createTemp('pvm-io-captured-cwd-');
+      final workingDirectory = await Directory.systemTemp.createTemp(
+        'pvm-io-captured-cwd-',
+      );
       addTearDown(() async {
         if (await workingDirectory.exists()) {
           await workingDirectory.delete(recursive: true);
@@ -245,8 +253,7 @@ void main() {
       expect(result.stderr.trim(), isEmpty);
     });
 
-    test('captured execution keeps heavy stdout and stderr separated',
-        () async {
+    test('captured execution keeps heavy stdout and stderr separated', () async {
       final scriptFile = File(
         '${tempDirectory.path}${Platform.pathSeparator}captured_heavy_split.dart',
       );
@@ -318,13 +325,16 @@ void main() {
       expect(await File(resolved).exists(), isTrue);
     });
 
-    test('resolveSystemCommand returns original command when not found',
-        () async {
-      const missingCommand = 'pvm_test_command_that_does_not_exist';
-      final resolved =
-          await processManager.resolveSystemCommand(missingCommand);
+    test(
+      'resolveSystemCommand returns original command when not found',
+      () async {
+        const missingCommand = 'pvm_test_command_that_does_not_exist';
+        final resolved = await processManager.resolveSystemCommand(
+          missingCommand,
+        );
 
-      expect(resolved, equals(missingCommand));
-    });
+        expect(resolved, equals(missingCommand));
+      },
+    );
   });
 }

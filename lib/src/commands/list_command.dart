@@ -24,8 +24,9 @@ class ListCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final versionStrings =
-        _osManager.getAvailableVersions(_osManager.phpVersionsPath);
+    final versionStrings = _osManager.getAvailableVersions(
+      _osManager.phpVersionsPath,
+    );
     final List<PhpVersion> versions = [];
 
     for (final versionStr in versionStrings) {

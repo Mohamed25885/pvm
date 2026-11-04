@@ -21,10 +21,7 @@ class ListRemoteCommand extends Command<int> {
   final IReleaseFetcher _fetcher;
   final Console _console;
 
-  ListRemoteCommand(
-    this._fetcher,
-    this._console,
-  );
+  ListRemoteCommand(this._fetcher, this._console);
 
   @override
   Future<int> run() async {
@@ -79,11 +76,13 @@ class ListRemoteCommand extends Command<int> {
         final versionReleases = grouped[version]!;
         _console.print('  $version');
         for (final release in versionReleases) {
-          final archStr =
-              release.architecture == Architecture.x64 ? 'x64' : 'x86';
+          final archStr = release.architecture == Architecture.x64
+              ? 'x64'
+              : 'x86';
           final typeStr = release.buildType == BuildType.ts ? 'ts' : 'nts';
-          _console
-              .print('    - ${archStr}_$typeStr (${release.sizeFormatted})');
+          _console.print(
+            '    - ${archStr}_$typeStr (${release.sizeFormatted})',
+          );
         }
       }
 

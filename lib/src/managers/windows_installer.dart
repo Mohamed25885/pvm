@@ -24,15 +24,15 @@ class WindowsInstaller implements IInstaller {
     required IReleaseFetcher releaseFetcher,
     required Console console,
     this.downloadBaseUrl = PvmUrls.windowsDownloadBase,
-  })  : _versionsPath = versionsPath,
-        _fetcher = releaseFetcher,
-        _console = console {
+  }) : _versionsPath = versionsPath,
+       _fetcher = releaseFetcher,
+       _console = console {
     _client = http.Client();
   }
 
   static const List<String> allowedDomains = [
     'windows.php.net',
-    'downloads.php.net'
+    'downloads.php.net',
   ];
 
   @override
@@ -54,7 +54,8 @@ class WindowsInstaller implements IInstaller {
 
     if (!force && await isInstalled(version)) {
       _console.printError(
-          'PHP $version already installed. Use --force to reinstall');
+        'PHP $version already installed. Use --force to reinstall',
+      );
       return;
     }
 
@@ -83,7 +84,8 @@ class WindowsInstaller implements IInstaller {
 
     if (matching.isEmpty) {
       _console.printError(
-          'No matching PHP release found for $version ($arch, $buildType)');
+        'No matching PHP release found for $version ($arch, $buildType)',
+      );
       throw Exception('No matching PHP release found');
     }
 
@@ -92,7 +94,8 @@ class WindowsInstaller implements IInstaller {
 
     if (!force && await Directory(targetDir).exists()) {
       _console.printError(
-          'PHP ${release.displayVersion} already installed. Use --force to reinstall');
+        'PHP ${release.displayVersion} already installed. Use --force to reinstall',
+      );
       return;
     }
 
@@ -172,9 +175,9 @@ class WindowsInstaller implements IInstaller {
     for (int attempt = 0; attempt < PvmTimeouts.downloadMaxRetries; attempt++) {
       try {
         final request = http.Request('GET', Uri.parse(release.downloadUrl));
-        final response = await _client.send(request).timeout(
-              Duration(seconds: PvmTimeouts.downloadTimeoutSeconds),
-            );
+        final response = await _client
+            .send(request)
+            .timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
 
         if (response.statusCode != 200) {
           throw DownloadException(
@@ -189,11 +192,13 @@ class WindowsInstaller implements IInstaller {
           sink.add(chunk);
           downloadedBytes += chunk.length;
           if (totalBytes > 0 && onProgress != null) {
-            onProgress(DownloadProgress(
-              downloadedBytes: downloadedBytes,
-              totalBytes: totalBytes,
-              percentComplete: downloadedBytes / totalBytes,
-            ));
+            onProgress(
+              DownloadProgress(
+                downloadedBytes: downloadedBytes,
+                totalBytes: totalBytes,
+                percentComplete: downloadedBytes / totalBytes,
+              ),
+            );
           }
         }
 

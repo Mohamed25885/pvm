@@ -14,7 +14,10 @@ class FakeVersionRegistryOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     throw UnimplementedError();
   }
 
@@ -83,15 +86,17 @@ void main() {
 
   group('VersionRegistry', () {
     group('getInstalledVersions', () {
-      test('returns empty list when versions directory does not exist',
-          () async {
-        osManager.setDirectoryExists('/fake/versions', false);
-        osManager.setAvailableVersions([]);
+      test(
+        'returns empty list when versions directory does not exist',
+        () async {
+          osManager.setDirectoryExists('/fake/versions', false);
+          osManager.setAvailableVersions([]);
 
-        final versions = await registry.getInstalledVersions();
+          final versions = await registry.getInstalledVersions();
 
-        expect(versions, isEmpty);
-      });
+          expect(versions, isEmpty);
+        },
+      );
 
       test('returns empty list when versions directory is empty', () async {
         osManager.setDirectoryExists('/fake/versions', true);
@@ -116,8 +121,12 @@ void main() {
 
       test('skips invalid version strings', () async {
         osManager.setDirectoryExists('/fake/versions', true);
-        osManager
-            .setAvailableVersions(['8.2', 'invalid', '7.4', 'bad-version']);
+        osManager.setAvailableVersions([
+          '8.2',
+          'invalid',
+          '7.4',
+          'bad-version',
+        ]);
 
         final versions = await registry.getInstalledVersions();
 
@@ -156,7 +165,9 @@ void main() {
       test('returns true when version directory exists', () async {
         // Use the exact path that will be constructed
         osManager.setDirectoryExists(
-            '/fake/versions${Platform.pathSeparator}8.2', true);
+          '/fake/versions${Platform.pathSeparator}8.2',
+          true,
+        );
 
         final result = await registry.isInstalled(PhpVersion(8, 2));
 
@@ -165,7 +176,9 @@ void main() {
 
       test('returns false when version directory does not exist', () async {
         osManager.setDirectoryExists(
-            '/fake/versions${Platform.pathSeparator}8.2', false);
+          '/fake/versions${Platform.pathSeparator}8.2',
+          false,
+        );
 
         final result = await registry.isInstalled(PhpVersion(8, 2));
 
@@ -174,7 +187,9 @@ void main() {
 
       test('checks with patch version in path', () async {
         osManager.setDirectoryExists(
-            '/fake/versions${Platform.pathSeparator}8.2.1', true);
+          '/fake/versions${Platform.pathSeparator}8.2.1',
+          true,
+        );
 
         final result = await registry.isInstalled(PhpVersion(8, 2, 1));
 

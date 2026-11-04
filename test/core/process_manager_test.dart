@@ -16,7 +16,9 @@ void main() {
     test('arguments are unmodifiable', () {
       final spec = ProcessSpec(executable: 'php.exe', arguments: ['-v']);
       expect(
-          () => (spec.arguments as List).add('test'), throwsUnsupportedError);
+        () => (spec.arguments as List).add('test'),
+        throwsUnsupportedError,
+      );
     });
 
     test('creates with workingDirectory', () {
@@ -63,11 +65,7 @@ void main() {
     });
 
     test('stdout can be empty', () {
-      final result = CapturedProcessResult(
-        stdout: '',
-        stderr: '',
-        exitCode: 1,
-      );
+      final result = CapturedProcessResult(stdout: '', stderr: '', exitCode: 1);
       expect(result.stdout, '');
     });
   });

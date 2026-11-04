@@ -23,10 +23,7 @@ class InstallCommand extends Command<int> {
   final Console _console;
   final IInstaller _installer;
 
-  InstallCommand(
-    this._console,
-    this._installer,
-  );
+  InstallCommand(this._console, this._installer);
 
   @override
   Future<int> run() async {

@@ -43,23 +43,29 @@ void main() {
       );
     });
 
-    test('directoryExists returns false by default for non-mock paths',
-        () async {
-      // Without override or cache, non-mock paths check real filesystem
-      expect(
-          await osManager.directoryExists('/some/nonexistent/path'), isFalse);
-    });
+    test(
+      'directoryExists returns false by default for non-mock paths',
+      () async {
+        // Without override or cache, non-mock paths check real filesystem
+        expect(
+          await osManager.directoryExists('/some/nonexistent/path'),
+          isFalse,
+        );
+      },
+    );
 
     test('directoryExists uses cache when set', () async {
       osManager.setDirectoryExistsResult('/some/path', true);
       expect(await osManager.directoryExists('/some/path'), isTrue);
     });
 
-    test('directoryExists returns true with symlinkSourceExistsOverride',
-        () async {
-      osManager.symlinkSourceExistsOverride = true;
-      expect(await osManager.directoryExists('/any/path'), isTrue);
-    });
+    test(
+      'directoryExists returns true with symlinkSourceExistsOverride',
+      () async {
+        osManager.symlinkSourceExistsOverride = true;
+        expect(await osManager.directoryExists('/any/path'), isTrue);
+      },
+    );
 
     test('fileExists returns false by default for non-mock paths', () async {
       // Without override or cache, non-mock paths check real filesystem
@@ -86,30 +92,34 @@ void main() {
       expect(exitCode, equals(0));
     });
 
-    test('runInteractive throws when shouldThrowOnRunInteractive is true',
-        () async {
-      processManager.shouldThrowOnRunInteractive = true;
-      expect(
-        () => processManager.runInteractive(
+    test(
+      'runInteractive throws when shouldThrowOnRunInteractive is true',
+      () async {
+        processManager.shouldThrowOnRunInteractive = true;
+        expect(
+          () => processManager.runInteractive(
+            ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
+          ),
+          throwsException,
+        );
+      },
+    );
+
+    test(
+      'runCaptured returns captured stdout, stderr, and exit code',
+      () async {
+        processManager.mockStdout = 'php 8.4.1';
+        processManager.mockStderr = '';
+
+        final result = await processManager.runCaptured(
           ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
-        ),
-        throwsException,
-      );
-    });
+        );
 
-    test('runCaptured returns captured stdout, stderr, and exit code',
-        () async {
-      processManager.mockStdout = 'php 8.4.1';
-      processManager.mockStderr = '';
-
-      final result = await processManager.runCaptured(
-        ProcessSpec(executable: '/path/to/php', arguments: ['--version']),
-      );
-
-      expect(result.stdout, equals('php 8.4.1'));
-      expect(result.stderr, equals(''));
-      expect(result.exitCode, equals(0));
-    });
+        expect(result.stdout, equals('php 8.4.1'));
+        expect(result.stderr, equals(''));
+        expect(result.exitCode, equals(0));
+      },
+    );
 
     test('runCaptured throws when shouldThrowOnRunCaptured is true', () async {
       processManager.shouldThrowOnRunCaptured = true;

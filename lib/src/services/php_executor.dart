@@ -13,9 +13,9 @@ class PhpExecutor {
     required IProcessManager processManager,
     required IOSManager osManager,
     required IExecutableResolver executableResolver,
-  })  : _processManager = processManager,
-        _osManager = osManager,
-        _executableResolver = executableResolver;
+  }) : _processManager = processManager,
+       _osManager = osManager,
+       _executableResolver = executableResolver;
 
   /// Run `php` with [args].
   ///
@@ -32,7 +32,8 @@ class PhpExecutor {
     Map<String, String>? environment,
   }) async {
     final rootPath = workingDirectory ?? _osManager.currentDirectory;
-    final phpExe = phpExecutable ??
+    final phpExe =
+        phpExecutable ??
         await _executableResolver.resolvePhpExecutable(rootPath);
 
     final spec = ProcessSpec(
@@ -56,7 +57,8 @@ class PhpExecutor {
     Map<String, String>? environment,
   }) async {
     final rootPath = workingDirectory ?? _osManager.currentDirectory;
-    final phpExe = phpExecutable ??
+    final phpExe =
+        phpExecutable ??
         await _executableResolver.resolvePhpExecutable(rootPath);
 
     final spec = ProcessSpec(

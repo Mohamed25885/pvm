@@ -42,7 +42,9 @@ void main() {
       );
 
       expect(
-          candidate.toString(), equals('PhpVersionCandidate(8.4 from brew)'));
+        candidate.toString(),
+        equals('PhpVersionCandidate(8.4 from brew)'),
+      );
     });
   });
 }

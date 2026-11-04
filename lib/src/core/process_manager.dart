@@ -9,9 +9,8 @@ class ProcessSpec {
     List<String> arguments = const [],
     this.workingDirectory,
     Map<String, String>? environment,
-  })  : arguments = List.unmodifiable(arguments),
-        environment =
-            environment == null ? null : Map.unmodifiable(environment);
+  }) : arguments = List.unmodifiable(arguments),
+       environment = environment == null ? null : Map.unmodifiable(environment);
 }
 
 class CapturedProcessResult {

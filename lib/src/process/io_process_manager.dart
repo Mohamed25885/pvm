@@ -132,8 +132,11 @@ class IOProcessManager implements IProcessManager {
         ? '.EXE;.BAT;.CMD;.COM'
         : pathExtRaw;
 
-    final parts =
-        raw.split(';').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    final parts = raw
+        .split(';')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
 
     return parts
         .map((e) => e.startsWith('.') ? e.toLowerCase() : '.${e.toLowerCase()}')
@@ -142,10 +145,6 @@ class IOProcessManager implements IProcessManager {
 
   static const Map<String, List<String>> _commandResolutionMap = {
     'apt-get': ['/usr/bin/apt-get', '/bin/apt-get'],
-    'brew': [
-      '/opt/homebrew/bin/brew',
-      '/usr/local/bin/brew',
-      '/usr/bin/brew',
-    ],
+    'brew': ['/opt/homebrew/bin/brew', '/usr/local/bin/brew', '/usr/bin/brew'],
   };
 }

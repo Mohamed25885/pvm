@@ -29,7 +29,7 @@ import 'mocks/mock_console.dart';
 /// Private CommandRunner subclass that enables trailing options.
 class _PvmTestCommandRunner extends CommandRunner<int> {
   _PvmTestCommandRunner(String name, String description)
-      : super(name, description);
+    : super(name, description);
 
   ArgParser? _parser;
   @override
@@ -50,8 +50,11 @@ class MockPlatformInfo extends PlatformInfo {
   String get homeDirectoryKey => 'USERPROFILE';
 
   @override
-  List<String> get composerCandidates =>
-      ['composer.bat', 'composer.cmd', 'composer.phar'];
+  List<String> get composerCandidates => [
+    'composer.bat',
+    'composer.cmd',
+    'composer.phar',
+  ];
 }
 
 class MockComposerLocator implements IComposerLocator {
@@ -124,9 +127,9 @@ class TestPvmCommandRunner {
     PhpVersionManager? phpVersionManager,
     GitIgnoreService? gitIgnoreService,
     PhpExecutor? phpExecutor,
-  })  : console = MockConsole(),
-        osManager = osManager,
-        runner = _PvmTestCommandRunner('pvm', 'PHP Version Manager') {
+  }) : console = MockConsole(),
+       osManager = osManager,
+       runner = _PvmTestCommandRunner('pvm', 'PHP Version Manager') {
     final platformInfo = MockPlatformInfo();
     final platformConstants = PlatformConstants(platformInfo);
     final exeResolver = MockExecutableResolver(osManager: osManager);
@@ -139,7 +142,8 @@ class TestPvmCommandRunner {
       return IOProcessManager(osManager: envOSManager);
     }();
 
-    phpExecutor = phpExecutor ??
+    phpExecutor =
+        phpExecutor ??
         PhpExecutor(
           processManager: processManager ?? defaultProcessManager,
           osManager: osManager,
@@ -151,23 +155,23 @@ class TestPvmCommandRunner {
     );
 
     // Add all commands with correct constructor signatures
-    runner.addCommand(UseCommand(
-      osManager,
-      phpVerMgr,
-      gitIgnore,
-      MockVersionActivator(osManager),
-      console,
-    ));
     runner.addCommand(
-        GlobalCommand(osManager, MockVersionActivator(osManager), console));
+      UseCommand(
+        osManager,
+        phpVerMgr,
+        gitIgnore,
+        MockVersionActivator(osManager),
+        console,
+      ),
+    );
+    runner.addCommand(
+      GlobalCommand(osManager, MockVersionActivator(osManager), console),
+    );
     runner.addCommand(ListCommand(osManager, console));
     runner.addCommand(PhpCommand(phpExecutor, osManager, console));
-    runner.addCommand(ComposerCommand(
-      phpExecutor,
-      osManager,
-      composerLocator,
-      console,
-    ));
+    runner.addCommand(
+      ComposerCommand(phpExecutor, osManager, composerLocator, console),
+    );
     runner.addCommand(VersionFlag(console));
   }
 
@@ -195,13 +199,16 @@ class TestPvmCommandRunner {
       return 0;
     }
 
-    return await runZoned(() async {
-      return await runner.run(args) ?? 0;
-    }, zoneSpecification: ZoneSpecification(
-      print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
-        output.add(line);
+    return await runZoned(
+      () async {
+        return await runner.run(args) ?? 0;
       },
-    ));
+      zoneSpecification: ZoneSpecification(
+        print: (Zone self, ZoneDelegate parent, Zone zone, String line) {
+          output.add(line);
+        },
+      ),
+    );
   }
 }
 
@@ -257,7 +264,7 @@ class FakeGitIgnoreService extends GitIgnoreService {
   bool ensurePvmSymlinkResult = true;
 
   FakeGitIgnoreService(IOSManager osManager, Console console)
-      : super(osManager, console);
+    : super(osManager, console);
 
   @override
   Future<bool> ensureGitignoreIncludesPvm({required String rootPath}) async {
