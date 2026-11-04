@@ -163,6 +163,26 @@ void main() {
       return await runner.run(['exec', ...args]) ?? 1;
     }
 
+    test('B13: --version without a value is a usage error', () async {
+      expect(await runExec(['--version']), ExitCode.usageError);
+      expect(console.errors.join(), contains('--version requires a value'));
+      expect(processManager.lastInteractive, isNull);
+    });
+
+    test('B13: --version followed by another flag is a usage error', () async {
+      expect(
+        await runExec(['--version', '--cwd', r'D:\x', 'php']),
+        ExitCode.usageError,
+      );
+    });
+
+    test('B13: --cwd to a missing directory is a usage error', () async {
+      final code = await runExec(['--cwd', r'X:\nope', '8.3.0', 'php', '-v']);
+
+      expect(code, ExitCode.usageError);
+      expect(console.errors.join(), contains('does not exist'));
+    });
+
     test('explicit version + php forwards to runPhp with override', () async {
       final code = await runExec(['8.3.0', 'php', '-v']);
 

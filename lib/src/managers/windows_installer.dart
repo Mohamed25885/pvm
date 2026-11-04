@@ -9,7 +9,9 @@ import '../domain/php_release.dart';
 import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
 import '../core/constants.dart';
+import '../domain/install_record.dart';
 import '../services/release_fetcher.dart';
+import '../services/windows_archive_index.dart';
 
 /// Windows installer - downloads ZIP and extracts to versions directory.
 ///
@@ -31,13 +33,16 @@ class WindowsInstaller implements IInstaller {
     this.downloadBaseUrl = PvmUrls.windowsDownloadBase,
     http.Client? client,
     Duration retryDelay = const Duration(seconds: 1),
+    WindowsArchiveIndex? archiveIndex,
   }) : _versionsPath = versionsPath,
        _fetcher = releaseFetcher,
        _console = console,
        _client = client ?? http.Client(),
-       _retryDelay = retryDelay;
+       _retryDelay = retryDelay,
+       _archiveIndex = archiveIndex;
 
   final Duration _retryDelay;
+  final WindowsArchiveIndex? _archiveIndex;
 
   static const List<String> allowedDomains = [
     'windows.php.net',
@@ -58,13 +63,14 @@ class WindowsInstaller implements IInstaller {
   }
 
   @override
-  Future<void> install(String version, {InstallOptions? options}) async {
+  Future<InstallResult> install(
+    String version, {
+    InstallOptions? options,
+  }) async {
     // Validate before the value is used in any path (path traversal guard).
     final phpVersion = PhpVersion.parse(version);
     final force = options?.force ?? false;
-
-    _console.print('Fetching available PHP versions...');
-    final releases = await _fetcher.fetchReleases();
+    final allowUnverified = options?.allowUnverified ?? false;
 
     final arch = options?.architecture ?? Architecture.x64;
     final buildType = options?.buildType ?? BuildType.nts;
@@ -77,26 +83,41 @@ class WindowsInstaller implements IInstaller {
       buildType: buildType,
     );
 
-    final matching = releases.where((r) => filter.matches(r)).toList();
+    // Throws ReleaseFetcherException when offline, so "network error" is
+    // never reported as "no such version".
+    _console.print('Fetching available PHP versions...');
+    final releases = await _fetcher.fetchReleases();
+    var matching = releases.where(filter.matches).toList();
 
-    if (matching.isEmpty) {
-      _console.printError(
-        'No matching PHP release found for $version ($arch, $buildType)',
-      );
-      throw Exception('No matching PHP release found');
+    // releases.json only lists the newest patch per minor; older patches
+    // live in the archive (no published checksums).
+    if (matching.isEmpty && phpVersion.hasPatch && _archiveIndex != null) {
+      _console.print('Not in current releases; checking the archive...');
+      final archived = await _archiveIndex.fetch();
+      matching = archived.where(filter.matches).toList();
     }
 
+    if (matching.isEmpty) {
+      throw NoMatchingReleaseException(
+        'No matching PHP release found for $version '
+        '(${arch.name}, ${buildType.name})',
+      );
+    }
+
+    matching.sort((a, b) => (b.patch ?? 0).compareTo(a.patch ?? 0));
     final release = matching.first;
     final displayVersion = release.displayVersion;
-    // Re-validate: the version string came from remote JSON.
+    // Re-validate: the version string came from remote data.
     PhpVersion.parse(displayVersion);
     final targetDir = p.join(versionsPath, displayVersion);
 
     if (!force && await isInstalled(displayVersion)) {
-      _console.printError(
-        'PHP $displayVersion already installed. Use --force to reinstall',
-      );
-      return;
+      return InstallResult(displayVersion, alreadyInstalled: true);
+    }
+
+    final verified = release.sha256.trim().isNotEmpty;
+    if (!verified && !allowUnverified) {
+      throw UnverifiedReleaseException(displayVersion);
     }
 
     await preInstall(displayVersion);
@@ -110,9 +131,17 @@ class WindowsInstaller implements IInstaller {
       _console.print('Downloading PHP $displayVersion...');
       final zipFile = await downloadPhp(release, tempDir.path);
 
-      _console.print('Verifying SHA256...');
-      if (!await verifySha256(zipFile, release.sha256)) {
-        throw Exception('SHA256 verification failed');
+      final actualSha = await sha256Of(zipFile);
+      if (verified) {
+        _console.print('Verifying SHA256...');
+        if (!await verifySha256(zipFile, release.sha256)) {
+          throw Exception('SHA256 verification failed');
+        }
+      } else {
+        _console.printWarning(
+          'No published checksum for PHP $displayVersion; installing '
+          'unverified (sha256 $actualSha recorded).',
+        );
       }
 
       _console.print('Extracting...');
@@ -128,6 +157,15 @@ class WindowsInstaller implements IInstaller {
         );
       }
 
+      await InstallRecord(
+        version: displayVersion,
+        sourceUrl: release.downloadUrl,
+        archiveSha256: actualSha,
+        verified: verified,
+        installedAt: DateTime.now().toUtc(),
+        files: await InstallRecord.hashTree(staging.path),
+      ).writeTo(staging.path);
+
       await _commit(staging, Directory(targetDir));
     } on Exception catch (e) {
       await onInstallFailed(displayVersion, e);
@@ -138,7 +176,11 @@ class WindowsInstaller implements IInstaller {
     }
 
     await postInstall(displayVersion);
+    return InstallResult(displayVersion);
   }
+
+  Future<String> sha256Of(File file) async =>
+      crypto.sha256.convert(await file.readAsBytes()).toString();
 
   /// Atomically replace [target] with [staging]; on failure the previous
   /// installation (if any) is restored.

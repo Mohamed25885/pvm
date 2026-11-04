@@ -3,8 +3,12 @@ import 'package:args/command_runner.dart';
 
 import '../core/console.dart';
 import '../core/exit_codes.dart';
+import '../domain/exceptions.dart';
 import '../domain/php_release.dart';
+import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
+import '../services/release_fetcher.dart';
+import '../core/error_text.dart';
 
 class InstallCommand extends Command<int> {
   @override
@@ -18,7 +22,14 @@ class InstallCommand extends Command<int> {
     ..addOption('arch', help: 'Architecture (x64 or x86)', defaultsTo: 'x64')
     ..addFlag('ts', help: 'Thread Safe (default: NTS)', negatable: false)
     ..addFlag('nts', help: 'Non-Thread Safe', negatable: false)
-    ..addFlag('force', help: 'Force reinstall', negatable: false);
+    ..addFlag('force', help: 'Force reinstall', negatable: false)
+    ..addFlag(
+      'allow-unverified',
+      help:
+          'Allow archived builds that have no published SHA-256 '
+          '(older patch releases).',
+      negatable: false,
+    );
 
   final Console _console;
   final IInstaller _installer;
@@ -27,25 +38,28 @@ class InstallCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final versionArg = argResults?.rest.singleOrNull;
-
-    if (versionArg == null) {
+    final rest = argResults?.rest ?? const <String>[];
+    if (rest.isEmpty) {
       _console.printError('No version specified. Usage: pvm install <version>');
       return ExitCode.usageError;
     }
-
-    final parsed = _parseVersion(versionArg);
-    if (parsed == null) {
-      _console.printError('Invalid version format. Use major.minor[.patch]');
+    if (rest.length > 1) {
+      _console.printError('Too many arguments. Usage: pvm install <version>');
       return ExitCode.usageError;
     }
 
-    String archStr = argResults?['arch']?.toString() ?? 'x64';
-    if (archStr.isEmpty) {
-      archStr = _getDefaultArchitecture();
+    final PhpVersion version;
+    try {
+      version = PhpVersion.parse(rest.single);
+    } on InvalidVersionFormatException catch (e) {
+      _console.printError(e.message);
+      return ExitCode.usageError;
     }
 
-    final arch = PhpRelease.architectureFromString(archStr);
+    final archStr = argResults?['arch']?.toString() ?? 'x64';
+    final arch = PhpRelease.architectureFromString(
+      archStr.isEmpty ? 'x64' : archStr,
+    );
     if (arch == null) {
       _console.printError('Invalid architecture: $archStr');
       return ExitCode.usageError;
@@ -58,50 +72,44 @@ class InstallCommand extends Command<int> {
       return ExitCode.usageError;
     }
 
-    BuildType buildType = BuildType.nts;
-    if (useTs) buildType = BuildType.ts;
-
-    final force = argResults?['force'] == true;
+    final options = InstallOptions(
+      architecture: arch,
+      buildType: useTs ? BuildType.ts : BuildType.nts,
+      force: argResults?['force'] == true,
+      allowUnverified: argResults?['allow-unverified'] == true,
+    );
 
     try {
-      final options = InstallOptions(
-        architecture: arch,
-        buildType: buildType,
-        force: force,
+      final result = await _installer.install(
+        version.toString(),
+        options: options,
       );
-
-      await _installer.install(versionArg, options: options);
-
-      _console.print('Successfully installed PHP $versionArg');
+      if (result.alreadyInstalled) {
+        _console.print(
+          'PHP ${result.version} is already installed. '
+          'Use --force to reinstall.',
+        );
+      } else {
+        _console.print('Successfully installed PHP ${result.version}');
+      }
       return ExitCode.success;
+    } on ReleaseFetcherException catch (e) {
+      _console.printError('Network error: ${e.message}');
+      return ExitCode.generalError;
+    } on NoMatchingReleaseException catch (e) {
+      _console.printError(e.message);
+      _console.print('Run "pvm list-remote" to see available versions.');
+      return ExitCode.versionNotFound;
+    } on UnverifiedReleaseException catch (e) {
+      _console.printError(e.toString());
+      return ExitCode.generalError;
     } on Exception catch (e) {
-      // The installer should have printed or thrown specific errors.
-      _console.printError('Installation failed: $e');
+      _console.printError('Installation failed: ${describeError(e)}');
       return ExitCode.generalError;
     } finally {
       try {
         await _installer.dispose();
       } catch (_) {}
     }
-  }
-
-  (int, int, int?)? _parseVersion(String version) {
-    final parts = version.split('.');
-    if (parts.length < 2) return null;
-
-    final major = int.tryParse(parts[0]);
-    final minor = int.tryParse(parts[1]);
-    if (major == null || minor == null) return null;
-
-    int? patch;
-    if (parts.length > 2) {
-      patch = int.tryParse(parts[2]);
-    }
-
-    return (major, minor, patch);
-  }
-
-  String _getDefaultArchitecture() {
-    return 'x64';
   }
 }

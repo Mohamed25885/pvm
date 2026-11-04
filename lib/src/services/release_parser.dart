@@ -3,6 +3,10 @@ import '../domain/php_release.dart';
 import '../core/constants.dart';
 
 class ReleaseParser {
+  static final _versionPrefix = RegExp(
+    r'^(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?',
+  );
+
   static List<PhpRelease> parseWindowsReleases(String json) {
     final List<PhpRelease> releases = [];
 
@@ -13,20 +17,17 @@ class ReleaseParser {
         final versionKey = entry.key;
         final versionData = entry.value as Map<String, dynamic>;
 
-        // Parse version from the version field: "7.4.33" -> major=7, minor=4, patch=33
+        // Parse version from the version field: "7.4.33" -> 7, 4, 33.
+        // Windows rebuilds carry a suffix ("8.4.27-1"); the suffix must not
+        // turn the patch into 0 (it did: int.tryParse("27-1") == null).
         final version = versionData['version'] as String?;
         if (version == null) continue;
 
-        final versionParts = version.split('.');
-        if (versionParts.length < 2) continue;
-
-        final major = int.tryParse(versionParts[0]);
-        final minor = int.tryParse(versionParts[1]);
-        final patch = versionParts.length >= 3
-            ? int.tryParse(versionParts[2])
-            : 0;
-
-        if (major == null || minor == null) continue;
+        final vm = _versionPrefix.firstMatch(version.trim());
+        if (vm == null) continue;
+        final major = int.parse(vm.group(1)!);
+        final minor = int.parse(vm.group(2)!);
+        final patch = vm.group(3) != null ? int.parse(vm.group(3)!) : 0;
 
         // Parse major.minor from versionKey: "7.4" -> 7.4
         final versionKeyParts = versionKey.split('.');
@@ -80,7 +81,7 @@ class ReleaseParser {
               versionString: version,
               major: major,
               minor: minor,
-              patch: patch ?? 0,
+              patch: patch,
               architecture: architecture,
               buildType: buildType,
               downloadUrl: downloadUrl,

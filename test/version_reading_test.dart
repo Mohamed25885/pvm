@@ -36,6 +36,17 @@ void main() {
       );
     });
 
+    test('failures set a non-zero process exit code', () async {
+      // Dart ignores main()'s return value; regression for exit code always 0.
+      final result = await Process.run(Platform.resolvedExecutable, [
+        'run',
+        'pvm.dart',
+        'install',
+        'not-a-version',
+      ]);
+      expect(result.exitCode, 2, reason: '${result.stdout}${result.stderr}');
+    });
+
     test('pvm -v short flag outputs correct version string', () async {
       final result = await Process.run('dart', ['run', 'pvm.dart', '-v']);
       expect(result.exitCode, 0, reason: 'pvm -v should exit with code 0');

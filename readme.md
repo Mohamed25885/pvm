@@ -1,6 +1,6 @@
 # PVM — PHP Version Manager for Windows
 
-A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows symbolic links for fast, zero-overhead version switching.
+A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows directory junctions (no admin rights needed) for fast, zero-overhead version switching.
 
 **Latest release:** [v2.0.0](https://github.com/Mohamed25885/pvm/releases/tag/v2.0.0) — `.pvmrc` config (replaces `.php-version`), `pvm setup`, privilege-escalation for symlinks, `major.minor` version shorthand, optional `PVM_HOME` / `PVM_VERSIONS_HOME`. See [CHANGELOG.md](CHANGELOG.md).
 
@@ -40,7 +40,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 **Current**: Windows 10/11 only  
 **Requirements**:
-- Symbolic link support (Developer Mode enabled OR Administrator privileges)
+- No admin rights or Developer Mode needed: links are directory junctions (see [Requirements](#requirements))
 - PowerShell or CMD
 
 **Planned**: Linux and macOS support in future releases.
@@ -68,7 +68,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
            └── php.exe
    ```
    Add the `pvm` directory and `%USERPROFILE%\.pvm` to your PATH as needed.
-5. **Enable Developer Mode** (recommended) or run as Administrator — required for creating symbolic links on Windows.
+5. That's it. No Developer Mode or Administrator rights are needed, because PVM uses directory junctions (see [Requirements](#requirements)).
 
 ---
 
@@ -189,6 +189,7 @@ Runs environment checks (versions directory, symlink targets, PATH hints, and op
 pvm doctor
 pvm doctor --json
 pvm doctor --no-symlink-test
+pvm doctor --verify          # re-hash installed versions against their install records
 ```
 
 ---
@@ -231,7 +232,12 @@ pvm uninstall 8.1.0 --force
 
 ### `pvm install` / `pvm list-remote`
 
-Download and install PHP builds from the configured release source, and list available remote versions. See `pvm install --help` and `pvm list-remote --help` for architecture and build-type options.
+Download and install PHP builds from windows.php.net, and list available remote versions. See `pvm install --help` and `pvm list-remote --help` for architecture and build-type options.
+
+- `pvm install 8.3` installs the newest 8.3 patch. Its SHA-256 is verified against the published checksum.
+- `pvm install 8.3.2` installs an exact patch. Older patches come from the php.net archive, which publishes **no checksums**, so PVM requires `--allow-unverified` for them and warns when you use it.
+- Installs are all-or-nothing. A failed download or a checksum mismatch leaves `versions\` unchanged, and `--force` replaces the whole version folder.
+- Every install writes `versions\<v>\.pvm-install.json`, which records the source URL, whether it was verified, and a SHA-256 of each file. Run `pvm doctor --verify` to detect files changed after installation.
 
 ```powershell
 pvm list-remote
@@ -392,23 +398,17 @@ PVM detects whether it has a terminal attached:
 
 ## Requirements
 
-### Developer Mode (Recommended)
+### No special privileges needed (since 2.1)
 
-Windows requires **Developer Mode** enabled for non-admin users to create symbolic links. Without it, symlink creation fails with `Access is denied`.
+`pvm use` and `pvm global` create the `.pvm` link as a **directory junction**, which any user can create. You don't need Developer Mode or Administrator rights.
 
-**Enable Developer Mode:**
-1. Open **Settings** → **Privacy & security** → **For developers**
-2. Toggle **Developer Mode** to **On**
+PVM falls back to a symbolic link only when a junction is impossible, for example when the versions directory is on a network share. Symbolic links need **Developer Mode** (Settings → System → For developers) or an Administrator terminal. If that fallback is refused, PVM tells you exactly that; it doesn't show an elevation prompt that can't work.
 
-### Alternative: Run as Administrator
+### Link behavior
 
-If Developer Mode is not enabled, run Command Prompt or PowerShell as Administrator before using PVM.
-
-### Symlink Behavior
-
-- `pvm use` / `pvm global` create symlinks using `Link.create` (Windows: requires Developer Mode or Administrator).
-- On permission denial, PVM may prompt to retry with elevated permissions when a terminal is attached.
-- Existing `.pvm` files/directories are replaced with the symlink when creation succeeds.
+- An existing `.pvm` **link** is replaced when you switch versions; its target is never touched.
+- A **real** file or directory named `.pvm` is never deleted. PVM stops and asks you to move it.
+- `pvm use` refuses to run in your home directory, where `.pvm` is the global link, or at a drive root.
 
 ---
 
@@ -483,9 +483,13 @@ Tests use `MockOSManager` (`test/mocks/mock_os_manager.dart`) to simulate filesy
 
 ## Troubleshooting
 
-### Symlink creation fails: `Access is denied`
+### Link creation fails: `Access is denied`
 
-Enable **Developer Mode** in Windows Settings, or run the terminal as Administrator.
+This only happens on the symlink fallback (e.g. versions on a network share). Move the versions directory to a local drive (`pvm setup --versions-home D:\php`), enable **Developer Mode**, or run the terminal as Administrator.
+
+### `.pvm` already exists and is not a PVM link
+
+A real folder or file named `.pvm` sits where PVM wants to create its link. PVM won't delete it. Rename or move it, then run the command again.
 
 ### `pvm use` says "Version directory not found"
 

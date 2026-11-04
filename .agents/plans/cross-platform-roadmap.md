@@ -34,7 +34,7 @@ Rule for every task: **regression test first** (fails on current `main`), then t
 Exit criteria: all tests green on Windows CI, CHANGELOG entry, tag `v2.0.1`.
 
 ### Phase 1: Correctness & UX fixes → release v2.1.0
-- Status: Pending
+- Status: Done (branch `feat/phase-1-correctness`, based on `fix/phase-0-critical`)
 
 | # | Task | Refs |
 |---|------|------|
@@ -124,6 +124,15 @@ Exit criteria: zero `if (PlatformDetector.isX)` outside factories; full suite gr
 - Housekeeping needed to commit at all:
   - `main` failed CI on `dart format`, so a separate format-only commit was added.
   - The pre-commit `outdated`/`pull-up-dependencies` checks blocked every commit, so the lockfile was refreshed and lower bounds raised (no new packages).
+
+- Phase 1 implemented on `feat/phase-1-correctness`. Notes:
+  - **1.1:** Dart treats junctions as links (`type`, `target()` and `delete()` were all verified on a real filesystem), so the inspector and uninstall code are unchanged.
+  - **1.3:** windows.php.net publishes **no checksums for archived builds** (`archives/sha256sum.txt` returns 404), so older patches are opt-in via `--allow-unverified` and flagged by `doctor --verify`.
+  - **1.9:** actions are pinned to the latest releases' commit SHAs (looked up via the GitHub API on 2026-11-04).
+- The end-to-end run of the compiled binary against live php.net found two pre-existing bugs, both fixed with regression tests:
+  - **B17:** every exit code was 0, because `main`'s return value is ignored.
+  - **B18:** `8.4.27-1` was parsed as `8.4.0`.
+- Lesson: keep a real-binary smoke test in CI (Phase 6.5).
 
 ## Conclusion
 _To be filled when v3.0.0 ships._

@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../lib/src/core/os_manager.dart';
@@ -160,8 +161,39 @@ void main() {
         expect(spec.executable, equals(phpExe));
         expect(spec.arguments, equals(['--version', '-m']));
         expect(spec.workingDirectory, equals(root));
-        expect(spec.environment, equals(Platform.environment));
+        // B8: the selected PHP's directory is first on PATH; the rest of
+        // the environment is passed through unchanged.
+        final env = spec.environment!;
+        final pathKey = env.keys.firstWhere((k) => k.toUpperCase() == 'PATH');
+        final sep = Platform.isWindows ? ';' : ':';
+        expect(env[pathKey]!.split(sep).first, p.dirname(phpExe));
+        final base = osManager.currentEnvironment;
+        for (final k in base.keys.where((k) => k.toUpperCase() != 'PATH')) {
+          expect(env[k], base[k], reason: k);
+        }
+        expect(
+          env.keys.where((k) => k.toUpperCase() == 'PATH'),
+          hasLength(1),
+          reason: 'must not create a second PATH variable',
+        );
       });
+
+      test(
+        'B8: runScript (composer) also puts the selected PHP first on PATH',
+        () async {
+          final root = '/project/root';
+          osManager.mockCurrentDirectory = root;
+          final phpExe = getPhpExe(root);
+          osManager.setFileExists(phpExe, true);
+
+          await executor.runScript('/bin/composer.phar', ['install']);
+
+          final env = processManager.lastSpec!.environment!;
+          final pathKey = env.keys.firstWhere((k) => k.toUpperCase() == 'PATH');
+          final sep = Platform.isWindows ? ';' : ':';
+          expect(env[pathKey]!.split(sep).first, p.dirname(phpExe));
+        },
+      );
 
       test(
         'uses currentDirectory from osManager when workingDirectory is null',

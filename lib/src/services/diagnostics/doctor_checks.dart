@@ -9,6 +9,7 @@ import '../../core/platform_constants.dart';
 import '../../core/platform_detector.dart';
 import '../../core/symlink_inspector.dart';
 import '../../domain/exceptions.dart';
+import '../../domain/install_record.dart';
 import '../../domain/project.dart';
 import '../../domain/version_registry.dart';
 import '../../version.dart';
@@ -425,5 +426,80 @@ class ProjectPvmrcCheck implements DiagnosticCheck {
         ],
       );
     }
+  }
+}
+
+/// `pvm doctor --verify`: re-hashes every installed version and compares it
+/// with the record written at install time (S8).
+class InstallIntegrityCheck implements DiagnosticCheck {
+  final IOSManager _osManager;
+
+  InstallIntegrityCheck(this._osManager);
+
+  @override
+  String get id => 'install-integrity';
+
+  @override
+  String get label => 'Installed version integrity';
+
+  @override
+  Future<DiagnosticResult> run() async {
+    final registry = VersionRegistry(_osManager);
+    final versions = await registry.getInstalledVersions();
+    if (versions.isEmpty) {
+      return DiagnosticResult(
+        id: id,
+        label: label,
+        status: DiagnosticStatus.info,
+        lines: const ['No installed versions to verify.'],
+      );
+    }
+
+    final lines = <String>[];
+    var status = DiagnosticStatus.ok;
+    void worsen(DiagnosticStatus s) {
+      if (s.index > status.index) status = s;
+    }
+
+    for (final version in versions) {
+      final dir = registry.getVersionPath(version);
+      final InstallRecord? record;
+      try {
+        record = await InstallRecord.readFrom(dir);
+      } catch (e) {
+        lines.add('$version: install record unreadable ($e)');
+        worsen(DiagnosticStatus.fail);
+        continue;
+      }
+      if (record == null) {
+        lines.add(
+          '$version: no install record (installed before 2.1 or by hand)',
+        );
+        worsen(DiagnosticStatus.warn);
+        continue;
+      }
+      final result = await record.verify(dir);
+      final origin = record.verified
+          ? 'checksum verified'
+          : 'UNVERIFIED source';
+      if (result.isIntact) {
+        lines.add(
+          '$version: intact (${record.files.length} files, $origin)'
+          '${result.added.isEmpty ? '' : '; ${result.added.length} added file(s)'}',
+        );
+        if (!record.verified) worsen(DiagnosticStatus.warn);
+      } else {
+        worsen(DiagnosticStatus.fail);
+        lines.add(
+          '$version: MODIFIED since install '
+          '(${result.modified.length} changed, ${result.missing.length} missing)',
+        );
+        for (final f in [...result.modified, ...result.missing].take(10)) {
+          lines.add('    $f');
+        }
+      }
+    }
+
+    return DiagnosticResult(id: id, label: label, status: status, lines: lines);
   }
 }

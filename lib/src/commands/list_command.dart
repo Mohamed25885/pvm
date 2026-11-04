@@ -39,7 +39,11 @@ class ListCommand extends Command<int> {
     }
 
     if (versions.isEmpty) {
-      return ExitCode.generalError;
+      _console.printError(
+        'No PHP versions installed in ${_osManager.phpVersionsPath}',
+      );
+      _console.print('Install one with "pvm install <version>".');
+      return ExitCode.versionNotFound;
     }
 
     versions.sort((a, b) => b.compareTo(a));

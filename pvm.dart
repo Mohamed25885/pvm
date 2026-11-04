@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 import 'package:get_it/get_it.dart';
@@ -32,6 +34,7 @@ import 'package:pvm/src/process/io_process_manager.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import 'package:pvm/src/services/release_fetcher_factory.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:pvm/src/services/windows_archive_index.dart';
 import 'package:pvm/src/commands/use_command.dart';
 import 'package:pvm/src/commands/global_command.dart';
 import 'package:pvm/src/commands/list_command.dart';
@@ -133,6 +136,7 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
         versionsPath: versionsPath,
         releaseFetcher: getIt<IReleaseFetcher>(),
         console: getIt<ConsoleIO>(),
+        archiveIndex: WindowsArchiveIndex(),
       ),
     );
     getIt.registerLazySingleton<IVersionActivator>(
@@ -182,7 +186,14 @@ class PvmCommandRunner extends CommandRunner<int> {
   ArgParser get argParser => _parser ??= ArgParser(allowTrailingOptions: true);
 }
 
-Future<int> main(List<String> arguments) async {
+/// Dart ignores the value returned from `main`; the process exit code must
+/// be set explicitly, or every failure (and PHP's own exit status from
+/// `pvm php`) would surface as 0.
+Future<void> main(List<String> arguments) async {
+  exitCode = await runPvm(arguments);
+}
+
+Future<int> runPvm(List<String> arguments) async {
   await setupServices();
 
   final osManager = getIt<IOSManager>();

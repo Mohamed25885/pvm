@@ -25,6 +25,13 @@
 | B15 | Low | `php_version_manager.dart:34-36` | Doc comment says default **No**; README and `confirm()` default **Yes**. | Read code |
 | B16 | Low | Unix activators | Link `.pvm/php` (file) while Windows links `.pvm` → version dir. `SymLinkInspector` reports Unix `.pvm` as `corrupt`, so `current`, `doctor`, `exec` fallback and `uninstall` are wrong on Linux/macOS. Unix `activateLocal` also uses cwd, not project root. | Read code |
 
+### Found later (Phase 1 end-to-end run)
+
+| ID | Sev | Where | Problem | Status |
+|----|-----|-------|---------|--------|
+| B17 | High | `pvm.dart` `main` | `Future<int> main` returned the exit code, but Dart ignores `main`'s return value, so the process **always exited 0**, including PHP's own status from `pvm php`. | Fixed in Phase 1 |
+| B18 | High | `release_parser.dart` | `"8.4.27-1"` (Windows rebuild suffix) → `int.tryParse("27-1") == null` → patch 0. `pvm install 8.4` installed 8.4.27 into `versions/8.4.0`, which affected all current 8.2–8.5 releases. | Fixed in Phase 1 |
+
 ## Design / debt
 
 | ID | Where | Issue | Recommendation |

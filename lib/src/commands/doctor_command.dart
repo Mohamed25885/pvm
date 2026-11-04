@@ -30,6 +30,13 @@ class DoctorCommand extends Command<int> {
       'no-symlink-test',
       help: 'Skip the live symlink-creation probe.',
       negatable: false,
+    )
+    ..addFlag(
+      'verify',
+      help:
+          'Re-hash installed versions and compare with their install '
+          'records (detects files changed after install).',
+      negatable: false,
     );
 
   final IOSManager _osManager;
@@ -51,6 +58,7 @@ class DoctorCommand extends Command<int> {
   Future<int> run() async {
     final asJson = argResults!['json'] as bool;
     final noSymlinkTest = argResults!['no-symlink-test'] as bool;
+    final verify = argResults!['verify'] as bool;
 
     final checks = <Future<DiagnosticResult> Function()>[
       () => PvmInstallationCheck(_osManager).run(),
@@ -62,6 +70,7 @@ class DoctorCommand extends Command<int> {
       () => HomeWritableCheck(_osManager).run(),
       () => PathContainsGlobalCheck(_osManager, _platformConstants).run(),
       () => ProjectPvmrcCheck(_osManager).run(),
+      if (verify) () => InstallIntegrityCheck(_osManager).run(),
     ];
 
     final results = <DiagnosticResult>[];

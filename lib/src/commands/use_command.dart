@@ -14,6 +14,7 @@ import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
+import '../core/error_text.dart';
 
 class UseCommand extends Command<int> {
   @override
@@ -248,13 +249,15 @@ class UseCommand extends Command<int> {
           rootPath: project.rootDirectory.path,
         );
       } catch (e) {
-        _console.printWarning('Could not update .gitignore: $e');
+        _console.printWarning(
+          'Could not update .gitignore: ${describeError(e)}',
+        );
       }
 
       _console.print('Local link created: $localPath -> $sourcePath');
       return ExitCode.success;
     } catch (e) {
-      _console.printError('Error: $e');
+      _console.printError('Error: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

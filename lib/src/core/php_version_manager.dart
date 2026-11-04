@@ -32,7 +32,7 @@ class PhpVersionManager {
   }
 
   /// Prompt user to switch versions (returns true if user confirms).
-  /// Default: NO (safe default - user must explicitly type 'y').
+  /// Default: YES (pressing Enter confirms), matching the README.
   Future<bool> promptMismatch({
     required PhpVersion currentVersion,
     required PhpVersion requestedVersion,

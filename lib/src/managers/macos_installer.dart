@@ -17,12 +17,15 @@ class MacOSInstaller extends PackageManagerInstaller {
   String get installationType => 'package manager (brew)';
 
   @override
-  Future<void> install(String version, {InstallOptions? options}) async {
+  Future<InstallResult> install(
+    String version, {
+    InstallOptions? options,
+  }) async {
     // Security validation against injection
     final phpVersion = PhpVersion.parse(version);
     final force = options?.force ?? false;
     if (!force && await isInstalled(phpVersion.toString())) {
-      return;
+      return InstallResult(phpVersion.toString(), alreadyInstalled: true);
     }
 
     // Normalize version for brew (e.g., "8.4" -> "php@8.4")
@@ -37,6 +40,7 @@ class MacOSInstaller extends PackageManagerInstaller {
     if (result.exitCode != 0) {
       throw Exception('Failed to install $brewPackage: ${result.stderr}');
     }
+    return InstallResult(phpVersion.toString());
   }
 
   String _normalizeBrewPackage(String version) {

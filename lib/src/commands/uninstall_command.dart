@@ -14,6 +14,7 @@ import '../domain/php_version.dart';
 import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
+import '../core/error_text.dart';
 
 /// `pvm uninstall <version>` — remove an installed PHP version directory.
 class UninstallCommand extends Command<int> {
@@ -171,7 +172,7 @@ class UninstallCommand extends Command<int> {
       );
       return ExitCode.permissionDenied;
     } catch (e) {
-      _console.printError('Could not delete directory: $e');
+      _console.printError('Could not delete directory: ${describeError(e)}');
       return ExitCode.generalError;
     }
 
@@ -201,7 +202,9 @@ class UninstallCommand extends Command<int> {
       await _osManager.deleteSymLink(info.linkPath);
       _console.print('Removed dangling symlink at ${info.linkPath}');
     } catch (e) {
-      _console.printWarning('Could not remove symlink ${info.linkPath}: $e');
+      _console.printWarning(
+        'Could not remove symlink ${info.linkPath}: ${describeError(e)}',
+      );
     }
   }
 }

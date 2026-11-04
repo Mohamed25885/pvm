@@ -8,6 +8,7 @@ import '../core/composer_locator.dart';
 import '../domain/exceptions.dart';
 import '../domain/project.dart';
 import '../services/php_executor.dart';
+import '../core/error_text.dart';
 
 class ComposerCommand extends Command<int> {
   @override
@@ -59,7 +60,7 @@ class ComposerCommand extends Command<int> {
       _console.printError(e.message);
       return ExitCode.configurationError;
     } catch (e) {
-      _console.printError('Error running Composer: $e');
+      _console.printError('Error running Composer: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

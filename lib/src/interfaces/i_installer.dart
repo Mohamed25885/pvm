@@ -29,7 +29,48 @@ class InstallOptions {
   final BuildType? buildType;
   final bool force;
 
-  const InstallOptions({this.architecture, this.buildType, this.force = false});
+  /// Permit installing a build that has no published SHA-256 (archived
+  /// patch releases on windows.php.net). TLS is then the only protection.
+  final bool allowUnverified;
+
+  const InstallOptions({
+    this.architecture,
+    this.buildType,
+    this.force = false,
+    this.allowUnverified = false,
+  });
+}
+
+/// Outcome of [IInstaller.install].
+class InstallResult {
+  /// The concrete version (e.g. `8.3.14`) that is now installed.
+  final String version;
+
+  /// True when the version was already present and nothing was changed.
+  final bool alreadyInstalled;
+
+  const InstallResult(this.version, {this.alreadyInstalled = false});
+}
+
+/// Thrown when no build matches the requested version/arch/build type.
+class NoMatchingReleaseException implements Exception {
+  final String message;
+  const NoMatchingReleaseException(this.message);
+
+  @override
+  String toString() => message;
+}
+
+/// Thrown when a matching build exists but cannot be verified and the user
+/// did not pass `--allow-unverified`.
+class UnverifiedReleaseException implements Exception {
+  final String version;
+  const UnverifiedReleaseException(this.version);
+
+  @override
+  String toString() =>
+      'PHP $version is an archived build with no published SHA-256 checksum.\n'
+      'Re-run with --allow-unverified to install it anyway (TLS-only protection).';
 }
 
 /// Installer interface for PHP installation across platforms.
@@ -42,7 +83,7 @@ abstract class IInstaller {
 
   /// Install a PHP version.
   /// [version] - the PHP version to install (e.g., "8.4", "8.4.1")
-  Future<void> install(String version, {InstallOptions? options});
+  Future<InstallResult> install(String version, {InstallOptions? options});
 
   /// Check if a version is installed.
   Future<bool> isInstalled(String version);

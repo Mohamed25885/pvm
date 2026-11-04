@@ -5,6 +5,7 @@ import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../domain/php_release.dart';
 import '../services/release_fetcher.dart';
+import '../core/error_text.dart';
 
 class ListRemoteCommand extends Command<int> {
   @override
@@ -91,7 +92,7 @@ class ListRemoteCommand extends Command<int> {
       _console.printError(e.message);
       return ExitCode.generalError;
     } catch (e) {
-      _console.printError('Failed to list releases: $e');
+      _console.printError('Failed to list releases: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }
