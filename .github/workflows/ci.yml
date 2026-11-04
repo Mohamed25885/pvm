@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+# Least privilege by default; the provenance step widens it per job below.
+permissions:
+  contents: read
+
 jobs:
   ci:
     strategy:
@@ -13,13 +17,20 @@ jobs:
         os: [windows-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write # build provenance (push to main only)
+      attestations: write
 
     steps:
+      # Actions are pinned to full commit SHAs (tag in the comment).
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Dart (bootstrap for FVM)
-        uses: dart-lang/setup-dart@v1
+        uses: dart-lang/setup-dart@6afc89df92d6eb3834022f73cd65adc8cdfcb92d # v1.8.1
         with:
           sdk: stable
 
@@ -68,12 +79,28 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: fvm dart compile exe pvm.dart -o builds/pvm.exe
 
+      - name: Write SHA256SUMS
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash builds/pvm.exe -Algorithm SHA256).Hash.ToLower()
+          "$h  pvm.exe" | Out-File -FilePath builds/SHA256SUMS -Encoding ascii
+          Get-Content builds/SHA256SUMS
+
+      - name: Attest build provenance
+        if: matrix.os == 'windows-latest' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: builds/pvm.exe
+
       - name: Upload Windows Binary
         if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: pvm-windows
-          path: builds/pvm.exe
+          path: |
+            builds/pvm.exe
+            builds/SHA256SUMS
 
       - name: Install test (--version)
         if: matrix.os == 'windows-latest'
