@@ -1,8 +1,6 @@
 import 'package:args/command_runner.dart';
 import 'package:test/test.dart';
 
-import 'dart:io';
-
 import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
@@ -105,7 +103,8 @@ void main() {
 
         // .pvmrc should be written
         expect(phpVer.writeVersion, equals('8.2'));
-        expect(phpVer.writeRootPath, equals(Directory.current.path));
+        // Root comes from the OS manager's cwd, same as the activator.
+        expect(phpVer.writeRootPath, equals(r'C:\project'));
       },
     );
 

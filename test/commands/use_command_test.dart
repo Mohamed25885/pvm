@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../helpers.dart';
@@ -266,36 +269,30 @@ void main() {
   });
 
   group('UseCommand - GitIgnoreService auto-run', () {
-    test(
-      'runs GitIgnoreService on every use (but NOT early symlink creation)',
-      () async {
-        final osManager = MockOSManager();
-        osManager.mockVersions = ['8.0'];
-        osManager.mockLocalPath = r'C:\project\.pvm';
-        osManager.symlinkSourceExistsOverride = true;
-        final console = MockConsole();
+    test('runs GitIgnoreService after a successful use', () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.0'];
+      osManager.mockLocalPath = r'C:\project\.pvm';
+      osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-        final phpVer = FakePhpVersionManager(console);
-        phpVer.readResult = null;
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.readResult = null;
 
-        final gitIgnore = FakeGitIgnoreService(osManager, console);
-        final versionActivator = MockVersionActivator(osManager);
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator(osManager);
 
-        await _runUseCommand(
-          osManager: osManager,
-          phpVersionManager: phpVer,
-          gitIgnoreService: gitIgnore,
-          console: console,
-          versionActivator: versionActivator,
-          args: ['8.0'],
-        );
+      await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+        console: console,
+        versionActivator: versionActivator,
+        args: ['8.0'],
+      );
 
-        // Only ensureGitignoreIncludesPvm should be called early
-        expect(gitIgnore.ensureGitignoreCalled, isTrue);
-        // ensurePvmSymlinkExists should NOT be called early anymore
-        expect(gitIgnore.ensurePvmSymlinkCalled, isFalse);
-      },
-    );
+      expect(gitIgnore.ensureGitignoreCalled, isTrue);
+    });
   });
 
   group('UseCommand - rootPath discovery', () {
@@ -323,6 +320,92 @@ void main() {
 
       // Should still call GitIgnoreService (even if .pvmrc not found)
       expect(gitIgnore.ensureGitignoreCalled, isTrue);
+    });
+  });
+
+  group('UseCommand - Phase 0 regressions', () {
+    late Directory temp;
+
+    setUp(() async {
+      temp = await Directory.systemTemp.createTemp('pvm_use_p0_');
+    });
+
+    tearDown(() async {
+      await temp.delete(recursive: true);
+    });
+
+    test('S3: refuses to run in the home directory (global slot)', () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.0'];
+      osManager.symlinkSourceExistsOverride = true;
+      osManager.mockCurrentDirectory = temp.path;
+      osManager.mockHomeDir = temp.path;
+      final console = MockConsole();
+      final phpVer = FakePhpVersionManager(console);
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator(osManager);
+
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+        console: console,
+        versionActivator: versionActivator,
+        args: ['8.0'],
+      );
+
+      expect(exitCode, ExitCode.configurationError);
+      expect(versionActivator.activateLocalCalled, isFalse);
+      expect(phpVer.writeVersion, isNull);
+      expect(gitIgnore.ensureGitignoreCalled, isFalse);
+      expect(console.errors.join(), contains('home directory'));
+    });
+
+    test('B3: non-version folders in versions/ are ignored', () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['tmp', '8.3-old', '8.0'];
+      osManager.symlinkSourceExistsOverride = true;
+      osManager.mockCurrentDirectory = p.join(temp.path, 'project');
+      final console = MockConsole();
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.readResult = null;
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator(osManager);
+
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+        console: console,
+        versionActivator: versionActivator,
+        args: ['8.0'],
+      );
+
+      expect(exitCode, ExitCode.success);
+      expect(versionActivator.activateLocalCalled, isTrue);
+    });
+
+    test('B4: a failed use does not touch .gitignore', () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.0'];
+      osManager.mockCurrentDirectory = p.join(temp.path, 'project');
+      final console = MockConsole()..hasTerminal = false;
+      final phpVer = FakePhpVersionManager(console);
+      phpVer.readResult = null;
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator(osManager);
+
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+        console: console,
+        versionActivator: versionActivator,
+        args: ['9.9'],
+      );
+
+      expect(exitCode, ExitCode.versionNotFound);
+      expect(gitIgnore.ensureGitignoreCalled, isFalse);
     });
   });
 }

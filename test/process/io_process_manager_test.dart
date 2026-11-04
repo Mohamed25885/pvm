@@ -326,14 +326,14 @@ void main() {
     });
 
     test(
-      'resolveSystemCommand returns original command when not found',
+      'S10: resolveSystemCommand throws when command is not on PATH',
       () async {
         const missingCommand = 'pvm_test_command_that_does_not_exist';
-        final resolved = await processManager.resolveSystemCommand(
-          missingCommand,
-        );
 
-        expect(resolved, equals(missingCommand));
+        await expectLater(
+          processManager.resolveSystemCommand(missingCommand),
+          throwsA(isA<ProcessException>()),
+        );
       },
     );
   });

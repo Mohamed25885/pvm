@@ -47,42 +47,4 @@ class GitIgnoreService {
     }
     return false;
   }
-
-  /// Attempt to create a .pvm symlink at [symlinkPath] pointing to
-  /// [targetPath]. Best-effort — returns true if the symlink was created
-  /// (or already exists as a symlink), false if it failed.
-  ///
-  /// If .pvm already exists (as a file, dir, or symlink), returns true
-  /// without modifying anything.
-  ///
-  /// Returns false if [targetPath] does not exist.
-  Future<bool> ensurePvmSymlinkExists({
-    required String symlinkPath,
-    required String targetPath,
-  }) async {
-    try {
-      // Validate target exists before attempting symlink creation
-      if (!Directory(targetPath).existsSync()) {
-        return false;
-      }
-
-      final link = Link(symlinkPath);
-
-      // Already exists as a symlink — nothing to do
-      if (await link.exists()) return true;
-
-      // If a regular file/directory exists at symlinkPath, remove it first
-      if (await File(symlinkPath).exists() ||
-          await Directory(symlinkPath).exists()) {
-        await File(symlinkPath).delete(recursive: true);
-      }
-
-      await link.create(targetPath);
-      return true;
-    } catch (e) {
-      // Best-effort — symlink creation can fail due to permissions,
-      // Developer Mode not enabled on Windows, or OS restrictions.
-      return false;
-    }
-  }
 }

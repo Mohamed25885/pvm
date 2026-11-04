@@ -29,6 +29,22 @@ void main() {
       expect(result, isNull);
     });
 
+    test(
+      'S5: ignores empty and relative PATH segments (cwd planting)',
+      () async {
+        // Relative candidates resolve against the cwd (a cloned repo).
+        osManager.setFileExists('composer.phar', true);
+        osManager.setFileExists('composer.bat', true);
+        osManager.setFileExists(r'bin\composer.phar', true);
+
+        final result = await locator.findComposer({
+          'PATH': r'C:\a;;bin;.;C:\b;',
+        });
+
+        expect(result, isNull);
+      },
+    );
+
     test('returns null when no candidate is found in PATH', () async {
       final result = await locator.findComposer({'PATH': r'C:\nope'});
       expect(result, isNull);

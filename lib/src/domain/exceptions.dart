@@ -4,3 +4,4 @@ export 'exceptions/version_not_installed_exception.dart';
 export 'exceptions/project_not_configured_exception.dart';
 export 'exceptions/project_configuration_exception.dart';
 export 'exceptions/corrupted_configuration_exception.dart';
+export 'exceptions/link_slot_occupied_exception.dart';

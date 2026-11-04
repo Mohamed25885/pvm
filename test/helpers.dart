@@ -260,8 +260,6 @@ class FakePhpVersionManager extends PhpVersionManager {
 class FakeGitIgnoreService extends GitIgnoreService {
   bool ensureGitignoreCalled = false;
   bool ensureGitignoreResult = true;
-  bool ensurePvmSymlinkCalled = false;
-  bool ensurePvmSymlinkResult = true;
 
   FakeGitIgnoreService(IOSManager osManager, Console console)
     : super(osManager, console);
@@ -270,14 +268,5 @@ class FakeGitIgnoreService extends GitIgnoreService {
   Future<bool> ensureGitignoreIncludesPvm({required String rootPath}) async {
     ensureGitignoreCalled = true;
     return ensureGitignoreResult;
-  }
-
-  @override
-  Future<bool> ensurePvmSymlinkExists({
-    required String symlinkPath,
-    required String targetPath,
-  }) async {
-    ensurePvmSymlinkCalled = true;
-    return ensurePvmSymlinkResult;
   }
 }

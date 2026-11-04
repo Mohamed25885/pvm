@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/os_manager.dart';
+import '../core/link_slot.dart';
 import '../core/pvm_paths.dart';
 
 class WindowsOSManager implements IOSManager {
@@ -62,20 +63,8 @@ class WindowsOSManager implements IOSManager {
       throw Exception('Error: Source directory does not exist: $from');
     }
 
-    try {
-      final existingType = await FileSystemEntity.type(to, followLinks: false);
-      if (existingType != FileSystemEntityType.notFound) {
-        if (existingType == FileSystemEntityType.link) {
-          await Link(to).delete();
-        } else if (existingType == FileSystemEntityType.directory) {
-          await Directory(to).delete(recursive: true);
-        } else {
-          await File(to).delete();
-        }
-      }
-    } catch (_) {
-      // ignore - create will surface meaningful failures
-    }
+    // Only ever replaces an existing link; a real file/dir aborts (S2).
+    await clearLinkSlot(to);
 
     try {
       await Link(to).create(from);

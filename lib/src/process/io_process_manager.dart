@@ -69,7 +69,12 @@ class IOProcessManager implements IProcessManager {
     }
 
     final resolvedInPath = await _findCommandInPath(command);
-    return resolvedInPath ?? command;
+    if (resolvedInPath == null) {
+      // Never hand a bare name to the OS: on Windows CreateProcess would
+      // search the current directory before PATH (S10).
+      throw ProcessException(command, const [], 'Command not found on PATH');
+    }
+    return resolvedInPath;
   }
 
   bool _containsPathSeparator(String command) {
@@ -105,7 +110,7 @@ class IOProcessManager implements IProcessManager {
 
     for (final dir in dirs) {
       final baseDir = dir.replaceAll('"', '').trim();
-      if (baseDir.isEmpty) continue;
+      if (baseDir.isEmpty || !p.isAbsolute(baseDir)) continue;
 
       if (hasExtension) {
         final candidate = p.join(baseDir, command);

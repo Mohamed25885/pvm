@@ -2,6 +2,7 @@ import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
 import '../core/os_manager.dart';
+import '../domain/exceptions.dart';
 import '../domain/project.dart';
 import '../interfaces/i_version_activator.dart';
 
@@ -33,6 +34,14 @@ class WindowsVersionActivator implements IVersionActivator {
       project.rootDirectory.path,
       PvmConstants.pvmDirName,
     );
+    final globalSlot = p.join(homeDirectory, PvmConstants.pvmDirName);
+    if (p.equals(p.normalize(linkPath), p.normalize(globalSlot))) {
+      // Never let a local activation overwrite the global link (S3).
+      throw const PvmException(
+        'Refusing to create a local link in the home directory: '
+        'it would replace the global version link.',
+      );
+    }
 
     await _osManager.createSymLink(version, targetPath, linkPath);
   }

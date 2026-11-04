@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.0.0...HEAD)
 
+### Security
+- **`pvm setup` no longer truncates the user `PATH`.** Values are written with `reg add` instead of `setx`, which cut values at 1024 characters and replaced `REG_EXPAND_SZ` with `REG_SZ`. The existing value type is preserved, and the previous `Path` is backed up to `%LOCALAPPDATA%\pvm\backups\`. The write is refused if any existing entry would be lost, or if `PATH` can't be read. `WM_SETTINGCHANGE` is broadcast afterwards.
+- **PVM never deletes a real file or directory at a `.pvm` link slot.** Previously such a directory was deleted recursively without asking. Only existing links are replaced; anything else aborts with a clear message.
+- **`pvm use` refuses to run in the home directory or at a filesystem root.** Running it in `%USERPROFILE%` used to overwrite the global version link. The Windows activator also refuses to create a local link on top of the global one.
+- **Zip extraction aborts on unsafe entries.** This covers entries that resolve outside the target (including a sibling version such as `8.3.1` → `8.3.10`), absolute paths, drive letters, and symlinks.
+- **Composer lookup ignores empty and relative `PATH` segments,** so a cloned repository can no longer plant its own `composer.phar` through a trailing `;` in `PATH`. Commands that aren't found on `PATH` now fail instead of being passed to the OS by bare name, which on Windows would search the current directory first.
+- **Download URLs must be `https` on an allowed host or one of its subdomains.** Look-alike hosts such as `evilwindows.php.net` are rejected. An empty checksum fails verification.
+
+### Fixed
+- **`pvm install` is transactional.** The download goes to a private temp directory and is verified, then extracted into a staging directory and checked for `php.exe` before being moved into `versions/<v>`. A failed download or a checksum mismatch no longer leaves an empty version directory that then shows up as "installed".
+- **`pvm install --force` replaces the whole version tree,** so no stale DLLs or extensions are left behind. If the version directory exists but has no `php.exe`, it is repaired instead of being reported as already installed.
+- **Download retries now work.** Each failed attempt closes its file handle, cleans up its partial file and resets progress.
+- **`pvm use` ignores folders in `versions/` that aren't versions** (e.g. `tmp`). Previously such a folder broke every `use`.
+- **`pvm use` only touches `.gitignore` after a successful activation,** and treats a failure there as a warning.
+- **`pvm use` resolves the project from the same working directory as the activator.**
+
+### Removed
+- Unused `GitIgnoreService.ensurePvmSymlinkExists`, which recursively deleted the slot.
+
 ## [2.0.0] - 2026-05-25
 
 ### Added
