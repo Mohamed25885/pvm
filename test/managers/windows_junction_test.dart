@@ -8,6 +8,13 @@ import 'package:test/test.dart';
 
 import 'package:pvm/src/managers/windows_os_manager.dart';
 
+/// Junctions store the long, resolved path; the temp dir may be an 8.3
+/// short name on CI (`C:\Users\RUNNER~1`), so compare canonical forms.
+Future<bool> _sameDir(String a, String b) async => p.equals(
+  await Directory(a).resolveSymbolicLinks(),
+  await Directory(b).resolveSymbolicLinks(),
+);
+
 void main() {
   group('WindowsOSManager links (1.1)', () {
     late Directory temp;
@@ -33,7 +40,7 @@ void main() {
       await WindowsOSManager().createSymLink('8.3.14', target, link);
 
       expect(await FileSystemEntity.isLink(link), isTrue);
-      expect(p.equals(await Link(link).target(), target), isTrue);
+      expect(await _sameDir(await Link(link).target(), target), isTrue);
       expect(await File(p.join(link, 'php.exe')).exists(), isTrue);
       // Junctions resolve as directories even without Developer Mode.
       final linkStat = await Process.run('cmd', [
@@ -55,7 +62,7 @@ void main() {
       await manager.createSymLink('8.3.14', target, link);
       await manager.createSymLink('8.2.0', other, link);
 
-      expect(p.equals(await Link(link).target(), other), isTrue);
+      expect(await _sameDir(await Link(link).target(), other), isTrue);
       expect(await File(p.join(target, 'php.exe')).exists(), isTrue);
     });
 

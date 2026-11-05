@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import '../domain/exceptions.dart';
@@ -141,6 +143,21 @@ class SymLinkInspector {
   }
 
   bool _isInside(String target, String root) {
+    if (_lexicallyInside(target, root)) return true;
+    // The same directory can be spelt differently: Windows 8.3 short names
+    // (`C:\Users\RUNNER~1`), a link in the root path, or letter case. A
+    // junction stores the long, resolved path, so compare canonical forms.
+    try {
+      return _lexicallyInside(
+        Directory(target).resolveSymbolicLinksSync(),
+        Directory(root).resolveSymbolicLinksSync(),
+      );
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  static bool _lexicallyInside(String target, String root) {
     final normTarget = p.normalize(target);
     final normRoot = p.normalize(root);
     return p.isWithin(normRoot, normTarget) ||

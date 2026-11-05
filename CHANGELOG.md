@@ -48,6 +48,7 @@ All notable changes to this project will be documented in this file.
 - **`pvm list` with no installed versions** now prints a message and a hint, instead of exiting with code 1 silently.
 - **`pvm exec` rejects `--version` and `--cwd` without a value,** and rejects a `--cwd` directory that doesn't exist.
 - **`pvm php` outside a configured project** prints the documented "No local version configured" message, with exit code 6.
+- **A link was reported as "orphaned" when the versions folder was given as an 8.3 short path** (e.g. `PVM_VERSIONS_HOME` under `C:\Users\RUNNER~1`). Junctions store the long path, so the inside-versions check now falls back to comparing canonical paths.
 - **Linux/macOS package-manager install check:** a same-major PHP (e.g. 8.1 when 8.4 was requested) no longer counts as "already installed".
 
 ### Removed
