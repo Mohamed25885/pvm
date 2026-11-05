@@ -2,7 +2,7 @@
 
 A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows directory junctions (no admin rights needed) for fast, zero-overhead version switching.
 
-**Latest release:** [v2.0.0](https://github.com/Mohamed25885/pvm/releases/tag/v2.0.0) — `.pvmrc` config (replaces `.php-version`), `pvm setup`, privilege-escalation for symlinks, `major.minor` version shorthand, optional `PVM_HOME` / `PVM_VERSIONS_HOME`. See [CHANGELOG.md](CHANGELOG.md).
+**Latest release:** [v2.1.0](https://github.com/Mohamed25885/pvm/releases/tag/v2.1.0): no admin rights or Developer Mode needed (directory junctions), transactional and verified installs, `pvm doctor --verify`, older patches via `--allow-unverified`, correct exit codes, and fixes for PATH truncation and data-loss bugs. See [CHANGELOG.md](CHANGELOG.md).
 
 **Upgrading from v1.x:** Run `pvm use <version>` in each project to create `.pvmrc`, or add `.pvmrc` manually. Remove legacy `.php-version` files if present (PVM ignores them).
 

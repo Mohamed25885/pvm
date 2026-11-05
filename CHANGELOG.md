@@ -2,7 +2,9 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.0.0...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
+
+## [2.1.0](https://github.com/Mohamed25885/pvm/compare/v2.0.0...v2.1.0) - 2026-11-05
 
 ### Added
 - **No admin rights or Developer Mode needed.** `.pvm` links are created as directory junctions, with a symbolic link as fallback only, for example when versions live on a network share.
