@@ -51,7 +51,7 @@ Exit criteria: all tests green on Windows CI, CHANGELOG entry, tag `v2.0.1`.
 Exit criteria: tag `v2.1.0`; README/AGENTS.md drift fixed (D11).
 
 ### Phase 2: Cross-platform foundations (refactor, no new features)
-- Status: Pending
+- Status: In progress on `feat/phase-2-foundations`. 2.1 and 2.2 are done; 2.1 covers `binDirectory` and `phpExecutable`, and `extensionDir`/`iniPath` are deferred to 3.5, where they're first needed.
 - Goal: one code path for all OSes; platform differences isolated behind small interfaces.
 
 | # | Task | Notes |
