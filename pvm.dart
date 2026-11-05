@@ -25,11 +25,9 @@ import 'package:pvm/src/core/symlink_inspector.dart';
 import 'package:pvm/src/interfaces/i_installer.dart';
 import 'package:pvm/src/interfaces/i_version_activator.dart';
 import 'package:pvm/src/managers/windows_installer.dart';
-import 'package:pvm/src/managers/windows_version_activator.dart';
+import 'package:pvm/src/managers/link_version_activator.dart';
 import 'package:pvm/src/managers/linux_installer.dart';
-import 'package:pvm/src/managers/linux_version_activator.dart';
 import 'package:pvm/src/managers/macos_installer.dart';
-import 'package:pvm/src/managers/macos_version_activator.dart';
 import 'package:pvm/src/process/io_process_manager.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import 'package:pvm/src/services/release_fetcher_factory.dart';
@@ -130,6 +128,15 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
   final fetcher = createReleaseFetcher();
   getIt.registerLazySingleton<IReleaseFetcher>(() => fetcher);
 
+  // One link model on every OS (roadmap 2.2): `.pvm` -> versions/<v>.
+  getIt.registerLazySingleton<IVersionActivator>(
+    () => LinkVersionActivator(
+      osManager: osManager,
+      versionsPath: versionsPath,
+      homeDirectory: homeDir,
+    ),
+  );
+
   if (PlatformDetector.isWindows) {
     getIt.registerLazySingleton<IInstaller>(
       () => WindowsInstaller(
@@ -139,13 +146,6 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
         archiveIndex: WindowsArchiveIndex(),
       ),
     );
-    getIt.registerLazySingleton<IVersionActivator>(
-      () => WindowsVersionActivator(
-        osManager: osManager,
-        versionsPath: versionsPath,
-        homeDirectory: homeDir,
-      ),
-    );
   } else if (PlatformDetector.isLinux) {
     getIt.registerLazySingleton<IInstaller>(
       () => LinuxInstaller(
@@ -153,26 +153,11 @@ void _registerPlatformServices(PlatformInfo platformInfo) {
         processManager: processManager,
       ),
     );
-    getIt.registerLazySingleton<IVersionActivator>(
-      () => LinuxVersionActivator(
-        osManager: osManager,
-        processManager: processManager,
-        versionsPath: versionsPath,
-        homeDirectory: homeDir,
-      ),
-    );
   } else if (PlatformDetector.isMacOS) {
     getIt.registerLazySingleton<IInstaller>(
       () => MacOSInstaller(
         versionsPath: versionsPath,
         processManager: processManager,
-      ),
-    );
-    getIt.registerLazySingleton<IVersionActivator>(
-      () => MacOSVersionActivator(
-        osManager: osManager,
-        versionsPath: versionsPath,
-        homeDirectory: homeDir,
       ),
     );
   }

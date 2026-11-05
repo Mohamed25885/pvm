@@ -6,13 +6,16 @@ import '../domain/exceptions.dart';
 import '../domain/project.dart';
 import '../interfaces/i_version_activator.dart';
 
-/// Windows version activator - uses mklink for symlinks.
-class WindowsVersionActivator implements IVersionActivator {
+/// Version activator for every platform: points the `.pvm` link (global in
+/// the home directory, local in the project root) at `versions/<version>`.
+/// The OS manager decides how the link is made (junction on Windows,
+/// symlink elsewhere).
+class LinkVersionActivator implements IVersionActivator {
   final IOSManager _osManager;
   final String versionsPath;
   final String homeDirectory;
 
-  WindowsVersionActivator({
+  LinkVersionActivator({
     required IOSManager osManager,
     required this.versionsPath,
     required this.homeDirectory,

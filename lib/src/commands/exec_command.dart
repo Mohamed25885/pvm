@@ -155,7 +155,9 @@ class ExecCommand extends Command<int> {
     }
 
     final phpDir = p.join(_osManager.phpVersionsPath, version.toString());
-    final phpExe = p.join(phpDir, _platformConstants.phpExecutableName);
+    final layout = _platformConstants.phpLayout;
+    final phpExe = layout.phpExecutable(phpDir);
+    final phpBinDir = layout.binDirectory(phpDir);
 
     if (!await _osManager.fileExists(phpExe)) {
       _console.printError('PHP executable missing for $version at:\n  $phpExe');
@@ -195,7 +197,7 @@ class ExecCommand extends Command<int> {
     // Reuse the existing PATH key (Windows uses "Path"); never add a second.
     final env = prependToPath(
       _osManager.currentEnvironment,
-      phpDir,
+      phpBinDir,
       separator: _platformConstants.pathSeparator,
       caseInsensitiveKeys: _platformConstants.osType == 'windows',
     );

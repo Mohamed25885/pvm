@@ -152,7 +152,7 @@ class InstalledVersionsCheck implements DiagnosticCheck {
     var hasBroken = false;
     for (final v in versions) {
       final dir = registry.getVersionPath(v);
-      final phpExe = p.join(dir, _platformConstants.phpExecutableName);
+      final phpExe = _platformConstants.phpLayout.phpExecutable(dir);
       final ok = await _osManager.fileExists(phpExe);
       if (!ok) hasBroken = true;
       lines.add(
