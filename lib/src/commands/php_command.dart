@@ -2,11 +2,13 @@ import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
 import '../core/console.dart';
+import '../core/executable_resolver.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../services/php_executor.dart';
 import '../domain/exceptions.dart';
 import '../domain/project.dart';
+import '../core/error_text.dart';
 
 class PhpCommand extends Command<int> {
   @override
@@ -39,11 +41,17 @@ class PhpCommand extends Command<int> {
     } on ProjectNotConfiguredException catch (e) {
       _console.printError(e.message);
       return ExitCode.configurationError;
+    } on PhpExecutableNotFoundException catch (e) {
+      _console.printError(
+        'No local version configured. Run "pvm use <version>" first.',
+      );
+      _console.print('(looked for ${e.path})');
+      return ExitCode.configurationError;
     } on CorruptedConfigurationException catch (e) {
       _console.printError(e.message);
       return ExitCode.configurationError;
     } catch (e) {
-      _console.printError('Error running PHP: $e');
+      _console.printError('Error running PHP: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

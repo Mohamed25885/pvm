@@ -1,10 +1,5 @@
 /// Severity of a single diagnostic check.
-enum DiagnosticStatus {
-  ok,
-  info,
-  warn,
-  fail,
-}
+enum DiagnosticStatus { ok, info, warn, fail }
 
 /// One row in the `pvm doctor` report.
 class DiagnosticResult {

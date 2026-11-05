@@ -24,8 +24,9 @@ class ListCommand extends Command<int> {
 
   @override
   Future<int> run() async {
-    final versionStrings =
-        _osManager.getAvailableVersions(_osManager.phpVersionsPath);
+    final versionStrings = _osManager.getAvailableVersions(
+      _osManager.phpVersionsPath,
+    );
     final List<PhpVersion> versions = [];
 
     for (final versionStr in versionStrings) {
@@ -38,7 +39,11 @@ class ListCommand extends Command<int> {
     }
 
     if (versions.isEmpty) {
-      return ExitCode.generalError;
+      _console.printError(
+        'No PHP versions installed in ${_osManager.phpVersionsPath}',
+      );
+      _console.print('Install one with "pvm install <version>".');
+      return ExitCode.versionNotFound;
     }
 
     versions.sort((a, b) => b.compareTo(a));

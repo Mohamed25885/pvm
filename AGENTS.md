@@ -31,7 +31,7 @@ The `.agents` directory contains all resources for agentic coding:
 
 ## Environment & Dependencies
 
-- **Language:** Dart (SDK `>=3.11.0 <4.0.0`, development pinned via FVM Flutter **3.41.6** → Dart **3.11.4**)
+- **Language:** Dart (SDK `>=3.12.0 <4.0.0`, development pinned via FVM Flutter **3.44.2** → Dart **3.12.2**)
 - **Target Platform:** Windows (strictly uses Windows-specific APIs and path conventions)
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
@@ -73,7 +73,7 @@ The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific
 
 ### Process Management
 - **`lib/src/core/process_manager.dart`**: Defines `ProcessSpec` (executable, arguments, workingDirectory, environment) and `IProcessManager` interface with `runInteractive` and `runCaptured`.
-- **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation using `Process.start` with `ProcessStartMode.normal` (not `inheritStdio`) and manual streaming of stdin/stdout/stderr. This approach avoids Dart SDK issues with process hanging on exit and ensures long-running processes work reliably. **Note**: `PhpCommand` uses `inheritStdio` for interactive processes, while `IOProcessManager` uses `normal` for script execution (e.g., Composer version lookup).
+- **`lib/src/process/io_process_manager.dart`**: Cross-platform implementation. `runInteractive` uses `Process.start` with `ProcessStartMode.inheritStdio`; `runCaptured` uses `Process.run`. See "Process Execution Details" below.
 
 ### Service Layer
 - **`lib/src/services/php_executor.dart`**: Encapsulates PHP execution logic. Provides `runPhp()` and `runScript()` with optional `phpExecutable` and `environment` overrides so commands like `pvm exec` can pin a specific installed `php.exe` and adjust `PATH` without relying on the default `.pvm` resolution. Used by `PhpCommand`, `ComposerCommand`, and `ExecCommand`.
@@ -99,9 +99,9 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling (regi
 
 ### Development & Maintenance
 
-Use **FVM** so commands run on Dart 3.11.4 (see `.fvmrc`). Prefix with `fvm dart` (or `fvm flutter` only if needed).
+Use **FVM** so commands run on the Dart version pinned in `.fvmrc` (Flutter 3.44.2 → Dart 3.12.2). Prefix with `fvm dart` (or `fvm flutter` only if needed).
 
-- **Install SDK:** `fvm install` then `fvm use 3.41.6 --force`
+- **Install SDK:** `fvm install` then `fvm use --force` (CI reads the version from `.fvmrc`; never hard-code it)
 - **Analyze Code:** `fvm dart analyze`
 - **Format Code:** `fvm dart format .`
 - **Fix Lints:** `fvm dart fix --apply`
@@ -241,11 +241,18 @@ import 'utils/utils.dart';
 - Discovers project root by walking up from current directory to find `.pvmrc` or `.pvm` marker.
 - Requires local `.pvm` symlink to exist; shows helpful error if missing.
 
-### Symlinks
-- Creating local/global versions relies on Windows symbolic links (`Link.create` via `IOSManager`).
-- Requires either **Developer Mode** enabled or running as **Administrator**.
-- `ElevatingOSManager` may prompt and retry when symlink creation fails with permission errors.
+### Links (junctions on Windows)
+- `WindowsOSManager.createSymLink` creates a **directory junction** first (PowerShell `New-Item -ItemType Junction`, paths passed via env vars `PVM_LINK`/`PVM_TARGET`, never interpolated). No Developer Mode or admin needed. A symbolic link (`Link.create`) is only the fallback.
+- Dart reports junctions as `FileSystemEntityType.link`; `Link.target()` and `Link.delete()` work on them, so `SymLinkInspector`, `current`, `doctor`, and `uninstall` need no special casing.
+- `clearLinkSlot` (`core/link_slot.dart`) is the **only** way to clear a slot: it removes an existing link and throws `LinkSlotOccupiedException` for a real file/dir. Never `delete(recursive: true)` a link slot.
+- `PrivilegeEscalationService` only prompts when `IPrivilegeEscalator.canElevate` is true. On Windows it is false, so a permission error becomes `LinkPermissionException` with fix instructions.
 - Inspection and cleanup use `IOSManager` symlink helpers; prefer `SymLinkInspector` in commands rather than ad hoc filesystem calls.
+
+### Install pipeline (`WindowsInstaller`)
+- Transactional: download to a temp dir → verify SHA-256 → extract into `versions/.staging-<v>-<pid>` → require `php.exe` → write `.pvm-install.json` (`InstallRecord`) → rename into `versions/<v>`. Any failure leaves `versions/` unchanged; `.staging-*` / `.old-*` names are skipped by `VersionRegistry`.
+- `extractZip` aborts on entries outside the destination (`p.isWithin`), absolute paths, drive letters, or symlink entries.
+- Patch not in `releases.json` → `WindowsArchiveIndex` (no checksums) → requires `InstallOptions.allowUnverified` (`--allow-unverified`), otherwise `UnverifiedReleaseException`.
+- `install()` returns `InstallResult` (`alreadyInstalled` is a success, not an error). Fetch failures throw `ReleaseFetcherException`; no match throws `NoMatchingReleaseException`.
 
 ### `pvm setup` behavior
 - Preflight validates resolved paths (after `PvmPaths` fallbacks), permissions, and env writability.
@@ -263,7 +270,8 @@ import 'utils/utils.dart';
 
 ### Process Execution Details
 
-- **`IOProcessManager`**: Uses Dart's `Process.start` with `ProcessStartMode.normal` (not `inheritStdio`) to avoid SDK issues with process termination. Manually pipes stdin from parent (best-effort), and streams stdout/stderr to the console. This ensures long-running processes like `php artisan serve` work reliably.
+- **`IOProcessManager.runInteractive`**: Uses `Process.start` with `ProcessStartMode.inheritStdio`, so the child owns the terminal (colors, prompts, `php artisan serve`). Commands are resolved via absolute PATH entries only; an unresolved command throws `ProcessException` instead of being passed to the OS by bare name (Windows would search the cwd first).
+- **PATH for children**: `PhpExecutor` and `pvm exec` prepend the selected PHP directory to `PATH` via `prependToPath` (`core/path_env.dart`), reusing the existing key spelling (`Path` on Windows), so Composer scripts and `artisan` subprocesses use the same PHP.
 - **`IOProcessManager.runCaptured`**: Uses `Process.run` to capture output synchronously for non-interactive commands.
 - **No Job Objects**: The current implementation does not use Windows Job Objects or custom FFI. Process lifecycle management is handled by Dart's standard `Process` API.
 
@@ -271,7 +279,7 @@ import 'utils/utils.dart';
 
 ## Common Pitfalls
 
-1. **Developer Mode**: If symlink creation fails, check if Developer Mode is enabled in Windows Settings.
+1. **Link failures**: Junctions need no privilege; a permission error means the symlink fallback ran (e.g. versions on a network share). Developer Mode or an admin terminal fixes that case.
 2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
 4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` via `InstalledVersionResolver` when exactly one installed version matches; multiple patches require full `major.minor.patch`. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.

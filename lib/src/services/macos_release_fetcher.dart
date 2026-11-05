@@ -8,6 +8,7 @@ class MacosReleaseFetcher implements IReleaseFetcher {
   @override
   Future<List<PhpRelease>> fetchReleases() async {
     throw const ReleaseFetcherException(
-        'macOS: Use Homebrew - brew install php');
+      'macOS: Use Homebrew - brew install php',
+    );
   }
 }

@@ -139,6 +139,6 @@ Overall average: **60-90% token reduction** on common development operations.
 
 ## PVM repository (Dart)
 
-- **SDK:** FVM + Flutter **3.41.6** (Dart **3.11.4**). Use `fvm dart …` — see `.fvmrc` and `readme.md`.
+- **SDK:** FVM + Flutter **3.44.2** (Dart **3.12.2**), pinned in `.fvmrc`. Use `fvm dart …` — see `.fvmrc` and `readme.md`.
 - **Analyze / test:** `rtk fvm dart analyze` and `rtk fvm dart test` (or `fvm dart` directly).
 - **Run CLI:** `fvm dart run pvm.dart <command>` — see `AGENTS.md` for architecture and command list (`current`, `doctor`, `uninstall`, `exec`, etc.).

@@ -31,6 +31,9 @@ class _RecordingEscalator implements IPrivilegeEscalator {
   bool requested = false;
 
   @override
+  bool get canElevate => true;
+
+  @override
   Future<bool> requestElevation() async {
     requested = true;
     return true;

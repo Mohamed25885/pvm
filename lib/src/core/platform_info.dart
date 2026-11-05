@@ -22,8 +22,11 @@ class WindowsPlatformInfo implements PlatformInfo {
   String get homeDirectoryKey => 'USERPROFILE';
 
   @override
-  List<String> get composerCandidates =>
-      ['composer.bat', 'composer.cmd', 'composer.phar'];
+  List<String> get composerCandidates => [
+    'composer.bat',
+    'composer.cmd',
+    'composer.phar',
+  ];
 }
 
 class LinuxPlatformInfo implements PlatformInfo {

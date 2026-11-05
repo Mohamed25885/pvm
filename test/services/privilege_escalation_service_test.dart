@@ -21,6 +21,7 @@ void main() {
     setUp(() {
       console = MockConsole();
       escalator = MockPrivilegeEscalator();
+      when(() => escalator.canElevate).thenReturn(true);
       service = PrivilegeEscalationService(console, escalator);
     });
 
@@ -95,5 +96,28 @@ void main() {
       );
       verify(() => escalator.requestElevation()).called(1);
     });
+
+    test(
+      'S11: never prompts when elevation cannot work; explains the fix',
+      () async {
+        when(() => escalator.canElevate).thenReturn(false);
+        console.simulateInput('y');
+
+        await expectLater(
+          service.runWithElevationRetry(
+            () => throw Exception('A required privilege is not held'),
+          ),
+          throwsA(
+            isA<LinkPermissionException>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Developer Mode'),
+            ),
+          ),
+        );
+        expect(console.lastPrompt, isNull);
+        verifyNever(() => escalator.requestElevation());
+      },
+    );
   });
 }

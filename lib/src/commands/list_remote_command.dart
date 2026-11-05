@@ -5,6 +5,7 @@ import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../domain/php_release.dart';
 import '../services/release_fetcher.dart';
+import '../core/error_text.dart';
 
 class ListRemoteCommand extends Command<int> {
   @override
@@ -21,10 +22,7 @@ class ListRemoteCommand extends Command<int> {
   final IReleaseFetcher _fetcher;
   final Console _console;
 
-  ListRemoteCommand(
-    this._fetcher,
-    this._console,
-  );
+  ListRemoteCommand(this._fetcher, this._console);
 
   @override
   Future<int> run() async {
@@ -79,11 +77,13 @@ class ListRemoteCommand extends Command<int> {
         final versionReleases = grouped[version]!;
         _console.print('  $version');
         for (final release in versionReleases) {
-          final archStr =
-              release.architecture == Architecture.x64 ? 'x64' : 'x86';
+          final archStr = release.architecture == Architecture.x64
+              ? 'x64'
+              : 'x86';
           final typeStr = release.buildType == BuildType.ts ? 'ts' : 'nts';
-          _console
-              .print('    - ${archStr}_$typeStr (${release.sizeFormatted})');
+          _console.print(
+            '    - ${archStr}_$typeStr (${release.sizeFormatted})',
+          );
         }
       }
 
@@ -92,7 +92,7 @@ class ListRemoteCommand extends Command<int> {
       _console.printError(e.message);
       return ExitCode.generalError;
     } catch (e) {
-      _console.printError('Failed to list releases: $e');
+      _console.printError('Failed to list releases: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

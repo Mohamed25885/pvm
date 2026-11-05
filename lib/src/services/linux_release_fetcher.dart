@@ -8,6 +8,7 @@ class LinuxReleaseFetcher implements IReleaseFetcher {
   @override
   Future<List<PhpRelease>> fetchReleases() async {
     throw const ReleaseFetcherException(
-        'Linux: Use your package manager (apt, dnf, yum) to install PHP');
+      'Linux: Use your package manager (apt, dnf, yum) to install PHP',
+    );
   }
 }

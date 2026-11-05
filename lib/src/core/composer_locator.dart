@@ -14,14 +14,20 @@ class ComposerLocator implements IComposerLocator {
   ComposerLocator({
     required PlatformConstants platformConstants,
     required IOSManager osManager,
-  })  : _platformConstants = platformConstants,
-        _osManager = osManager;
+  }) : _platformConstants = platformConstants,
+       _osManager = osManager;
 
   @override
   Future<String?> findComposer(Map<String, String> environment) async {
     final pathEnv = environment['PATH'] ?? '';
     final separator = _platformConstants.pathSeparator;
-    final dirs = pathEnv.split(separator);
+    // Only absolute directories: an empty or relative segment (e.g. a
+    // trailing ";") would resolve against the cwd and let a cloned repo
+    // plant its own composer.phar (S5).
+    final dirs = pathEnv
+        .split(separator)
+        .map((d) => d.replaceAll('"', '').trim())
+        .where((d) => d.isNotEmpty && p.isAbsolute(d));
 
     final candidates = _platformConstants.composerCandidates;
 

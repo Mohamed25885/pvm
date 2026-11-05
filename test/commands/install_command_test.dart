@@ -14,70 +14,49 @@ void main() {
     });
 
     test('argParser has arch option', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse(['--arch', 'x64']);
       expect(result['arch'], 'x64');
     });
 
     test('argParser accepts --ts flag', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse(['--ts']);
       expect(result['ts'], isTrue);
     });
 
     test('argParser accepts --nts flag', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse(['--nts']);
       expect(result['nts'], isTrue);
     });
 
     test('argParser accepts --force flag', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse(['--force']);
       expect(result['force'], isTrue);
     });
 
     test('argParser accepts version argument', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse(['8.3']);
       expect(result.rest, contains('8.3'));
     });
 
     test('argParser defaults arch to x64', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       final result = cmd.argParser.parse([]);
       expect(result['arch'], 'x64');
     });
 
     test('command has correct name and description', () {
-      final cmd = InstallCommand(
-        MockConsole(),
-        mockInstaller,
-      );
+      final cmd = InstallCommand(MockConsole(), mockInstaller);
 
       expect(cmd.name, 'install');
       expect(cmd.description, contains('PHP'));

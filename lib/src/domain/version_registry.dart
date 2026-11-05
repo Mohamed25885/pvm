@@ -17,18 +17,20 @@ class VersionRegistry {
       return [];
     }
 
-    final versionStrings = _osManager.getAvailableVersions(path);
-    final versions = <PhpVersion>[];
+    return parseVersionNames(_osManager.getAvailableVersions(path));
+  }
 
-    for (final versionStr in versionStrings) {
+  /// Parses directory names into versions, newest first, silently skipping
+  /// folders that are not versions (e.g. `tmp`, `8.3-old`).
+  static List<PhpVersion> parseVersionNames(Iterable<String> names) {
+    final versions = <PhpVersion>[];
+    for (final name in names) {
       try {
-        versions.add(PhpVersion.parse(versionStr));
+        versions.add(PhpVersion.parse(name));
       } on InvalidVersionFormatException {
-        // Skip directories with invalid version names
+        // Not a version directory.
       }
     }
-
-    // Sort descending (newest first)
     versions.sort((a, b) => b.compareTo(a));
     return versions;
   }

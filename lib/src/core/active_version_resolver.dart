@@ -38,7 +38,8 @@ class ActiveVersionResolver {
   Future<ActiveVersion> resolve({String? projectRoot}) async {
     final globalInfo = await _inspector.inspectGlobal();
 
-    final root = projectRoot ??
+    final root =
+        projectRoot ??
         (await Project.findFromCurrentDirectory()).rootDirectory.path;
     final localInfo = await _inspector.inspectLocal(root);
 

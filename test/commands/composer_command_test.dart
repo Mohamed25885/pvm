@@ -88,32 +88,42 @@ void main() {
         expect(phpExecutor.lastArgs, ['install', '--no-dev', '-vvv']);
       });
 
-      test('batch file resolution: finds composer.phar in same dir', () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', true);
-        osManager.mockCurrentDirectory = r'C:\project';
-        // Simulate composer.bat in C:\Composer
-        osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
-        osManager.fileExistsMap[r'C:\Composer\composer.phar'] = true;
-        osManager.environment = {'PATH': r'C:\Composer'};
+      test(
+        'batch file resolution: finds composer.phar in same dir',
+        () async {
+          osManager.setDirectoryExists(r'C:\project\.pvm', true);
+          osManager.mockCurrentDirectory = r'C:\project';
+          // Simulate composer.bat in C:\Composer
+          osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
+          osManager.fileExistsMap[r'C:\Composer\composer.phar'] = true;
+          osManager.environment = {'PATH': r'C:\Composer'};
 
-        await runner.run(['composer', 'update']);
+          await runner.run(['composer', 'update']);
 
-        expect(phpExecutor.lastScriptPath, r'C:\Composer\composer.phar');
-      }, skip: !Platform.isWindows);
+          expect(phpExecutor.lastScriptPath, r'C:\Composer\composer.phar');
+        },
+        skip: !Platform.isWindows,
+      );
 
-      test('batch file without .phar is skipped (treated as not found)',
-          () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', true);
-        osManager.mockCurrentDirectory = r'C:\project';
-        osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
-        // NO composer.phar in same dir
-        osManager.environment = {'PATH': r'C:\Composer'};
+      test(
+        'batch file without .phar is skipped (treated as not found)',
+        () async {
+          osManager.setDirectoryExists(r'C:\project\.pvm', true);
+          osManager.mockCurrentDirectory = r'C:\project';
+          osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
+          // NO composer.phar in same dir
+          osManager.environment = {'PATH': r'C:\Composer'};
 
-        final exitCode = await runner.run(['composer', 'update']);
+          final exitCode = await runner.run(['composer', 'update']);
 
-        expect(exitCode, equals(0));
-        expect(phpExecutor.lastScriptPath, equals(r'C:\Composer\composer.bat'));
-      }, skip: !Platform.isWindows);
+          expect(exitCode, equals(0));
+          expect(
+            phpExecutor.lastScriptPath,
+            equals(r'C:\Composer\composer.bat'),
+          );
+        },
+        skip: !Platform.isWindows,
+      );
     });
   });
 }

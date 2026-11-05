@@ -2,7 +2,59 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.0.0...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
+
+## [2.1.0](https://github.com/Mohamed25885/pvm/compare/v2.0.0...v2.1.0) - 2026-11-05
+
+### Added
+- **No admin rights or Developer Mode needed.** `.pvm` links are created as directory junctions, with a symbolic link as fallback only, for example when versions live on a network share.
+- **`pvm install <major.minor.patch>` can install older patches** from the windows.php.net archive. The archive publishes no checksums, so this requires `--allow-unverified` and prints a warning.
+- **Install record.** Every install writes `versions/<v>/.pvm-install.json` with the source URL, whether the build was verified, and a SHA-256 of each file.
+- **`pvm doctor --verify`** re-hashes installed versions and reports modified or missing files, unverified sources, and versions without a record.
+- **CI writes a `SHA256SUMS` file** next to `pvm.exe` and attests build provenance on pushes to `main`.
+
+### Changed
+- **The selected PHP comes first on `PATH`** for `pvm php`, `pvm composer` and every `pvm exec` branch. Child processes, such as Composer scripts and `artisan` spawning `php`, now use the same version instead of the global one. The existing `Path`/`PATH` key is reused, so no duplicate variable is created.
+- **`pvm install` messages are clearer:**
+  - "already installed" is a success (exit 0), not an error followed by "Successfully installed".
+  - A network failure is reported as a network error, not as "No matching PHP release found".
+  - The concrete version installed is printed (`8.3` → `8.3.14`).
+- **No elevation prompt that can't work.** When a link can't be created for lack of privilege, PVM explains how to fix it instead of offering to "elevate and retry".
+- **One version parser everywhere.** Each part is limited to 4 digits, so huge numbers are rejected cleanly instead of crashing, and `pvm install` uses the same parser as the other commands.
+- **Errors no longer read "Error: Exception: Error: …".**
+- **CI hardening:**
+  - Actions are pinned to commit SHAs: `actions/checkout` v3 → v7.0.1, `upload-artifact` v4 → v7.0.2, `setup-dart` v1.8.1, OSV workflow v2.2.4.
+  - Default permissions are `contents: read`, and checkout no longer persists credentials.
+  - CI reads the toolchain version from `.fvmrc` (Flutter 3.44.2 → Dart 3.12.2) instead of a hard-coded, stale `fvm use 3.41.6`. The minimum Dart SDK is now `>=3.12.0`, matching the lockfile.
+
+### Security
+- **`pvm setup` no longer truncates the user `PATH`.** Values are written with `reg add` instead of `setx`, which cut values at 1024 characters and replaced `REG_EXPAND_SZ` with `REG_SZ`. The existing value type is preserved, and the previous `Path` is backed up to `%LOCALAPPDATA%\pvm\backups\`. The write is refused if any existing entry would be lost, or if `PATH` can't be read. `WM_SETTINGCHANGE` is broadcast afterwards.
+- **PVM never deletes a real file or directory at a `.pvm` link slot.** Previously such a directory was deleted recursively without asking. Only existing links are replaced; anything else aborts with a clear message.
+- **`pvm use` refuses to run in the home directory or at a filesystem root.** Running it in `%USERPROFILE%` used to overwrite the global version link. The Windows activator also refuses to create a local link on top of the global one.
+- **Zip extraction aborts on unsafe entries.** This covers entries that resolve outside the target (including a sibling version such as `8.3.1` → `8.3.10`), absolute paths, drive letters, and symlinks.
+- **Composer lookup ignores empty and relative `PATH` segments,** so a cloned repository can no longer plant its own `composer.phar` through a trailing `;` in `PATH`. Commands that aren't found on `PATH` now fail instead of being passed to the OS by bare name, which on Windows would search the current directory first.
+- **Download URLs must be `https` on an allowed host or one of its subdomains.** Look-alike hosts such as `evilwindows.php.net` are rejected. An empty checksum fails verification.
+
+### Fixed
+- **`pvm install` is transactional.** The download goes to a private temp directory and is verified, then extracted into a staging directory and checked for `php.exe` before being moved into `versions/<v>`. A failed download or a checksum mismatch no longer leaves an empty version directory that then shows up as "installed".
+- **`pvm install --force` replaces the whole version tree,** so no stale DLLs or extensions are left behind. If the version directory exists but has no `php.exe`, it is repaired instead of being reported as already installed.
+- **Download retries now work.** Each failed attempt closes its file handle, cleans up its partial file and resets progress.
+- **`pvm use` ignores folders in `versions/` that aren't versions** (e.g. `tmp`). Previously such a folder broke every `use`.
+- **`pvm use` only touches `.gitignore` after a successful activation,** and treats a failure there as a warning.
+- **`pvm use` resolves the project from the same working directory as the activator.**
+
+- **PVM always exited with code 0.** Dart ignores `main`'s return value, so every failure, and PHP's own exit status from `pvm php` / `pvm exec`, reached the shell and CI as success. The exit code is now set explicitly.
+- **`pvm install 8.4` installed PHP 8.4.27 into a folder named `8.4.0`.** windows.php.net labels rebuilt binaries `8.4.27-1`, and the parser turned the patch into 0. This affected every current 8.2–8.5 release. The archive index also understands rebuild suffixes and prefers the newest rebuild.
+- **`pvm list` with no installed versions** now prints a message and a hint, instead of exiting with code 1 silently.
+- **`pvm exec` rejects `--version` and `--cwd` without a value,** and rejects a `--cwd` directory that doesn't exist.
+- **`pvm php` outside a configured project** prints the documented "No local version configured" message, with exit code 6.
+- **A link was reported as "orphaned" when the versions folder was given as an 8.3 short path** (e.g. `PVM_VERSIONS_HOME` under `C:\Users\RUNNER~1`). Junctions store the long path, so the inside-versions check now falls back to comparing canonical paths.
+- **Linux/macOS package-manager install check:** a same-major PHP (e.g. 8.1 when 8.4 was requested) no longer counts as "already installed".
+
+### Removed
+- Unused `GitIgnoreService.ensurePvmSymlinkExists`, which recursively deleted the slot.
+- Unused `services/php_downloader.dart`.
+- `.sisyphus/` agent scratch files from version control (already in `.gitignore`).
 
 ## [2.0.0] - 2026-05-25
 

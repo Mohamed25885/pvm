@@ -42,8 +42,11 @@ void main() {
       final runner = TestPvmCommandRunner(osManager: osManager);
       final output = <String>[];
 
-      await runner.runAndCapture(['--version', 'global', '8.2'],
-          capturedOutput: output);
+      await runner.runAndCapture([
+        '--version',
+        'global',
+        '8.2',
+      ], capturedOutput: output);
 
       final outputText = output.join('\n');
       expect(outputText, contains('PVM version:'));

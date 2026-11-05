@@ -30,40 +30,44 @@ void main() {
       expect(info.version, isNull);
     });
 
-    test('returns ok when symlink points to a valid version directory',
-        () async {
-      const linkPath = r'C:\Users\sam\.pvm';
-      final target = p.join(versionsRoot, '8.2.10');
-      osManager.symlinkTargets[linkPath] = target;
-      osManager.setDirectoryExistsResult(target, true);
+    test(
+      'returns ok when symlink points to a valid version directory',
+      () async {
+        const linkPath = r'C:\Users\sam\.pvm';
+        final target = p.join(versionsRoot, '8.2.10');
+        osManager.symlinkTargets[linkPath] = target;
+        osManager.setDirectoryExistsResult(target, true);
 
-      final info = await inspector.inspect(
-        linkPath: linkPath,
-        versionsRoot: versionsRoot,
-      );
+        final info = await inspector.inspect(
+          linkPath: linkPath,
+          versionsRoot: versionsRoot,
+        );
 
-      expect(info.status, equals(SymLinkStatus.ok));
-      expect(info.target, equals(target));
-      expect(info.version?.toString(), equals('8.2.10'));
-      expect(info.isOk, isTrue);
-    });
+        expect(info.status, equals(SymLinkStatus.ok));
+        expect(info.target, equals(target));
+        expect(info.version?.toString(), equals('8.2.10'));
+        expect(info.isOk, isTrue);
+      },
+    );
 
-    test('returns broken when symlink exists but target dir is missing',
-        () async {
-      const linkPath = r'C:\Users\sam\.pvm';
-      final target = p.join(versionsRoot, '8.2.10');
-      osManager.symlinkTargets[linkPath] = target;
-      osManager.setDirectoryExistsResult(target, false);
+    test(
+      'returns broken when symlink exists but target dir is missing',
+      () async {
+        const linkPath = r'C:\Users\sam\.pvm';
+        final target = p.join(versionsRoot, '8.2.10');
+        osManager.symlinkTargets[linkPath] = target;
+        osManager.setDirectoryExistsResult(target, false);
 
-      final info = await inspector.inspect(
-        linkPath: linkPath,
-        versionsRoot: versionsRoot,
-      );
+        final info = await inspector.inspect(
+          linkPath: linkPath,
+          versionsRoot: versionsRoot,
+        );
 
-      expect(info.status, equals(SymLinkStatus.broken));
-      expect(info.target, equals(target));
-      expect(info.version, isNull);
-    });
+        expect(info.status, equals(SymLinkStatus.broken));
+        expect(info.target, equals(target));
+        expect(info.version, isNull);
+      },
+    );
 
     test('returns orphaned when target lives outside versions root', () async {
       const linkPath = r'C:\Users\sam\.pvm';
@@ -80,8 +84,7 @@ void main() {
       expect(info.target, equals(target));
     });
 
-    test(
-        'returns orphaned when target is inside versionsRoot but basename is '
+    test('returns orphaned when target is inside versionsRoot but basename is '
         'not a valid version', () async {
       const linkPath = r'C:\Users\sam\.pvm';
       final target = p.join(versionsRoot, 'weird-name');
@@ -97,18 +100,20 @@ void main() {
       expect(info.version, isNull);
     });
 
-    test('returns corrupt when slot exists as a non-symlink directory',
-        () async {
-      const linkPath = r'C:\Users\sam\.pvm';
-      osManager.setDirectoryExistsResult(linkPath, true);
+    test(
+      'returns corrupt when slot exists as a non-symlink directory',
+      () async {
+        const linkPath = r'C:\Users\sam\.pvm';
+        osManager.setDirectoryExistsResult(linkPath, true);
 
-      final info = await inspector.inspect(
-        linkPath: linkPath,
-        versionsRoot: versionsRoot,
-      );
+        final info = await inspector.inspect(
+          linkPath: linkPath,
+          versionsRoot: versionsRoot,
+        );
 
-      expect(info.status, equals(SymLinkStatus.corrupt));
-    });
+        expect(info.status, equals(SymLinkStatus.corrupt));
+      },
+    );
 
     test('returns corrupt when slot exists as a non-symlink file', () async {
       const linkPath = r'C:\Users\sam\.pvm';

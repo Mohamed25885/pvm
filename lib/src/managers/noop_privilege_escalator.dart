@@ -8,6 +8,9 @@ class NoopPrivilegeEscalator implements IPrivilegeEscalator {
   NoopPrivilegeEscalator({this.elevationSucceeds = true});
 
   @override
+  bool get canElevate => elevationSucceeds;
+
+  @override
   Future<bool> requestElevation() async {
     elevationRequested = true;
     return elevationSucceeds;

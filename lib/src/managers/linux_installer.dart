@@ -17,13 +17,16 @@ class LinuxInstaller extends PackageManagerInstaller {
   String get installationType => 'package manager (apt)';
 
   @override
-  Future<void> install(String version, {InstallOptions? options}) async {
+  Future<InstallResult> install(
+    String version, {
+    InstallOptions? options,
+  }) async {
     // Security validation against injection
     final phpVersion = PhpVersion.parse(version);
     final force = options?.force ?? false;
     // Check if already installed
     if (!force && await isInstalled(phpVersion.toString())) {
-      return;
+      return InstallResult(phpVersion.toString(), alreadyInstalled: true);
     }
 
     // Normalize version for apt (e.g., "8.4" -> "php8.4")
@@ -44,6 +47,7 @@ class LinuxInstaller extends PackageManagerInstaller {
     if (result.exitCode != 0) {
       throw Exception('Failed to install $aptPackage: ${result.stderr}');
     }
+    return InstallResult(phpVersion.toString());
   }
 
   String _normalizeAptPackage(String version) {

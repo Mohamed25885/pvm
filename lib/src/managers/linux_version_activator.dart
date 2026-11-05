@@ -19,8 +19,8 @@ class LinuxVersionActivator implements IVersionActivator {
     required this.versionsPath,
     required this.homeDirectory,
     this.useUpdateAlternatives = true,
-  })  : _osManager = osManager,
-        _processManager = processManager;
+  }) : _osManager = osManager,
+       _processManager = processManager;
 
   @override
   Future<void> activateGlobal(String version) async {

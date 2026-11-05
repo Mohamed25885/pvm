@@ -14,6 +14,7 @@ import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
+import '../core/error_text.dart';
 
 class UseCommand extends Command<int> {
   @override
@@ -38,23 +39,41 @@ class UseCommand extends Command<int> {
     this._console,
   );
 
-  List<PhpVersion> _getAvailableVersions() {
-    final versionStrings = _osManager.getAvailableVersions(
-      _osManager.phpVersionsPath,
-    );
-    return versionStrings.map((v) => PhpVersion.parse(v)).toList();
+  /// A project root must never be the home directory (its `.pvm` is the
+  /// global slot) or a filesystem root (S3).
+  String? _unsafeRootReason(String root) {
+    final normalized = p.normalize(root);
+    if (p.equals(p.dirname(normalized), normalized)) {
+      return 'a filesystem root';
+    }
+    try {
+      if (p.equals(normalized, p.normalize(_osManager.getHomeDirectory()))) {
+        return 'your home directory (its .pvm is the global version link)';
+      }
+    } catch (_) {
+      // Home unknown: nothing to protect against.
+    }
+    return null;
   }
 
   @override
   Future<int> run() async {
     try {
-      final project = await Project.findFromCurrentDirectory();
+      final project = await Project.findFromPath(_osManager.currentDirectory);
       final registry = VersionRegistry(_osManager);
 
-      // Always ensure .gitignore includes .pvm
-      await _gitIgnoreService.ensureGitignoreIncludesPvm(
-        rootPath: project.rootDirectory.path,
-      );
+      final unsafe = _unsafeRootReason(project.rootDirectory.path);
+      if (unsafe != null) {
+        _console.printError(
+          'Refusing to set a local version in $unsafe: '
+          '${project.rootDirectory.path}',
+        );
+        _console.print(
+          'Run this inside a project folder, or create a .pvmrc there first. '
+          'Use "pvm global <version>" for a machine-wide default.',
+        );
+        return ExitCode.configurationError;
+      }
 
       final requestedVersionStr = argResults?.rest.firstOrNull;
 
@@ -104,7 +123,10 @@ class UseCommand extends Command<int> {
     VersionRegistry registry, {
     bool updateFile = true,
   }) async {
-    final available = _getAvailableVersions();
+    // Skip folders that are not versions (e.g. versions	mp) (B3).
+    final available = VersionRegistry.parseVersionNames(
+      _osManager.getAvailableVersions(_osManager.phpVersionsPath),
+    );
     final resolveResult = InstalledVersionResolver.resolve(
       requestedVersion,
       available,
@@ -221,10 +243,21 @@ class UseCommand extends Command<int> {
         );
       }
 
+      // Only touch .gitignore once the link exists (B4). Best-effort.
+      try {
+        await _gitIgnoreService.ensureGitignoreIncludesPvm(
+          rootPath: project.rootDirectory.path,
+        );
+      } catch (e) {
+        _console.printWarning(
+          'Could not update .gitignore: ${describeError(e)}',
+        );
+      }
+
       _console.print('Local link created: $localPath -> $sourcePath');
       return ExitCode.success;
     } catch (e) {
-      _console.printError('Error: $e');
+      _console.printError('Error: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

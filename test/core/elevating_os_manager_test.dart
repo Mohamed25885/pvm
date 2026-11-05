@@ -29,6 +29,9 @@ class _ApprovingEscalator implements IPrivilegeEscalator {
   int requestCount = 0;
 
   @override
+  bool get canElevate => true;
+
+  @override
   Future<bool> requestElevation() async {
     requestCount++;
     return true;

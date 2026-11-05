@@ -68,10 +68,7 @@ void main() {
       final mockFetcher = MockReleaseFetcher([]);
       final console = MockConsole();
 
-      final cmd = ListRemoteCommand(
-        mockFetcher,
-        console,
-      );
+      final cmd = ListRemoteCommand(mockFetcher, console);
 
       final exitCode = await cmd.run();
       expect(exitCode, ExitCode.generalError);
@@ -87,10 +84,7 @@ void main() {
       final mockFetcher = MockReleaseFetcher(releases);
       final console = MockConsole();
 
-      final cmd = ListRemoteCommand(
-        mockFetcher,
-        console,
-      );
+      final cmd = ListRemoteCommand(mockFetcher, console);
 
       // Note: This test verifies the filtering logic exists
       // Full integration test would require mocking the run() method
@@ -104,10 +98,7 @@ void main() {
       ];
       final mockFetcher = MockReleaseFetcher(releases);
 
-      final cmd = ListRemoteCommand(
-        mockFetcher,
-        MockConsole(),
-      );
+      final cmd = ListRemoteCommand(mockFetcher, MockConsole());
 
       expect(cmd.argParser.parse(['--type', 'ts'])['type'], 'ts');
       expect(cmd.argParser.parse(['--type', 'nts'])['type'], 'nts');

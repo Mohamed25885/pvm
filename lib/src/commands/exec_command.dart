@@ -7,6 +7,7 @@ import '../core/composer_locator.dart';
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
+import '../core/path_env.dart';
 import '../core/platform_constants.dart';
 import '../core/process_manager.dart';
 import '../domain/exceptions.dart';
@@ -16,6 +17,7 @@ import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../services/php_executor.dart';
+import '../core/error_text.dart';
 
 /// `pvm exec` — run a command with a specific PHP installation on `PATH`.
 class ExecCommand extends Command<int> {
@@ -57,6 +59,10 @@ class ExecCommand extends Command<int> {
   Future<int> run() async {
     final raw = List<String>.from(argResults!.rest);
     final parsed = _parseLeadingFlags(raw);
+    if (parsed.error != null) {
+      _console.printError(parsed.error!);
+      return ExitCode.usageError;
+    }
 
     var tokens = List<String>.from(parsed.command);
     if (tokens.isEmpty) {
@@ -69,6 +75,10 @@ class ExecCommand extends Command<int> {
     }
 
     final workDir = parsed.cwd ?? _osManager.currentDirectory;
+    if (parsed.cwd != null && !await _osManager.directoryExists(workDir)) {
+      _console.printError('--cwd directory does not exist: $workDir');
+      return ExitCode.usageError;
+    }
     final project = await Project.findFromPath(workDir);
 
     final registry = VersionRegistry(_osManager);
@@ -182,10 +192,13 @@ class ExecCommand extends Command<int> {
       );
     }
 
-    final env = Map<String, String>.from(_osManager.currentEnvironment);
-    final sep = _platformConstants.pathSeparator;
-    final oldPath = env['PATH'] ?? '';
-    env['PATH'] = oldPath.isEmpty ? phpDir : '$phpDir$sep$oldPath';
+    // Reuse the existing PATH key (Windows uses "Path"); never add a second.
+    final env = prependToPath(
+      _osManager.currentEnvironment,
+      phpDir,
+      separator: _platformConstants.pathSeparator,
+      caseInsensitiveKeys: _platformConstants.osType == 'windows',
+    );
 
     try {
       final resolvedExe = await _processManager.resolveSystemCommand(cmd0);
@@ -198,7 +211,7 @@ class ExecCommand extends Command<int> {
         ),
       );
     } on Exception catch (e) {
-      _console.printError('Could not start "$cmd0": $e');
+      _console.printError('Could not start "$cmd0": ${describeError(e)}');
       return ExitCode.generalError;
     }
   }
@@ -224,7 +237,17 @@ class ExecCommand extends Command<int> {
     var i = 0;
     while (i < input.length) {
       final t = input[i];
-      if (t == '--version' && i + 1 < input.length) {
+      if (t == '--version' || t == '--cwd') {
+        if (i + 1 >= input.length || input[i + 1].startsWith('--')) {
+          return _ParsedExecFlags(
+            versionFromFlag: null,
+            cwd: null,
+            command: const [],
+            error: '$t requires a value.',
+          );
+        }
+      }
+      if (t == '--version') {
         versionFlag = input[i + 1];
         i += 2;
         continue;
@@ -234,7 +257,7 @@ class ExecCommand extends Command<int> {
         i++;
         continue;
       }
-      if (t == '--cwd' && i + 1 < input.length) {
+      if (t == '--cwd') {
         cwdFlag = input[i + 1];
         i += 2;
         continue;
@@ -284,10 +307,12 @@ class _ParsedExecFlags {
   final String? versionFromFlag;
   final String? cwd;
   final List<String> command;
+  final String? error;
 
   _ParsedExecFlags({
     required this.versionFromFlag,
     required this.cwd,
     required this.command,
+    this.error,
   });
 }

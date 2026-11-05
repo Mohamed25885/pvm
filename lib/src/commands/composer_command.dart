@@ -8,6 +8,7 @@ import '../core/composer_locator.dart';
 import '../domain/exceptions.dart';
 import '../domain/project.dart';
 import '../services/php_executor.dart';
+import '../core/error_text.dart';
 
 class ComposerCommand extends Command<int> {
   @override
@@ -36,12 +37,14 @@ class ComposerCommand extends Command<int> {
   @override
   Future<int> run() async {
     try {
-      final composerScript =
-          await _composerLocator.findComposer(_osManager.currentEnvironment);
+      final composerScript = await _composerLocator.findComposer(
+        _osManager.currentEnvironment,
+      );
       if (composerScript == null) {
         _console.printError('Composer not found in PATH.');
         _console.print(
-            'Install Composer globally or ensure composer.phar is in your PATH.');
+          'Install Composer globally or ensure composer.phar is in your PATH.',
+        );
         return ExitCode.generalError;
       }
 
@@ -57,7 +60,7 @@ class ComposerCommand extends Command<int> {
       _console.printError(e.message);
       return ExitCode.configurationError;
     } catch (e) {
-      _console.printError('Error running Composer: $e');
+      _console.printError('Error running Composer: ${describeError(e)}');
       return ExitCode.generalError;
     }
   }

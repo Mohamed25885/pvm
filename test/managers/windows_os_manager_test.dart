@@ -18,35 +18,46 @@ void main() {
       expect(await Directory(home).exists(), isTrue);
     });
 
-    test('getAvailableVersions returns empty when versionsPath does not exist',
-        () {
-      final versions =
-          manager.getAvailableVersions('C:\\nonexistent\\versions');
-      expect(versions, isEmpty);
-    });
+    test(
+      'getAvailableVersions returns empty when versionsPath does not exist',
+      () {
+        final versions = manager.getAvailableVersions(
+          'C:\\nonexistent\\versions',
+        );
+        expect(versions, isEmpty);
+      },
+    );
 
-    test('getAvailableVersions returns bare basenames (no separators)',
-        () async {
-      final tempDir = await Directory.systemTemp.createTemp('pvm_versions_');
-      try {
-        await Directory(p.join(tempDir.path, '8.2.10')).create();
-        await Directory(p.join(tempDir.path, '8.3.0')).create();
-        await File(p.join(tempDir.path, 'not-a-dir.txt')).writeAsString('x');
+    test(
+      'getAvailableVersions returns bare basenames (no separators)',
+      () async {
+        final tempDir = await Directory.systemTemp.createTemp('pvm_versions_');
+        try {
+          await Directory(p.join(tempDir.path, '8.2.10')).create();
+          await Directory(p.join(tempDir.path, '8.3.0')).create();
+          await File(p.join(tempDir.path, 'not-a-dir.txt')).writeAsString('x');
 
-        final versions = manager.getAvailableVersions(tempDir.path);
+          final versions = manager.getAvailableVersions(tempDir.path);
 
-        expect(versions, containsAll(['8.2.10', '8.3.0']));
-        expect(versions, hasLength(2));
-        for (final v in versions) {
-          expect(v.contains(r'\'), isFalse,
-              reason: 'must be bare basename without separators');
-          expect(v.contains('/'), isFalse,
-              reason: 'must be bare basename without separators');
+          expect(versions, containsAll(['8.2.10', '8.3.0']));
+          expect(versions, hasLength(2));
+          for (final v in versions) {
+            expect(
+              v.contains(r'\'),
+              isFalse,
+              reason: 'must be bare basename without separators',
+            );
+            expect(
+              v.contains('/'),
+              isFalse,
+              reason: 'must be bare basename without separators',
+            );
+          }
+        } finally {
+          await tempDir.delete(recursive: true);
         }
-      } finally {
-        await tempDir.delete(recursive: true);
-      }
-    });
+      },
+    );
 
     test('directoryExists returns true for existing directory', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm_test_');
@@ -75,8 +86,13 @@ void main() {
       try {
         await expectLater(
           manager.createSymLink('8.0', '', to),
-          throwsA(isA<Exception>().having((e) => e.toString(), 'message',
-              contains('Source directory does not exist'))),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Source directory does not exist'),
+            ),
+          ),
         );
       } finally {
         await tempHome.delete(recursive: true);
@@ -89,8 +105,13 @@ void main() {
       try {
         await expectLater(
           manager.createSymLink('8.0', 'C:\\nonexistent\\source', to),
-          throwsA(isA<Exception>().having((e) => e.toString(), 'message',
-              contains('Source directory does not exist'))),
+          throwsA(
+            isA<Exception>().having(
+              (e) => e.toString(),
+              'message',
+              contains('Source directory does not exist'),
+            ),
+          ),
         );
       } finally {
         await tempHome.delete(recursive: true);
@@ -186,11 +207,16 @@ void main() {
 
           await manager.deleteSymLink(link);
 
-          final stillThere =
-              await FileSystemEntity.type(link, followLinks: false);
+          final stillThere = await FileSystemEntity.type(
+            link,
+            followLinks: false,
+          );
           expect(stillThere, equals(FileSystemEntityType.notFound));
-          expect(await source.exists(), isTrue,
-              reason: 'deleting a symlink must not delete the target');
+          expect(
+            await source.exists(),
+            isTrue,
+            reason: 'deleting a symlink must not delete the target',
+          );
         } finally {
           if (await tempDir.exists()) {
             await tempDir.delete(recursive: true);

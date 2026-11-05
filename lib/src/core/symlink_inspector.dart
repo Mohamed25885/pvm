@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import '../domain/exceptions.dart';
@@ -75,23 +77,14 @@ class SymLinkInspector {
       final fileExists = await _osManager.fileExists(linkPath);
       final dirExists = await _osManager.directoryExists(linkPath);
       if (!fileExists && !dirExists) {
-        return SymLinkInfo(
-          linkPath: linkPath,
-          status: SymLinkStatus.notSet,
-        );
+        return SymLinkInfo(linkPath: linkPath, status: SymLinkStatus.notSet);
       }
-      return SymLinkInfo(
-        linkPath: linkPath,
-        status: SymLinkStatus.corrupt,
-      );
+      return SymLinkInfo(linkPath: linkPath, status: SymLinkStatus.corrupt);
     }
 
     final target = await _osManager.readSymLinkTarget(linkPath);
     if (target == null) {
-      return SymLinkInfo(
-        linkPath: linkPath,
-        status: SymLinkStatus.broken,
-      );
+      return SymLinkInfo(linkPath: linkPath, status: SymLinkStatus.broken);
     }
 
     final targetExists = await _osManager.directoryExists(target);
@@ -130,8 +123,10 @@ class SymLinkInspector {
 
   /// Convenience: inspect the global slot at `<homeDir>/.pvm`.
   Future<SymLinkInfo> inspectGlobal() async {
-    final linkPath =
-        p.join(_osManager.getHomeDirectory(), PvmConstants.pvmDirName);
+    final linkPath = p.join(
+      _osManager.getHomeDirectory(),
+      PvmConstants.pvmDirName,
+    );
     return inspect(
       linkPath: linkPath,
       versionsRoot: _osManager.phpVersionsPath,
@@ -148,6 +143,21 @@ class SymLinkInspector {
   }
 
   bool _isInside(String target, String root) {
+    if (_lexicallyInside(target, root)) return true;
+    // The same directory can be spelt differently: Windows 8.3 short names
+    // (`C:\Users\RUNNER~1`), a link in the root path, or letter case. A
+    // junction stores the long, resolved path, so compare canonical forms.
+    try {
+      return _lexicallyInside(
+        Directory(target).resolveSymbolicLinksSync(),
+        Directory(root).resolveSymbolicLinksSync(),
+      );
+    } on FileSystemException {
+      return false;
+    }
+  }
+
+  static bool _lexicallyInside(String target, String root) {
     final normTarget = p.normalize(target);
     final normRoot = p.normalize(root);
     return p.isWithin(normRoot, normTarget) ||

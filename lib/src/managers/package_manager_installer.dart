@@ -19,10 +19,7 @@ abstract class PackageManagerInstaller implements IInstaller {
   @override
   Future<bool> isInstalled(String version) async {
     final versionResult = await processManager.runCaptured(
-      ProcessSpec(
-        executable: 'php',
-        arguments: ['-r', 'echo PHP_VERSION;'],
-      ),
+      ProcessSpec(executable: 'php', arguments: ['-r', 'echo PHP_VERSION;']),
     );
     if (versionResult.exitCode != 0) return false;
 
@@ -31,13 +28,21 @@ abstract class PackageManagerInstaller implements IInstaller {
   }
 
   bool _matchesRequestedVersion(String installed, String requested) {
-    if (installed.startsWith(requested)) return true;
-    final majorPrefix = '${requested.split('.')[0]}.';
-    return installed.startsWith(majorPrefix);
+    // Same major.minor (and patch, when requested) - never just same major.
+    final want = requested.split('.');
+    final have = installed.split('.');
+    if (have.length < want.length) return false;
+    for (var i = 0; i < want.length; i++) {
+      if (have[i] != want[i]) return false;
+    }
+    return true;
   }
 
   @override
-  Future<void> install(String version, {InstallOptions? options}) async {
+  Future<InstallResult> install(
+    String version, {
+    InstallOptions? options,
+  }) async {
     throw UnimplementedError('Package managers implement this directly');
   }
 

@@ -14,8 +14,9 @@ class PvmConstants {
   static const composerBat = 'composer.bat';
   static const composerCmd = 'composer.cmd';
 
-  // Version format (with capture groups: major, minor, optional patch)
-  static const versionPattern = r'^(\d+)\.(\d+)(?:\.(\d+))?$';
+  // Version format (with capture groups: major, minor, optional patch).
+  // Parts are bounded to 4 digits so int.parse can never overflow.
+  static const versionPattern = r'^(\d{1,4})\.(\d{1,4})(?:\.(\d{1,4}))?$';
 }
 
 class PvmUrls {
@@ -23,6 +24,10 @@ class PvmUrls {
       'https://downloads.php.net/~windows/releases/releases.json';
   static const windowsDownloadBase =
       'https://windows.php.net/downloads/releases/';
+  static const windowsArchivesListing =
+      'https://downloads.php.net/~windows/releases/archives/';
+  static const windowsArchivesDownloadBase =
+      'https://downloads.php.net/~windows/releases/archives/';
 }
 
 class PvmTimeouts {

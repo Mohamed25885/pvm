@@ -13,7 +13,10 @@ class FakeExecutableResolverOSManager implements IOSManager {
 
   @override
   Future<({String from, String to})> createSymLink(
-      String version, String from, String to) async {
+    String version,
+    String from,
+    String to,
+  ) async {
     throw UnimplementedError();
   }
 
@@ -113,8 +116,9 @@ void main() {
     group('resolvePhpExecutable', () {
       test('returns path when php.exe exists', () async {
         osManager.setFileExists(
-            '/project${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
-            true);
+          '/project${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
+          true,
+        );
 
         final result = await resolver.resolvePhpExecutable('/project');
 
@@ -123,8 +127,9 @@ void main() {
 
       test('throws when php.exe does not exist', () async {
         osManager.setFileExists(
-            '/project${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
-            false);
+          '/project${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
+          false,
+        );
 
         expect(
           () => resolver.resolvePhpExecutable('/project'),
@@ -134,8 +139,9 @@ void main() {
 
       test('constructs correct path with pvm dir', () async {
         osManager.setFileExists(
-            '/myproject${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
-            true);
+          '/myproject${Platform.pathSeparator}.pvm${Platform.pathSeparator}php.exe',
+          true,
+        );
 
         final result = await resolver.resolvePhpExecutable('/myproject');
 

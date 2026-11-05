@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/os_manager.dart';
+import '../core/link_slot.dart';
 import '../core/pvm_paths.dart';
 
 class WindowsOSManager implements IOSManager {
@@ -47,41 +48,73 @@ class WindowsOSManager implements IOSManager {
     return home;
   }
 
+  /// Creates directory links as **junctions** first: they need neither
+  /// Developer Mode nor Administrator rights. A symbolic link is only used
+  /// when a junction is impossible (e.g. the target is on a network share).
+  final Future<void> Function(String link, String target) _createJunction;
+
+  WindowsOSManager({
+    Future<void> Function(String link, String target)? createJunction,
+  }) : _createJunction = createJunction ?? createJunctionWithPowerShell;
+
   @override
   Future<({String from, String to})> createSymLink(
     String version,
     String from,
     String to,
   ) async {
-    final homeDir = Directory(to).parent;
+    final linkParent = Directory(to).parent;
 
-    if (homeDir.path.isEmpty || !(await directoryExists(homeDir.path))) {
-      throw Exception('Error: Could not determine home directory.');
+    if (linkParent.path.isEmpty || !(await directoryExists(linkParent.path))) {
+      throw Exception(
+        'Error: Link directory does not exist: ${linkParent.path}',
+      );
     }
     if (from.isEmpty || !(await directoryExists(from))) {
-      throw Exception('Error: Source directory does not exist: $from');
+      throw Exception('Source directory does not exist: $from');
     }
 
+    // Only ever replaces an existing link; a real file/dir aborts (S2).
+    await clearLinkSlot(to);
+
+    Object? junctionError;
     try {
-      final existingType = await FileSystemEntity.type(to, followLinks: false);
-      if (existingType != FileSystemEntityType.notFound) {
-        if (existingType == FileSystemEntityType.link) {
-          await Link(to).delete();
-        } else if (existingType == FileSystemEntityType.directory) {
-          await Directory(to).delete(recursive: true);
-        } else {
-          await File(to).delete();
-        }
-      }
-    } catch (_) {
-      // ignore - create will surface meaningful failures
+      await _createJunction(to, p.absolute(from));
+      if (await FileSystemEntity.isLink(to)) return (from: from, to: to);
+      junctionError = 'junction was not created';
+    } catch (e) {
+      junctionError = e;
     }
 
     try {
       await Link(to).create(from);
       return (from: from, to: to);
     } on FileSystemException catch (e) {
-      throw Exception('Error creating symbolic link: ${e.message}');
+      throw Exception(
+        'Error creating link: ${e.message} '
+        '(junction attempt: $junctionError)',
+      );
+    }
+  }
+
+  /// Paths are passed via environment variables, never interpolated into the
+  /// command, so quotes, `&`, `%VAR%` etc. in paths cannot inject anything.
+  static Future<void> createJunctionWithPowerShell(
+    String link,
+    String target,
+  ) async {
+    final result = await Process.run(
+      'powershell',
+      [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        r'New-Item -ItemType Junction -Path $env:PVM_LINK -Target $env:PVM_TARGET | Out-Null',
+      ],
+      environment: {'PVM_LINK': link, 'PVM_TARGET': target},
+    );
+    if (result.exitCode != 0) {
+      throw Exception('${result.stderr}'.trim());
     }
   }
 
