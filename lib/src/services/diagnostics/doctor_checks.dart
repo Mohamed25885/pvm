@@ -6,7 +6,6 @@ import '../../core/active_version_resolver.dart';
 import '../../core/constants.dart';
 import '../../core/os_manager.dart';
 import '../../core/platform_constants.dart';
-import '../../core/platform_detector.dart';
 import '../../core/symlink_inspector.dart';
 import '../../domain/exceptions.dart';
 import '../../domain/install_record.dart';
@@ -59,7 +58,11 @@ class PlatformCheck implements DiagnosticCheck {
   Future<DiagnosticResult> run() async {
     final home = _osManager.getHomeDirectory();
     final globalLink = p.join(home, PvmConstants.pvmDirName);
-    final unknown = PlatformDetector.current == PlatformType.unknown;
+    final unknown = !const {
+      'windows',
+      'linux',
+      'macos',
+    }.contains(_platformConstants.osType);
     return DiagnosticResult(
       id: id,
       label: label,
@@ -255,11 +258,12 @@ class SymlinkProbeCheck implements DiagnosticCheck {
         lines: ['Created and removed a test symlink under:', '  ${temp.path}'],
       );
     } on Exception catch (e) {
-      final hint = PlatformDetector.isWindows
-          ? 'Enable Developer Mode (Settings -> Privacy & security -> '
-                'For developers) or run pvm as Administrator.'
-          : 'Filesystem may not allow symlinks (e.g. FAT/exFAT). '
-                'Try a different temp directory.';
+      // Windows uses junctions (no Developer Mode / admin needed), so the
+      // usual cause on every OS is a filesystem without link support.
+      const hint =
+          'The filesystem may not support links (junctions on Windows, '
+          'symlinks elsewhere): FAT/exFAT and some network shares do not. '
+          'Try a different temp directory.';
       return DiagnosticResult(
         id: id,
         label: label,

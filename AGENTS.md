@@ -36,7 +36,7 @@ The `.agents` directory contains all resources for agentic coding:
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
   - `path`: Path manipulation.
-  - `get_it`: Dependency injection in `pvm.dart`.
+- **Composition root:** `lib/src/app.dart`. `PvmDependencies.forHost(platform: …)` is the only place that picks platform implementations (any piece can be overridden), `buildRunner(deps)` wires every command, and `runPvm(args, deps:)` maps errors to exit codes. `pvm.dart` only sets `exitCode`. No DI container.
   - `http`, `archive`, `crypto`: PHP download/install on Windows.
   - `test` & `mocktail`: Testing framework and mocking.
 

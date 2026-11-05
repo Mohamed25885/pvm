@@ -13,8 +13,12 @@ permissions:
 jobs:
   ci:
     strategy:
+      fail-fast: false
       matrix:
-        os: [windows-latest]
+        # Unit tests run on every OS (mocks/fakes; Windows-only tests are
+        # tagged @TestOn('windows')). The binary is built on Windows only
+        # until Phase 6.
+        os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     permissions:
@@ -38,7 +42,9 @@ jobs:
         shell: pwsh
         run: |
           dart pub global activate fvm
-          "$env:LOCALAPPDATA\Pub\Cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $pubBin = if ($IsWindows) { "$env:LOCALAPPDATA\Pub\Cache\bin" } else { "$HOME/.pub-cache/bin" }
+          $pubBin | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          $env:PATH = "$pubBin$([IO.Path]::PathSeparator)$env:PATH"
           # Single source of truth for the toolchain: .fvmrc (never hard-code).
           $flutter = (Get-Content .fvmrc -Raw | ConvertFrom-Json).flutter
           fvm install $flutter

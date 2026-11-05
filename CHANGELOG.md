@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
   - `ILinkManager` creates the links: junctions on Windows, symlinks on Linux/macOS.
   - One `IoOSManager` replaces the three per-OS managers.
   - `Project.locate` takes the working and home directories from the OS layer.
+  - A single composition root (`lib/src/app.dart`: `PvmDependencies`, `buildRunner`, `runPvm`) picks the platform implementations from `PlatformInfo`, and tests can build the real runner. The `get_it` dependency is removed.
+  - CI runs the unit tests on Windows, Linux and macOS.
+- `pvm doctor`'s link-probe hint no longer tells Windows users to enable Developer Mode, because links are junctions, which don't need it.
 - On Linux/macOS the versions folder now follows the same rules as on Windows: `PVM_VERSIONS_HOME`, else `<PVM_HOME or program dir>/versions`. The old guess at `~/.pvm/versions` is gone; Phase 5.2 will define the Unix default homes. `pvm use` on Linux/macOS also checks that the version directory exists, like on Windows.
 
 ### Fixed
