@@ -25,6 +25,7 @@ All notable changes to this project will be documented in this file.
 - **CI hardening:**
   - Actions are pinned to commit SHAs: `actions/checkout` v3 → v7.0.1, `upload-artifact` v4 → v7.0.2, `setup-dart` v1.8.1, OSV workflow v2.2.4.
   - Default permissions are `contents: read`, and checkout no longer persists credentials.
+  - CI reads the toolchain version from `.fvmrc` (Flutter 3.44.2 → Dart 3.12.2) instead of a hard-coded, stale `fvm use 3.41.6`. The minimum Dart SDK is now `>=3.12.0`, matching the lockfile.
 
 ### Security
 - **`pvm setup` no longer truncates the user `PATH`.** Values are written with `reg add` instead of `setx`, which cut values at 1024 characters and replaced `REG_EXPAND_SZ` with `REG_SZ`. The existing value type is preserved, and the previous `Path` is backed up to `%LOCALAPPDATA%\pvm\backups\`. The write is refused if any existing entry would be lost, or if `PATH` can't be read. `WM_SETTINGCHANGE` is broadcast afterwards.

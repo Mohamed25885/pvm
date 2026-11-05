@@ -440,16 +440,16 @@ PVM falls back to a symbolic link only when a junction is impossible, for exampl
 
 ### SDK (FVM)
 
-This project uses [FVM](https://fvm.app) with **Flutter 3.41.6**, which bundles **Dart 3.11.4** (see [`.fvmrc`](.fvmrc)). PVM is a Dart CLI app, not a Flutter app; the Flutter SDK is only used to supply a pinned Dart toolchain.
+This project uses [FVM](https://fvm.app) with **Flutter 3.44.2**, which bundles **Dart 3.12.2** (see [`.fvmrc`](.fvmrc)). PVM is a Dart CLI app, not a Flutter app; the Flutter SDK is only used to supply a pinned Dart toolchain.
 
 ```powershell
 # One-time: install FVM (https://fvm.app) and the project SDK
 fvm install
-fvm use 3.41.6 --force
+fvm use --force
 
 # Always prefix Dart commands with fvm (or use IDE .vscode/settings.json)
 fvm dart pub get
-fvm dart --version   # Dart SDK version: 3.11.4
+fvm dart --version   # Dart SDK version: 3.12.2
 ```
 
 ### Commands

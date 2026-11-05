@@ -31,7 +31,7 @@ The `.agents` directory contains all resources for agentic coding:
 
 ## Environment & Dependencies
 
-- **Language:** Dart (SDK `>=3.11.0 <4.0.0`, development pinned via FVM Flutter **3.41.6** → Dart **3.11.4**)
+- **Language:** Dart (SDK `>=3.12.0 <4.0.0`, development pinned via FVM Flutter **3.44.2** → Dart **3.12.2**)
 - **Target Platform:** Windows (strictly uses Windows-specific APIs and path conventions)
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
@@ -99,9 +99,9 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling (regi
 
 ### Development & Maintenance
 
-Use **FVM** so commands run on Dart 3.11.4 (see `.fvmrc`). Prefix with `fvm dart` (or `fvm flutter` only if needed).
+Use **FVM** so commands run on the Dart version pinned in `.fvmrc` (Flutter 3.44.2 → Dart 3.12.2). Prefix with `fvm dart` (or `fvm flutter` only if needed).
 
-- **Install SDK:** `fvm install` then `fvm use 3.41.6 --force`
+- **Install SDK:** `fvm install` then `fvm use --force` (CI reads the version from `.fvmrc`; never hard-code it)
 - **Analyze Code:** `fvm dart analyze`
 - **Format Code:** `fvm dart format .`
 - **Fix Lints:** `fvm dart fix --apply`

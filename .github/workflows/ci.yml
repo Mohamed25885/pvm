@@ -39,8 +39,10 @@ jobs:
         run: |
           dart pub global activate fvm
           "$env:LOCALAPPDATA\Pub\Cache\bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
-          fvm install
-          fvm use 3.41.6 --force
+          # Single source of truth for the toolchain: .fvmrc (never hard-code).
+          $flutter = (Get-Content .fvmrc -Raw | ConvertFrom-Json).flutter
+          fvm install $flutter
+          fvm use $flutter --force
           fvm dart --version
 
       - name: Install dependencies
