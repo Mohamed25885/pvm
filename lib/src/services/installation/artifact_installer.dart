@@ -1,0 +1,250 @@
+import 'dart:io';
+
+import 'package:archive/archive.dart';
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as p;
+
+import '../../core/console.dart';
+import '../../core/constants.dart';
+import '../../core/php_layout.dart';
+import '../../domain/install_record.dart';
+import '../../domain/php_release.dart';
+import '../../interfaces/i_installer.dart';
+
+/// The transactional install pipeline shared by every release source
+/// (roadmap 2.6):
+///
+/// download to a private temp dir → verify SHA-256 → extract into
+/// `versions/.staging-<v>-<pid>` → check the PHP binary ([PhpLayout]) →
+/// write `.pvm-install.json` → atomically rename to `versions/<v>`.
+///
+/// Any failure leaves the versions directory exactly as it was.
+class ArtifactInstaller {
+  final String versionsPath;
+  final PhpLayout layout;
+  final List<String> allowedHosts;
+  final Console _console;
+  final http.Client _client;
+  final Duration _retryDelay;
+
+  ArtifactInstaller({
+    required this.versionsPath,
+    required this.layout,
+    required this.allowedHosts,
+    required Console console,
+    http.Client? client,
+    Duration retryDelay = const Duration(seconds: 1),
+  }) : _console = console,
+       _client = client ?? http.Client(),
+       _retryDelay = retryDelay;
+
+  /// Whether `versions/<version>` holds a PHP binary.
+  Future<bool> isInstalled(String version) =>
+      File(layout.phpExecutable(p.join(versionsPath, version))).exists();
+
+  /// Install [release] as `versions/<version>`, replacing any existing tree.
+  ///
+  /// A release without a published checksum is only installed when
+  /// [allowUnverified] is true; its actual hash is still recorded.
+  Future<void> install(
+    PhpRelease release,
+    String version, {
+    required bool allowUnverified,
+  }) async {
+    final verified = release.sha256.trim().isNotEmpty;
+    if (!verified && !allowUnverified) {
+      throw UnverifiedReleaseException(version);
+    }
+
+    await Directory(versionsPath).create(recursive: true);
+    final tempDir = await Directory.systemTemp.createTemp('pvm-download-');
+    final staging = Directory(p.join(versionsPath, '.staging-$version-$pid'));
+    try {
+      _console.print('Downloading PHP $version...');
+      final archive = await download(release, tempDir.path);
+
+      final actualSha = await sha256Of(archive);
+      if (verified) {
+        _console.print('Verifying SHA256...');
+        if (!await verifySha256(archive, release.sha256)) {
+          throw Exception('SHA256 verification failed');
+        }
+      } else {
+        _console.printWarning(
+          'No published checksum for PHP $version; installing '
+          'unverified (sha256 $actualSha recorded).',
+        );
+      }
+
+      _console.print('Extracting...');
+      if (await staging.exists()) await staging.delete(recursive: true);
+      await staging.create(recursive: true);
+      await extractZip(archive.path, staging.path);
+
+      final binary = layout.phpExecutable(staging.path);
+      if (!await File(binary).exists()) {
+        throw Exception(
+          'Archive does not contain '
+          '${p.relative(binary, from: staging.path)}',
+        );
+      }
+
+      await InstallRecord(
+        version: version,
+        sourceUrl: release.downloadUrl,
+        archiveSha256: actualSha,
+        verified: verified,
+        installedAt: DateTime.now().toUtc(),
+        files: await InstallRecord.hashTree(staging.path),
+      ).writeTo(staging.path);
+
+      await _commit(staging, Directory(p.join(versionsPath, version)));
+    } finally {
+      await _deleteQuietly(staging);
+      await _deleteQuietly(tempDir);
+    }
+  }
+
+  Future<String> sha256Of(File file) async =>
+      crypto.sha256.convert(await file.readAsBytes()).toString();
+
+  Future<bool> verifySha256(File file, String expectedHash) async {
+    if (expectedHash.trim().isEmpty) return false;
+    return (await sha256Of(file)) == expectedHash.trim().toLowerCase();
+  }
+
+  /// Atomically replace [target] with [staging]; on failure the previous
+  /// installation (if any) is restored.
+  Future<void> _commit(Directory staging, Directory target) async {
+    Directory? backup;
+    if (await target.exists()) {
+      backup = await target.rename('${target.path}.old-$pid');
+    }
+    try {
+      await staging.rename(target.path);
+    } catch (_) {
+      if (backup != null) await backup.rename(target.path);
+      rethrow;
+    }
+    if (backup != null) await _deleteQuietly(backup);
+  }
+
+  Future<void> _deleteQuietly(Directory dir) async {
+    try {
+      if (await dir.exists()) await dir.delete(recursive: true);
+    } catch (_) {
+      // Best effort: leftovers are named .staging-/.old- and ignored by PVM.
+    }
+  }
+
+  /// Extracts [zipPath] into [destPath], aborting on any entry that would
+  /// land outside [destPath] (zip-slip) or that is a symbolic link.
+  Future<void> extractZip(String zipPath, String destPath) async {
+    final bytes = await File(zipPath).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(bytes);
+    final dest = p.normalize(p.absolute(destPath));
+
+    for (final file in archive.files) {
+      final name = file.name.replaceAll('\\', '/');
+      if (name.isEmpty) continue;
+      if (p.isAbsolute(name) ||
+          p.posix.isAbsolute(name) ||
+          name.contains(':') ||
+          file.isSymbolicLink) {
+        throw Exception('Unsafe archive entry rejected: ${file.name}');
+      }
+      final outPath = p.normalize(p.join(dest, name));
+      if (!p.isWithin(dest, outPath)) {
+        throw Exception('Unsafe archive entry rejected: ${file.name}');
+      }
+
+      if (name.endsWith('/') || !file.isFile) {
+        await Directory(outPath).create(recursive: true);
+      } else {
+        await Directory(p.dirname(outPath)).create(recursive: true);
+        await File(outPath).writeAsBytes(file.content);
+      }
+    }
+  }
+
+  /// Download [release] into [destDir] with retries. Only `https` URLs on
+  /// [allowedHosts] (or their subdomains) are accepted (S7).
+  Future<File> download(
+    PhpRelease release,
+    String destDir, {
+    void Function(DownloadProgress)? onProgress,
+  }) async {
+    _validateUrl(release.downloadUrl);
+
+    final fileName = p.url.basename(Uri.parse(release.downloadUrl).path);
+    final destPath = p.join(destDir, fileName);
+    final partFile = File('$destPath.part');
+
+    await Directory(destDir).create(recursive: true);
+
+    for (var attempt = 0; attempt < PvmTimeouts.downloadMaxRetries; attempt++) {
+      IOSink? sink;
+      try {
+        var downloadedBytes = 0;
+        final request = http.Request('GET', Uri.parse(release.downloadUrl));
+        final response = await _client
+            .send(request)
+            .timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
+
+        if (response.statusCode != 200) {
+          throw DownloadException(
+            'Failed to download: HTTP ${response.statusCode}',
+          );
+        }
+
+        final totalBytes = response.contentLength ?? 0;
+        sink = partFile.openWrite();
+
+        await for (final chunk in response.stream) {
+          sink.add(chunk);
+          downloadedBytes += chunk.length;
+          if (totalBytes > 0 && onProgress != null) {
+            onProgress(
+              DownloadProgress(
+                downloadedBytes: downloadedBytes,
+                totalBytes: totalBytes,
+                percentComplete: downloadedBytes / totalBytes,
+              ),
+            );
+          }
+        }
+
+        await sink.close();
+        sink = null;
+        final destFile = File(destPath);
+        if (await destFile.exists()) await destFile.delete();
+        return await partFile.rename(destPath);
+      } catch (e) {
+        try {
+          await sink?.close();
+        } catch (_) {}
+        if (await partFile.exists()) await partFile.delete();
+        if (attempt == PvmTimeouts.downloadMaxRetries - 1) rethrow;
+        await Future<void>.delayed(_retryDelay * (attempt + 1));
+      }
+    }
+    throw DownloadException('Download failed'); // unreachable
+  }
+
+  void _validateUrl(String url) {
+    final uri = Uri.parse(url);
+    final host = uri.host.toLowerCase();
+    final hostAllowed = allowedHosts.any(
+      (d) => host == d || host.endsWith('.$d'),
+    );
+    if (uri.scheme != 'https' || !hostAllowed) {
+      throw DownloadException(
+        'Download from $url not allowed. Allowed: '
+        'https://${allowedHosts.join(", https://")}',
+      );
+    }
+  }
+
+  void dispose() => _client.close();
+}

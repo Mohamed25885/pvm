@@ -1,3 +1,4 @@
+import 'php_layout.dart';
 import 'platform_info.dart';
 
 class PlatformConstants {
@@ -6,6 +7,9 @@ class PlatformConstants {
   PlatformConstants(this._platformInfo);
 
   String get phpExecutableName => 'php${_platformInfo.executableExtension}';
+
+  /// Where PHP lives inside a version directory on this platform.
+  PhpLayout get phpLayout => PhpLayout.forPlatform(_platformInfo);
 
   String get composerPharName => 'composer.phar';
 

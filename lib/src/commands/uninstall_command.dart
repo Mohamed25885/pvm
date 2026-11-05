@@ -128,7 +128,7 @@ class UninstallCommand extends Command<int> {
       return ExitCode.generalError;
     }
 
-    final project = await Project.findFromPath(_osManager.currentDirectory);
+    final project = await Project.locate(_osManager);
     final localInfo = await _inspector.inspectLocal(project.rootDirectory.path);
     if (localInfo.status == SymLinkStatus.ok &&
         localInfo.target != null &&

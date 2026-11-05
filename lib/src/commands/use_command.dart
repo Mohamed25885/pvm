@@ -59,7 +59,7 @@ class UseCommand extends Command<int> {
   @override
   Future<int> run() async {
     try {
-      final project = await Project.findFromPath(_osManager.currentDirectory);
+      final project = await Project.locate(_osManager);
       final registry = VersionRegistry(_osManager);
 
       final unsafe = _unsafeRootReason(project.rootDirectory.path);
@@ -123,7 +123,7 @@ class UseCommand extends Command<int> {
     VersionRegistry registry, {
     bool updateFile = true,
   }) async {
-    // Skip folders that are not versions (e.g. versions	mp) (B3).
+    // Skip folders that are not versions (e.g. versions/tmp) (B3).
     final available = VersionRegistry.parseVersionNames(
       _osManager.getAvailableVersions(_osManager.phpVersionsPath),
     );

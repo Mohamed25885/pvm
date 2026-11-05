@@ -4,12 +4,17 @@ import 'package:path/path.dart' as p;
 
 import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/core/process_manager.dart';
-import 'package:pvm/src/core/platform_detector.dart';
+import 'package:pvm/src/core/platform_info.dart';
 
 class IOProcessManager implements IProcessManager {
   final IOSManager _osManager;
+  final PlatformInfo _platform;
 
-  IOProcessManager({required IOSManager osManager}) : _osManager = osManager;
+  IOProcessManager({required IOSManager osManager, PlatformInfo? platformInfo})
+    : _osManager = osManager,
+      _platform = platformInfo ?? createPlatformInfo();
+
+  bool get _isWindows => _platform.osType == 'windows';
 
   @override
   Future<int> runInteractive(ProcessSpec spec) async {
@@ -78,7 +83,7 @@ class IOProcessManager implements IProcessManager {
   }
 
   bool _containsPathSeparator(String command) {
-    if (PlatformDetector.isWindows) {
+    if (_isWindows) {
       return command.contains('\\') || command.contains('/');
     }
     return command.contains('/');
@@ -100,11 +105,11 @@ class IOProcessManager implements IProcessManager {
       return null;
     }
 
-    final separator = PlatformDetector.isWindows ? ';' : ':';
+    final separator = _platform.pathSeparator;
     final dirs = pathValue.split(separator).where((d) => d.trim().isNotEmpty);
     final hasExtension = p.extension(command).isNotEmpty;
 
-    final extensions = PlatformDetector.isWindows
+    final extensions = _isWindows
         ? _windowsExecutableExtensions()
         : const <String>[''];
 

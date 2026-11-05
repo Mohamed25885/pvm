@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../core/constants.dart';
+import '../core/os_manager.dart';
 import 'exceptions.dart';
 import 'php_version.dart';
 
@@ -63,23 +64,38 @@ class Project {
     return await pvmDirectory.exists();
   }
 
-  /// Find project root by walking up from current directory.
-  static Future<Project> findFromCurrentDirectory() async {
-    return findFromPath(Directory.current.path);
+  /// Find the project for [startPath] (default: the current directory),
+  /// taking the cwd and home directory from [os] rather than `dart:io`.
+  static Future<Project> locate(IOSManager os, [String? startPath]) {
+    final homes = <String>{};
+    try {
+      homes.add(os.getHomeDirectory());
+    } on Exception {
+      // Unknown home: only the environment values below are guarded.
+    }
+    final env = os.currentEnvironment;
+    for (final key in const ['USERPROFILE', 'HOME']) {
+      final value = env[key];
+      if (value != null && value.trim().isNotEmpty) homes.add(value);
+    }
+    return findFromPath(
+      startPath ?? os.currentDirectory,
+      homeDirectories: homes,
+    );
   }
 
   /// Find project root by walking up from specified path.
   ///
   /// 1. If `.pvmrc` exists → root is that directory
-  /// 2. Else if `.pvm/` exists → root is that directory
+  /// 2. Else if `.pvm/` exists → root is that directory, except in one of
+  ///    [homeDirectories], whose `.pvm` is the global link, not a project
   /// 3. Else → root is [startPath]
-  static Future<Project> findFromPath(String startPath) async {
+  static Future<Project> findFromPath(
+    String startPath, {
+    Iterable<String> homeDirectories = const [],
+  }) async {
     var current = Directory(startPath);
-    final userProfile =
-        Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'];
-    final normalizedHome = userProfile != null
-        ? p.normalize(userProfile)
-        : null;
+    final homes = homeDirectories.map(p.normalize).toList();
 
     while (true) {
       final pvmrc = File(p.join(current.path, PvmConstants.pvmrcFileName));
@@ -88,8 +104,9 @@ class Project {
       }
 
       final pvmDir = Directory(p.join(current.path, PvmConstants.pvmDirName));
-      final isGlobalHomeSlot =
-          normalizedHome != null && p.normalize(current.path) == normalizedHome;
+      final isGlobalHomeSlot = homes.any(
+        (home) => p.equals(home, current.path),
+      );
       if (await pvmDir.exists() && !isGlobalHomeSlot) {
         return Project(current);
       }

@@ -36,7 +36,7 @@ The `.agents` directory contains all resources for agentic coding:
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
   - `path`: Path manipulation.
-  - `get_it`: Dependency injection in `pvm.dart`.
+- **Composition root:** `lib/src/app.dart`. `PvmDependencies.forHost(platform: …)` is the only place that picks platform implementations (any piece can be overridden), `buildRunner(deps)` wires every command, and `runPvm(args, deps:)` maps errors to exit codes. `pvm.dart` only sets `exitCode`. No DI container.
   - `http`, `archive`, `crypto`: PHP download/install on Windows.
   - `test` & `mocktail`: Testing framework and mocking.
 
@@ -46,8 +46,9 @@ The `.agents` directory contains all resources for agentic coding:
 The project uses a Hardware Abstraction Layer (HAL) to separate Windows-specific logic from business logic. This enables testing on any platform using mock/fake implementations.
 
 - **`lib/src/core/os_manager.dart`**: Defines `IOSManager` (filesystem, environment, directory operations, symlink helpers) and `IProcessManager` (process execution) interfaces. `IOSManager` includes `isSymLink`, `readSymLinkTarget`, `deleteSymLink`, and `deleteDirectory` for cross-platform symlink and cleanup operations used by `SymLinkInspector`, `UninstallCommand`, and diagnostics.
-- **`lib/src/managers/windows_os_manager.dart`**: Windows implementation using `dart:io`. `programDirectory` / `phpVersionsPath` via `PvmPaths`. Provides `currentEnvironment` for PATH lookup.
-- **`lib/src/managers/linux_os_manager.dart`** / **`lib/src/managers/mac_os_manager.dart`**: Non-Windows implementations used when running tests or tooling off Windows; keep behavior aligned with `IOSManager` contracts.
+- **`lib/src/managers/io_os_manager.dart`**: `IoOSManager`, the **one** `IOSManager` for every OS, built by `createBaseOSManager(PlatformInfo)`. `programDirectory` / `phpVersionsPath` via `PvmPaths`; home from `PlatformInfo.homeDirectoryKey` (then `HOME` / `USERPROFILE`). Accepts an injected `environment` for tests.
+- **`lib/src/core/link_manager.dart`**: `ILinkManager` (`createDirLink`, `isLink`, `readTarget`, `remove`) is the only place that knows how links are made: `JunctionLinkManager` on Windows, `SymlinkLinkManager` on Linux/macOS (`createLinkManager(PlatformInfo)`).
+- **`Project.locate(IOSManager)`**: finds the project from the OS manager's cwd and home (no `Platform.environment` / `Directory.current` in the domain).
 - **`test/mocks/mock_os_manager.dart`**: `MockOSManager` / `MockProcessManager` for command tests. Use `mockEnvironment` for deterministic PATH; falls back to `Platform.environment` when unset.
 
 ### Domain & resolution
@@ -213,7 +214,7 @@ import 'utils/utils.dart';
   - `interfaces/`: `i_environment_configurator.dart` for `pvm setup`.
   - `console/`: `ConsoleIO` implementation of `Console`.
   - `managers/`:
-    - `windows_os_manager.dart`, `linux_os_manager.dart`, `mac_os_manager.dart`: Platform `IOSManager` implementations.
+    - `io_os_manager.dart`: the single `IOSManager` implementation (platform via `PlatformInfo` + `ILinkManager`).
   - `process/`:
     - `io_process_manager.dart`: Cross-platform process execution using Dart's `Process` API.
   - `services/`:
@@ -242,14 +243,15 @@ import 'utils/utils.dart';
 - Requires local `.pvm` symlink to exist; shows helpful error if missing.
 
 ### Links (junctions on Windows)
-- `WindowsOSManager.createSymLink` creates a **directory junction** first (PowerShell `New-Item -ItemType Junction`, paths passed via env vars `PVM_LINK`/`PVM_TARGET`, never interpolated). No Developer Mode or admin needed. A symbolic link (`Link.create`) is only the fallback.
+- `IoOSManager.createSymLink` validates the slot, calls `clearLinkSlot`, then `ILinkManager.createDirLink`. On Windows `JunctionLinkManager` creates a **directory junction** first (PowerShell `New-Item -ItemType Junction`, paths passed via env vars `PVM_LINK`/`PVM_TARGET`, never interpolated). No Developer Mode or admin needed. A symbolic link (`Link.create`) is only the fallback.
 - Dart reports junctions as `FileSystemEntityType.link`; `Link.target()` and `Link.delete()` work on them, so `SymLinkInspector`, `current`, `doctor`, and `uninstall` need no special casing.
 - `clearLinkSlot` (`core/link_slot.dart`) is the **only** way to clear a slot: it removes an existing link and throws `LinkSlotOccupiedException` for a real file/dir. Never `delete(recursive: true)` a link slot.
 - `PrivilegeEscalationService` only prompts when `IPrivilegeEscalator.canElevate` is true. On Windows it is false, so a permission error becomes `LinkPermissionException` with fix instructions.
 - Inspection and cleanup use `IOSManager` symlink helpers; prefer `SymLinkInspector` in commands rather than ad hoc filesystem calls.
 
-### Install pipeline (`WindowsInstaller`)
-- Transactional: download to a temp dir → verify SHA-256 → extract into `versions/.staging-<v>-<pid>` → require `php.exe` → write `.pvm-install.json` (`InstallRecord`) → rename into `versions/<v>`. Any failure leaves `versions/` unchanged; `.staging-*` / `.old-*` names are skipped by `VersionRegistry`.
+### Install pipeline (`IReleaseSource` + `ArtifactInstaller`)
+- `WindowsInstaller` is a thin `IInstaller` facade: `WindowsReleaseSource.resolve` (`services/windows_release_source.dart`) picks the build, `ArtifactInstaller` (`services/installation/artifact_installer.dart`) installs it. New platforms add a release source and reuse the pipeline with their `PhpLayout` and allowed hosts.
+- Transactional: download to a temp dir → verify SHA-256 → extract into `versions/.staging-<v>-<pid>` → require the `PhpLayout` binary (`php.exe` / `bin/php`) → write `.pvm-install.json` (`InstallRecord`) → rename into `versions/<v>`. Any failure leaves `versions/` unchanged; `.staging-*` / `.old-*` names are skipped by `VersionRegistry`.
 - `extractZip` aborts on entries outside the destination (`p.isWithin`), absolute paths, drive letters, or symlink entries.
 - Patch not in `releases.json` → `WindowsArchiveIndex` (no checksums) → requires `InstallOptions.allowUnverified` (`--allow-unverified`), otherwise `UnverifiedReleaseException`.
 - `install()` returns `InstallResult` (`alreadyInstalled` is a success, not an error). Fetch failures throw `ReleaseFetcherException`; no match throws `NoMatchingReleaseException`.

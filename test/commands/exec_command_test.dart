@@ -17,6 +17,7 @@ import 'package:pvm/src/services/php_executor.dart';
 
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/host_paths.dart';
 
 class _RecordingProcessManager implements IProcessManager {
   ProcessSpec? lastInteractive;
@@ -116,9 +117,9 @@ void main() {
 
     setUp(() {
       osManager = MockOSManager()
-        ..mockHomeDir = r'C:\Users\sam'
-        ..mockProgramDir = r'C:\pvm'
-        ..mockCurrentDirectory = r'D:\proj'
+        ..mockHomeDir = hostPath(r'C:\Users\sam')
+        ..mockProgramDir = hostPath(r'C:\pvm')
+        ..mockCurrentDirectory = hostPath(r'D:\proj')
         ..mockVersions = ['8.3.0'];
       console = MockConsole();
       inspector = SymLinkInspector(osManager);
@@ -126,11 +127,11 @@ void main() {
       processManager = _RecordingProcessManager();
 
       for (final v in ['8.3.0']) {
-        final dir = p.join(r'C:\pvm\versions', v);
+        final dir = p.join(hostPath(r'C:\pvm\versions'), v);
         osManager.setDirectoryExistsResult(dir, true);
         osManager.setFileExistsResult(p.join(dir, 'php.exe'), true);
       }
-      osManager.setDirectoryExistsResult(r'C:\pvm\versions', true);
+      osManager.setDirectoryExistsResult(hostPath(r'C:\pvm\versions'), true);
 
       phpExecutor = _FakePhpExecutor(
         processManager: processManager,
@@ -143,8 +144,8 @@ void main() {
         osManager: osManager,
       );
 
-      osManager.mockEnvironment = {'PATH': r'C:\bin'};
-      osManager.setFileExistsResult(r'C:\bin\composer.phar', true);
+      osManager.mockEnvironment = {'PATH': hostPath(r'C:\bin')};
+      osManager.setFileExistsResult(hostPath(r'C:\bin\composer.phar'), true);
     });
 
     Future<int> runExec(List<String> args) async {
@@ -171,13 +172,19 @@ void main() {
 
     test('B13: --version followed by another flag is a usage error', () async {
       expect(
-        await runExec(['--version', '--cwd', r'D:\x', 'php']),
+        await runExec(['--version', '--cwd', hostPath(r'D:\x'), 'php']),
         ExitCode.usageError,
       );
     });
 
     test('B13: --cwd to a missing directory is a usage error', () async {
-      final code = await runExec(['--cwd', r'X:\nope', '8.3.0', 'php', '-v']);
+      final code = await runExec([
+        '--cwd',
+        hostPath(r'X:\nope'),
+        '8.3.0',
+        'php',
+        '-v',
+      ]);
 
       expect(code, ExitCode.usageError);
       expect(console.errors.join(), contains('does not exist'));
@@ -189,7 +196,7 @@ void main() {
       expect(code, equals(ExitCode.success));
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+        equals(hostPath(r'C:\pvm\versions\8.3.0\php.exe')),
       );
       expect(processManager.lastInteractive!.arguments, equals(['-v']));
     });
@@ -199,7 +206,7 @@ void main() {
 
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+        equals(hostPath(r'C:\pvm\versions\8.3.0\php.exe')),
       );
     });
 
@@ -208,20 +215,23 @@ void main() {
 
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+        equals(hostPath(r'C:\pvm\versions\8.3.0\php.exe')),
       );
     });
 
     test('uses effective version when version omitted', () async {
-      final globalLink = p.join(r'C:\Users\sam', PvmConstants.pvmDirName);
-      final target = p.join(r'C:\pvm\versions', '8.3.0');
+      final globalLink = p.join(
+        hostPath(r'C:\Users\sam'),
+        PvmConstants.pvmDirName,
+      );
+      final target = p.join(hostPath(r'C:\pvm\versions'), '8.3.0');
       osManager.symlinkTargets[globalLink] = target;
 
       await runExec(['php', '-v']);
 
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+        equals(hostPath(r'C:\pvm\versions\8.3.0\php.exe')),
       );
     });
 
@@ -234,7 +244,7 @@ void main() {
     test('major.minor shorthand resolves when one matching version', () async {
       osManager.mockVersions = ['8.4.1', '8.3.0'];
       for (final v in ['8.4.1', '8.3.0']) {
-        final dir = p.join(r'C:\pvm\versions', v);
+        final dir = p.join(hostPath(r'C:\pvm\versions'), v);
         osManager.setDirectoryExistsResult(dir, true);
         osManager.setFileExistsResult(p.join(dir, 'php.exe'), true);
       }
@@ -244,7 +254,7 @@ void main() {
       expect(code, ExitCode.success);
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(p.join(r'C:\pvm\versions', '8.4.1', 'php.exe')),
+        equals(p.join(hostPath(r'C:\pvm\versions'), '8.4.1', 'php.exe')),
       );
     });
 
@@ -253,7 +263,7 @@ void main() {
       () async {
         osManager.mockVersions = ['8.4.0', '8.4.1', '8.3.0'];
         for (final v in ['8.4.0', '8.4.1', '8.3.0']) {
-          final dir = p.join(r'C:\pvm\versions', v);
+          final dir = p.join(hostPath(r'C:\pvm\versions'), v);
           osManager.setDirectoryExistsResult(dir, true);
           osManager.setFileExistsResult(p.join(dir, 'php.exe'), true);
         }
@@ -275,8 +285,11 @@ void main() {
       await runExec(['8.3.0', 'where', 'php']);
 
       final env = processManager.lastInteractive!.environment!;
-      expect(env['PATH']!.startsWith(r'C:\pvm\versions\8.3.0'), isTrue);
-      expect(env['PATH']!.contains(r'C:\bin'), isTrue);
+      expect(
+        env['PATH']!.startsWith(hostPath(r'C:\pvm\versions\8.3.0')),
+        isTrue,
+      );
+      expect(env['PATH']!.contains(hostPath(r'C:\bin')), isTrue);
     });
 
     test('composer dispatches through composer locator + runScript', () async {
@@ -284,11 +297,11 @@ void main() {
 
       expect(
         phpExecutor.lastPhpExecutable,
-        equals(r'C:\pvm\versions\8.3.0\php.exe'),
+        equals(hostPath(r'C:\pvm\versions\8.3.0\php.exe')),
       );
       expect(
         processManager.lastInteractive!.arguments.first,
-        equals(r'C:\bin\composer.phar'),
+        equals(hostPath(r'C:\bin\composer.phar')),
       );
     });
   });

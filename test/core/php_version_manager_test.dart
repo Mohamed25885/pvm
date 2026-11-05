@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
@@ -30,7 +31,7 @@ void main() {
     });
 
     test('returns null when .pvmrc is empty', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.create();
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -38,7 +39,7 @@ void main() {
     });
 
     test('reads plain version string', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.writeAsString('8.2');
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -46,7 +47,7 @@ void main() {
     });
 
     test('reads JSON version field', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.writeAsString(jsonEncode({'version': '8.3'}));
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -54,7 +55,7 @@ void main() {
     });
 
     test('ignores extra JSON fields', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.writeAsString(
         jsonEncode({'version': '8.1', 'someOtherField': 'ignored'}),
       );
@@ -64,7 +65,7 @@ void main() {
     });
 
     test('strips whitespace', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.writeAsString('  7.4  \n');
       final manager = PhpVersionManager(console);
       final result = await manager.readLastUsedVersion(rootPath: tempDir.path);
@@ -80,7 +81,7 @@ void main() {
         version: PhpVersion.parse('8.0'),
       );
 
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       expect(await file.exists(), isTrue);
 
       final content = await file.readAsString();
@@ -89,7 +90,7 @@ void main() {
     });
 
     test('overwrites existing content', () async {
-      final file = File('${tempDir.path}\\.pvmrc');
+      final file = File(p.join(tempDir.path, '.pvmrc'));
       await file.writeAsString('old-version');
 
       final manager = PhpVersionManager(console);

@@ -1,5 +1,6 @@
 import 'package:test/test.dart';
 
+import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/php_release.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
 import 'package:pvm/src/services/release_fetcher_factory.dart';
@@ -11,20 +12,20 @@ import '../mocks/mock_installer.dart';
 void main() {
   group('Full workflow integration', () {
     test('create fetcher from factory', () {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       expect(fetcher, isA<IReleaseFetcher>());
       expect(fetcher.platformName, 'Windows');
     });
 
     test('windows fetcher fetch releases', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final releases = await fetcher.fetchReleases();
 
       expect(releases, isNotEmpty);
     });
 
     test('filter releases by version', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final releases = await fetcher.fetchReleases();
 
       final filter = PhpReleaseFilter(major: 8);
@@ -35,7 +36,7 @@ void main() {
     });
 
     test('filter releases by architecture', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final releases = await fetcher.fetchReleases();
 
       final filter = PhpReleaseFilter(architecture: Architecture.x64);
@@ -45,7 +46,7 @@ void main() {
     });
 
     test('filter releases by build type', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final releases = await fetcher.fetchReleases();
 
       final filter = PhpReleaseFilter(buildType: BuildType.nts);
@@ -55,7 +56,7 @@ void main() {
     });
 
     test('full filter chain works', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final releases = await fetcher.fetchReleases();
 
       final filter = PhpReleaseFilter(
@@ -73,7 +74,7 @@ void main() {
 
   group('ListRemoteCommand integration', () {
     test('command runs with real fetcher', () async {
-      final fetcher = createReleaseFetcher();
+      final fetcher = createReleaseFetcher(WindowsPlatformInfo());
       final console = MockConsole();
 
       final cmd = ListRemoteCommand(fetcher, console);
