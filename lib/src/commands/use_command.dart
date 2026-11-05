@@ -123,7 +123,7 @@ class UseCommand extends Command<int> {
     VersionRegistry registry, {
     bool updateFile = true,
   }) async {
-    // Skip folders that are not versions (e.g. versions	mp) (B3).
+    // Skip folders that are not versions (e.g. versions/tmp) (B3).
     final available = VersionRegistry.parseVersionNames(
       _osManager.getAvailableVersions(_osManager.phpVersionsPath),
     );

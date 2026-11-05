@@ -88,8 +88,9 @@ void main() {
 import 'dart:io';
 
 void main() {
-  final currentDir = Directory.current.path;
-  final expectedDir = '$escapedPath';
+  // Resolve both: on macOS the temp dir is under /var -> /private/var.
+  final currentDir = Directory.current.resolveSymbolicLinksSync();
+  final expectedDir = Directory('$escapedPath').resolveSymbolicLinksSync();
   if (currentDir != expectedDir) {
     stderr.writeln('Wrong directory: \$currentDir != \$expectedDir');
     exit(1);

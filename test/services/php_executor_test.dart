@@ -7,6 +7,7 @@ import '../../lib/src/core/os_manager.dart';
 import '../../lib/src/core/process_manager.dart';
 import '../../lib/src/core/executable_resolver.dart';
 import '../../lib/src/services/php_executor.dart';
+import '../support/host_paths.dart';
 
 class TestExecutableResolver implements IExecutableResolver {
   @override
@@ -123,7 +124,7 @@ class FakeOSManager implements IOSManager {
 }
 
 String getPhpExe(String rootPath) {
-  return '$rootPath\\.pvm\\php.exe';
+  return p.join(rootPath, '.pvm', 'php.exe');
 }
 
 void main() {
@@ -303,7 +304,7 @@ void main() {
         () async {
           final root = '/some/dir';
           // No file registered for root/.pvm/php.exe, resolver would throw.
-          const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
+          final overridePath = hostPath(r'C:\pvm\versions\8.3.0\php.exe');
 
           final exitCode = await executor.runPhp(
             ['-v'],
@@ -319,7 +320,7 @@ void main() {
       test('runScript uses provided phpExecutable verbatim and bypasses '
           'resolver', () async {
         final root = '/some/dir';
-        const overridePath = r'C:\pvm\versions\8.2.10\php.exe';
+        final overridePath = hostPath(r'C:\pvm\versions\8.2.10\php.exe');
 
         final exitCode = await executor.runScript(
           'tool.php',
@@ -338,8 +339,11 @@ void main() {
 
       test('runPhp forwards custom environment to ProcessSpec', () async {
         final root = '/another';
-        const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
-        final env = {'PATH': r'C:\pvm\versions\8.3.0', 'CUSTOM': 'yes'};
+        final overridePath = hostPath(r'C:\pvm\versions\8.3.0\php.exe');
+        final env = {
+          'PATH': hostPath(r'C:\pvm\versions\8.3.0'),
+          'CUSTOM': 'yes',
+        };
 
         await executor.runPhp(
           ['-v'],
@@ -349,7 +353,10 @@ void main() {
         );
 
         final spec = processManager.lastSpec!;
-        expect(spec.environment?['PATH'], equals(r'C:\pvm\versions\8.3.0'));
+        expect(
+          spec.environment?['PATH'],
+          equals(hostPath(r'C:\pvm\versions\8.3.0')),
+        );
         expect(spec.environment?['CUSTOM'], equals('yes'));
       });
 

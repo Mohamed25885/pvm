@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
@@ -77,10 +78,12 @@ Future<Directory> setupProjectDir({
   bool includePhpExe = true,
 }) async {
   final dir = await Directory.systemTemp.createTemp('pvm-php-test-');
-  await File('${dir.path}\\.pvmrc').writeAsString('{"version": "$version"}');
-  await Directory('${dir.path}\\.pvm').create();
+  await File(
+    p.join(dir.path, '.pvmrc'),
+  ).writeAsString('{"version": "$version"}');
+  await Directory(p.join(dir.path, '.pvm')).create();
   if (includePhpExe) {
-    await File('${dir.path}\\.pvm\\php.exe').create();
+    await File(p.join(dir.path, '.pvm', 'php.exe')).create();
   }
   return dir;
 }
@@ -127,7 +130,7 @@ void main() {
         expect(processManager.runInteractiveCallCount, equals(1));
         expect(
           processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'),
+          endsWith(p.join('.pvm', 'php.exe')),
         );
         expect(
           processManager.lastInteractiveSpec?.arguments,
@@ -157,9 +160,11 @@ void main() {
 
     test('php command handles local path containing spaces', () async {
       tempDir = await Directory.systemTemp.createTemp('pvm php test spaces-');
-      await File('${tempDir.path}\\.pvmrc').writeAsString('{"version": "8.2"}');
-      await Directory('${tempDir.path}\\.pvm').create();
-      await File('${tempDir.path}\\.pvm\\php.exe').create();
+      await File(
+        p.join(tempDir.path, '.pvmrc'),
+      ).writeAsString('{"version": "8.2"}');
+      await Directory(p.join(tempDir.path, '.pvm')).create();
+      await File(p.join(tempDir.path, '.pvm', 'php.exe')).create();
 
       osManager.mockCurrentDirectory = tempDir.path;
 
@@ -172,7 +177,7 @@ void main() {
       expect(exitCode, equals(0));
       expect(
         processManager.lastInteractiveSpec?.executable,
-        endsWith(r'\.pvm\php.exe'),
+        endsWith(p.join('.pvm', 'php.exe')),
       );
       expect(
         processManager.lastInteractiveSpec?.arguments,
@@ -196,7 +201,7 @@ void main() {
       expect(exitCode, equals(0));
       expect(
         processManager.lastInteractiveSpec?.executable,
-        endsWith(r'\.pvm\php.exe'),
+        endsWith(p.join('.pvm', 'php.exe')),
       );
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
@@ -232,7 +237,7 @@ void main() {
         tempDir = await Directory.systemTemp.createTemp('pvm-php-missing-');
         osManager.mockCurrentDirectory = tempDir.path;
         // Mock: .pvm directory does not exist
-        osManager.setDirectoryExistsResult('${tempDir.path}\.pvm', false);
+        osManager.setDirectoryExistsResult(p.join(tempDir.path, '.pvm'), false);
         // No .pvmrc, no .pvm
 
         final exitCode = await executePhpCommand(
@@ -253,7 +258,7 @@ void main() {
         tempDir = await Directory.systemTemp.createTemp('pvm-php-missing-');
         osManager.mockCurrentDirectory = tempDir.path;
         // Mock: .pvm directory does not exist
-        osManager.setDirectoryExistsResult('${tempDir.path}\.pvm', false);
+        osManager.setDirectoryExistsResult(p.join(tempDir.path, '.pvm'), false);
         // No .pvmrc, no .pvm
 
         final exitCode = await executePhpCommand(
