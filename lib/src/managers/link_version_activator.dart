@@ -31,7 +31,7 @@ class LinkVersionActivator implements IVersionActivator {
 
   @override
   Future<void> activateLocal(String version) async {
-    final project = await Project.findFromPath(_osManager.currentDirectory);
+    final project = await Project.locate(_osManager);
     final targetPath = p.join(versionsPath, version);
     final linkPath = p.join(
       project.rootDirectory.path,

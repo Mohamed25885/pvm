@@ -31,7 +31,7 @@ class PhpCommand extends Command<int> {
   @override
   Future<int> run() async {
     try {
-      final project = await Project.findFromPath(_osManager.currentDirectory);
+      final project = await Project.locate(_osManager);
       final args = argResults!.rest;
       final exitCode = await _phpExecutor.runPhp(
         args,

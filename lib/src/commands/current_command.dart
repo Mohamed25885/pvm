@@ -65,7 +65,7 @@ class CurrentCommand extends Command<int> {
       return ExitCode.usageError;
     }
 
-    final project = await Project.findFromPath(_osManager.currentDirectory);
+    final project = await Project.locate(_osManager);
     final active = await _resolver.resolve(
       projectRoot: project.rootDirectory.path,
     );

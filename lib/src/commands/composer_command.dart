@@ -48,7 +48,7 @@ class ComposerCommand extends Command<int> {
         return ExitCode.generalError;
       }
 
-      final project = await Project.findFromPath(_osManager.currentDirectory);
+      final project = await Project.locate(_osManager);
       final args = argResults!.rest;
       final exitCode = await _phpExecutor.runScript(
         composerScript,

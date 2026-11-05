@@ -66,7 +66,7 @@ Future<void> setupServices() async {
     getIt<IPrivilegeEscalator>(),
   );
   getIt.registerSingleton<IOSManager>(
-    ElevatingOSManager(createBaseOSManager(), escalationService),
+    ElevatingOSManager(createBaseOSManager(platformInfo), escalationService),
   );
   getIt.registerSingleton<IProcessManager>(
     IOProcessManager(osManager: getIt<IOSManager>()),

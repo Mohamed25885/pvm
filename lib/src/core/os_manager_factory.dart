@@ -1,15 +1,15 @@
 import '../core/os_manager.dart';
-import '../core/platform_detector.dart';
-import '../managers/windows_os_manager.dart';
-import '../managers/linux_os_manager.dart';
-import '../managers/mac_os_manager.dart';
+import '../managers/io_os_manager.dart';
+import 'link_manager.dart';
+import 'platform_info.dart';
 
-IOSManager createBaseOSManager() {
-  final platform = PlatformDetector.current;
-  if (platform == PlatformType.windows) return WindowsOSManager();
-  if (platform == PlatformType.linux) return LinuxOSManager();
-  if (platform == PlatformType.macos) return MacOSManager();
-  throw Exception('Unsupported platform');
+/// The real [IOSManager] for [platformInfo] (default: the host).
+IOSManager createBaseOSManager([PlatformInfo? platformInfo]) {
+  final platform = platformInfo ?? createPlatformInfo();
+  return IoOSManager(
+    platformInfo: platform,
+    linkManager: createLinkManager(platform),
+  );
 }
 
 /// Backward-compatible alias for tests and callers expecting a plain manager.

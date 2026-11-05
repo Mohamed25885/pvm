@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
 
+### Changed
+- **One code path for every OS (roadmap Phase 2).**
+  - `PhpLayout` decides where `php` lives in a version directory (`php.exe` at the root on Windows, `bin/php` on Unix).
+  - Every OS uses the same link model, `.pvm` → `versions/<v>`, through a single `LinkVersionActivator`.
+  - `ILinkManager` creates the links: junctions on Windows, symlinks on Linux/macOS.
+  - One `IoOSManager` replaces the three per-OS managers.
+  - `Project.locate` takes the working and home directories from the OS layer.
+- On Linux/macOS the versions folder now follows the same rules as on Windows: `PVM_VERSIONS_HOME`, else `<PVM_HOME or program dir>/versions`. The old guess at `~/.pvm/versions` is gone; Phase 5.2 will define the Unix default homes. `pvm use` on Linux/macOS also checks that the version directory exists, like on Windows.
+
+### Fixed
+- **On Linux/macOS, `current`, `doctor`, `exec` and `uninstall` reported a corrupt link** after `pvm use`, because Unix used a different link layout (B16).
+
 ## [2.1.0](https://github.com/Mohamed25885/pvm/compare/v2.0.0...v2.1.0) - 2026-11-05
 
 ### Added

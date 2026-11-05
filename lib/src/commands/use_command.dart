@@ -59,7 +59,7 @@ class UseCommand extends Command<int> {
   @override
   Future<int> run() async {
     try {
-      final project = await Project.findFromPath(_osManager.currentDirectory);
+      final project = await Project.locate(_osManager);
       final registry = VersionRegistry(_osManager);
 
       final unsafe = _unsafeRootReason(project.rootDirectory.path);

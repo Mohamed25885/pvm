@@ -99,9 +99,7 @@ class FakeOSManager implements IOSManager {
   }
 
   @override
-  String getHomeDirectory() {
-    throw UnimplementedError();
-  }
+  String getHomeDirectory() => '/fake/home';
 
   void setFileExists(String path, bool exists) {
     fileExistsMap[path] = exists;

@@ -51,7 +51,7 @@ Exit criteria: all tests green on Windows CI, CHANGELOG entry, tag `v2.0.1`.
 Exit criteria: tag `v2.1.0`; README/AGENTS.md drift fixed (D11).
 
 ### Phase 2: Cross-platform foundations (refactor, no new features)
-- Status: In progress on `feat/phase-2-foundations`. 2.1 and 2.2 are done; 2.1 covers `binDirectory` and `phpExecutable`, and `extensionDir`/`iniPath` are deferred to 3.5, where they're first needed.
+- Status: In progress on `feat/phase-2-foundations`. 2.1–2.5 are done. 2.1 covers `binDirectory` and `phpExecutable`; `extensionDir`/`iniPath` are deferred to 3.5, where they're first needed. 2.4 dropped the Unix `~/.pvm/versions` guess early, so 5.2 starts from the shared `PvmPaths` rules.
 - Goal: one code path for all OSes; platform differences isolated behind small interfaces.
 
 | # | Task | Notes |
@@ -97,7 +97,7 @@ Exit criteria: zero `if (PlatformDetector.isX)` outside factories; full suite gr
 | # | Task | Notes |
 |---|------|-------|
 | 5.1 | `UnixEnvironmentConfigurator`: add a marked block (`# >>> pvm >>>`) to `~/.bashrc`, `~/.zshrc`, `~/.config/fish/conf.d/pvm.fish`; idempotent; `--dry-run` shows the diff | Replaces `NoopEnvironmentConfigurator` |
-| 5.2 | Default homes: `$XDG_DATA_HOME/pvm` (Linux), `~/Library/Application Support/pvm` or `~/.pvm` (macOS); `PVM_HOME` overrides | Drop the `~/.pvm/versions` legacy guess in `LinuxOSManager` |
+| 5.2 | Default homes: `$XDG_DATA_HOME/pvm` (Linux), `~/Library/Application Support/pvm` or `~/.pvm` (macOS); `PVM_HOME` overrides | The `~/.pvm/versions` legacy guess was already removed in 2.4 |
 | 5.3 | `pvm doctor` Unix checks: shims on PATH, shell block present, conflicting system `php` earlier on PATH | |
 | 5.4 | `pvm self uninstall` on all platforms (removes PATH/rc entries, links, optionally versions) | |
 

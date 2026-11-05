@@ -8,6 +8,24 @@ import 'package:pvm/src/domain/exceptions.dart';
 import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/domain/project.dart';
 
+import '../mocks/mock_os_manager.dart';
+
+/// The host's real home directories. A developer's own global `~/.pvm` sits
+/// above `Directory.systemTemp` on Windows, so the walk-up must skip it just
+/// as it would in production.
+final _hostHomes = [
+  for (final key in const ['USERPROFILE', 'HOME'])
+    if (Platform.environment[key] case final v? when v.isNotEmpty) v,
+];
+
+Map<String, String> get _hostHomeEnv => {
+  for (final key in const ['USERPROFILE', 'HOME'])
+    if (Platform.environment[key] case final v?) key: v,
+};
+
+Future<Project> _find(String path) =>
+    Project.findFromPath(path, homeDirectories: _hostHomes);
+
 void main() {
   group('Project', () {
     late Directory tempDir;
@@ -32,7 +50,7 @@ void main() {
       test('returns project at start path when .pvmrc is present', () async {
         await writePvmrcFile(tempDir.path, '8.2');
 
-        final project = await Project.findFromPath(tempDir.path);
+        final project = await _find(tempDir.path);
 
         expect(project.rootDirectory.path, equals(tempDir.path));
       });
@@ -42,7 +60,7 @@ void main() {
         final nested = Directory(p.join(tempDir.path, 'a', 'b', 'c'));
         await nested.create(recursive: true);
 
-        final project = await Project.findFromPath(nested.path);
+        final project = await _find(nested.path);
 
         expect(project.rootDirectory.path, equals(tempDir.path));
       });
@@ -53,7 +71,7 @@ void main() {
           final nested = Directory(p.join(tempDir.path, 'src'));
           await nested.create(recursive: true);
 
-          final project = await Project.findFromPath(nested.path);
+          final project = await _find(nested.path);
 
           expect(project.rootDirectory.path, equals(nested.path));
         },
@@ -65,7 +83,7 @@ void main() {
         final nested = Directory(p.join(tempDir.path, 'src'));
         await nested.create(recursive: true);
 
-        final project = await Project.findFromPath(nested.path);
+        final project = await _find(nested.path);
 
         expect(project.rootDirectory.path, equals(tempDir.path));
       });
@@ -75,7 +93,7 @@ void main() {
         final nested = Directory(p.join(tempDir.path, 'src'));
         await nested.create(recursive: true);
 
-        final project = await Project.findFromPath(nested.path);
+        final project = await _find(nested.path);
 
         expect(project.rootDirectory.path, equals(nested.path));
       });
@@ -84,16 +102,56 @@ void main() {
         final nested = Directory(p.join(tempDir.path, 'a', 'b'));
         await nested.create(recursive: true);
 
-        final project = await Project.findFromPath(nested.path);
+        final project = await _find(nested.path);
 
         expect(project.rootDirectory.path, equals(nested.path));
+      });
+
+      test('the home .pvm (global link) is not a project root (D3)', () async {
+        await Directory(p.join(tempDir.path, PvmConstants.pvmDirName)).create();
+        final nested = Directory(p.join(tempDir.path, 'code', 'app'));
+        await nested.create(recursive: true);
+
+        final asHome = await Project.findFromPath(
+          nested.path,
+          homeDirectories: [..._hostHomes, tempDir.path],
+        );
+        final notHome = await _find(nested.path);
+
+        expect(asHome.rootDirectory.path, equals(nested.path));
+        expect(notHome.rootDirectory.path, equals(tempDir.path));
+      });
+
+      test('locate takes cwd and home from the OS manager (2.5)', () async {
+        await Directory(p.join(tempDir.path, PvmConstants.pvmDirName)).create();
+        final nested = Directory(p.join(tempDir.path, 'app'));
+        await nested.create();
+        final os = MockOSManager()
+          ..mockCurrentDirectory = nested.path
+          ..mockHomeDir = tempDir.path
+          ..mockEnvironment = _hostHomeEnv;
+
+        final project = await Project.locate(os);
+
+        expect(project.rootDirectory.path, equals(nested.path));
+      });
+
+      test('locate still works when the home directory is unknown', () async {
+        final os = MockOSManager()
+          ..mockCurrentDirectory = tempDir.path
+          ..shouldThrowOnGetHomeDirectory = true
+          ..mockEnvironment = _hostHomeEnv;
+
+        final project = await Project.locate(os);
+
+        expect(project.rootDirectory.path, equals(tempDir.path));
       });
 
       test('stops at filesystem root without throwing', () async {
         final nested = Directory(p.join(tempDir.path, 'a'));
         await nested.create(recursive: true);
 
-        final project = await Project.findFromPath(nested.path);
+        final project = await _find(nested.path);
 
         expect(project, isA<Project>());
         expect(project.rootDirectory.path, equals(nested.path));

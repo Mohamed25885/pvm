@@ -79,7 +79,7 @@ class ExecCommand extends Command<int> {
       _console.printError('--cwd directory does not exist: $workDir');
       return ExitCode.usageError;
     }
-    final project = await Project.findFromPath(workDir);
+    final project = await Project.locate(_osManager, workDir);
 
     final registry = VersionRegistry(_osManager);
     final installed = await registry.getInstalledVersions();

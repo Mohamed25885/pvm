@@ -383,7 +383,7 @@ class ProjectPvmrcCheck implements DiagnosticCheck {
 
   @override
   Future<DiagnosticResult> run() async {
-    final project = await Project.findFromPath(_osManager.currentDirectory);
+    final project = await Project.locate(_osManager);
     final file = project.pvmrcFile;
     final exists = await file.exists();
     if (!exists) {
