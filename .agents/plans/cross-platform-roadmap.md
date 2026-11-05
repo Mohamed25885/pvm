@@ -51,7 +51,7 @@ Exit criteria: all tests green on Windows CI, CHANGELOG entry, tag `v2.0.1`.
 Exit criteria: tag `v2.1.0`; README/AGENTS.md drift fixed (D11).
 
 ### Phase 2: Cross-platform foundations (refactor, no new features)
-- Status: In progress on `feat/phase-2-foundations`. 2.1–2.5 and 2.7 are done; 2.8 (CI matrix) is wired and is verified on the Phase 2 PR. 2.6 (installer split) is next. 2.1 covers `binDirectory` and `phpExecutable`; `extensionDir`/`iniPath` are deferred to 3.5, where they're first needed. 2.4 dropped the Unix `~/.pvm/versions` guess early, so 5.2 starts from the shared `PvmPaths` rules.
+- Status: In progress on `feat/phase-2-foundations`. 2.1–2.7 are done. 2.6 adds `IReleaseSource.resolve` (`WindowsReleaseSource`) and the shared `ArtifactInstaller` pipeline, with `WindowsInstaller` as a thin facade. 2.8 (CI matrix) is wired; the PR's Linux/macOS jobs are the first run of the suite on Unix. 2.1 covers `binDirectory` and `phpExecutable`; `extensionDir`/`iniPath` are deferred to 3.5, where they're first needed. 2.4 dropped the Unix `~/.pvm/versions` guess early, so 5.2 starts from the shared `PvmPaths` rules.
 - Goal: one code path for all OSes; platform differences isolated behind small interfaces.
 
 | # | Task | Notes |

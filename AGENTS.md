@@ -249,8 +249,9 @@ import 'utils/utils.dart';
 - `PrivilegeEscalationService` only prompts when `IPrivilegeEscalator.canElevate` is true. On Windows it is false, so a permission error becomes `LinkPermissionException` with fix instructions.
 - Inspection and cleanup use `IOSManager` symlink helpers; prefer `SymLinkInspector` in commands rather than ad hoc filesystem calls.
 
-### Install pipeline (`WindowsInstaller`)
-- Transactional: download to a temp dir → verify SHA-256 → extract into `versions/.staging-<v>-<pid>` → require `php.exe` → write `.pvm-install.json` (`InstallRecord`) → rename into `versions/<v>`. Any failure leaves `versions/` unchanged; `.staging-*` / `.old-*` names are skipped by `VersionRegistry`.
+### Install pipeline (`IReleaseSource` + `ArtifactInstaller`)
+- `WindowsInstaller` is a thin `IInstaller` facade: `WindowsReleaseSource.resolve` (`services/windows_release_source.dart`) picks the build, `ArtifactInstaller` (`services/installation/artifact_installer.dart`) installs it. New platforms add a release source and reuse the pipeline with their `PhpLayout` and allowed hosts.
+- Transactional: download to a temp dir → verify SHA-256 → extract into `versions/.staging-<v>-<pid>` → require the `PhpLayout` binary (`php.exe` / `bin/php`) → write `.pvm-install.json` (`InstallRecord`) → rename into `versions/<v>`. Any failure leaves `versions/` unchanged; `.staging-*` / `.old-*` names are skipped by `VersionRegistry`.
 - `extractZip` aborts on entries outside the destination (`p.isWithin`), absolute paths, drive letters, or symlink entries.
 - Patch not in `releases.json` → `WindowsArchiveIndex` (no checksums) → requires `InstallOptions.allowUnverified` (`--allow-unverified`), otherwise `UnverifiedReleaseException`.
 - `install()` returns `InstallResult` (`alreadyInstalled` is a success, not an error). Fetch failures throw `ReleaseFetcherException`; no match throws `NoMatchingReleaseException`.
