@@ -262,8 +262,8 @@ import 'dart:io';
 
 void main() {
   for (var i = 0; i < 200; i++) {
-    stdout.writeln('out:4i');
-    stderr.writeln('err:4i');
+    stdout.writeln('out:\$i');
+    stderr.writeln('err:\$i');
   }
   exit(19);
 }
@@ -287,8 +287,8 @@ void main() {
 
       expect(stdoutLines, hasLength(200));
       expect(stderrLines, hasLength(200));
-      expect(stdoutLines.every((line) => line.startsWith('out:')), isTrue);
-      expect(stderrLines.every((line) => line.startsWith('err:')), isTrue);
+      expect(stdoutLines, [for (var i = 0; i < 200; i++) 'out:$i']);
+      expect(stderrLines, [for (var i = 0; i < 200; i++) 'err:$i']);
       expect(result.exitCode, equals(19));
     });
 
