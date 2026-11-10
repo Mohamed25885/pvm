@@ -1,6 +1,9 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
+
+import 'package:pvm/src/domain/install_record.dart';
 
 import 'package:pvm/src/domain/version_registry.dart';
 import 'package:pvm/src/domain/php_version.dart';
@@ -185,9 +188,9 @@ void main() {
         expect(result, false);
       });
 
-      test('checks with patch version in path', () async {
+      test('a patch version checks its minor slot', () async {
         osManager.setDirectoryExists(
-          '/fake/versions${Platform.pathSeparator}8.2.1',
+          '/fake/versions${Platform.pathSeparator}8.2',
           true,
         );
 
@@ -204,11 +207,58 @@ void main() {
         expect(path, contains('8.2'));
       });
 
-      test('returns correct path for patch version', () {
+      test('a patch version maps to its minor slot', () {
         final path = registry.getVersionPath(PhpVersion(8, 2, 1));
 
-        expect(path, contains('8.2.1'));
+        expect(path, p.join('/fake/versions', '8.2'));
       });
+    });
+
+    group('installedSlots', () {
+      late Directory tmp;
+
+      setUp(() async {
+        tmp = await Directory.systemTemp.createTemp('pvm_registry_');
+        osManager.fakePhpVersionsPath = tmp.path;
+        osManager.setDirectoryExists(tmp.path, true);
+      });
+
+      tearDown(() => tmp.delete(recursive: true));
+
+      test(
+        'takes the full patch from the record, else the slot name',
+        () async {
+          final s84 = p.join(tmp.path, '8.4');
+          await Directory(s84).create();
+          await Directory(p.join(tmp.path, '8.3')).create();
+          await InstallRecord(
+            version: '8.4.27',
+            sourceUrl: '',
+            archiveSha256: '',
+            verified: true,
+            installedAt: DateTime(2026),
+            files: const {},
+          ).writeTo(s84);
+          osManager.setAvailableVersions([
+            '8.3',
+            '8.4',
+            '.staging-8.5',
+            '.old-8.4',
+            'tmp',
+          ]);
+
+          final slots = await registry.installedSlots();
+
+          expect(slots.map((s) => s.version.toString()), ['8.4.27', '8.3']);
+          expect(slots.map((s) => s.path), [s84, p.join(tmp.path, '8.3')]);
+          expect(slots.first.record?.version, '8.4.27');
+          expect(slots.last.record, isNull);
+          expect(
+            (await registry.getInstalledVersions()).map((v) => v.toString()),
+            ['8.4.27', '8.3'],
+          );
+        },
+      );
     });
   });
 }

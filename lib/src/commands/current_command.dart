@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/active_version_resolver.dart';
 import '../core/console.dart';
@@ -165,6 +166,16 @@ class CurrentCommand extends Command<int> {
           }
         }
         break;
+      case SymLinkStatus.broken when _legacyTarget(info) != null:
+        final command = label == 'Local' ? 'use' : 'global';
+        _console.print('$label   : STALE');
+        _console.print('  link  : ${info.linkPath}');
+        _console.print('  -> X  : ${info.target} (old full-patch folder)');
+        _console.print(
+          '  Hint: slots are now one per minor; run '
+          '`pvm $command ${_legacyTarget(info)!.slot}` to re-point it.',
+        );
+        break;
       case SymLinkStatus.broken:
         _console.print('$label   : BROKEN');
         _console.print('  link  : ${info.linkPath}');
@@ -195,6 +206,18 @@ class CurrentCommand extends Command<int> {
         break;
     }
     _console.print('');
+  }
+
+  /// A missing link target named `X.Y.Z` predates one slot per minor.
+  static PhpVersion? _legacyTarget(SymLinkInfo info) {
+    final target = info.target;
+    if (target == null) return null;
+    try {
+      final v = PhpVersion.parse(p.basename(target));
+      return v.hasPatch ? v : null;
+    } on InvalidVersionFormatException {
+      return null;
+    }
   }
 
   String _renderJson(

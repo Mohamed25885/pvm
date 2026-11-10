@@ -108,6 +108,18 @@ void main() {
       expect(osManager.deletedDirectories, isEmpty);
     });
 
+    test(
+      'a full patch removes exactly that folder while 8.2 conflicts',
+      () async {
+        final code = await run(['8.2.10', '--yes']);
+
+        expect(code, equals(ExitCode.success));
+        expect(osManager.deletedDirectories, [
+          p.join(hostPath(r'C:\pvm\versions'), '8.2.10'),
+        ]);
+      },
+    );
+
     test('--yes skips confirmation', () async {
       console.simulateInput('n');
 

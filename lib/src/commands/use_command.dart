@@ -234,7 +234,7 @@ class UseCommand extends Command<int> {
       }
 
       // Use the activator to create the local symlink
-      await _versionActivator.activateLocal(version.toString());
+      await _versionActivator.activateLocal(version.slot);
 
       if (updateFile) {
         await _phpVersionManager.writeCurrentVersion(

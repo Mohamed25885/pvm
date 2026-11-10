@@ -72,3 +72,9 @@ class PhpVersion implements Comparable<PhpVersion> {
   /// Always returns short format "8.2".
   String toShortString() => '$major.$minor';
 }
+
+/// One slot per minor version: `versions/8.2` holds whichever 8.2.x is
+/// installed.
+extension SlotName on PhpVersion {
+  String get slot => '$major.$minor';
+}

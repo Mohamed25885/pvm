@@ -2,7 +2,19 @@ import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
 import 'exceptions.dart';
+import 'install_record.dart';
 import 'php_version.dart';
+
+/// One installed slot (`versions/<X.Y>`, or a legacy `versions/<X.Y.Z>`
+/// awaiting migration).
+class InstalledSlot {
+  /// The record's full patch when it has one, else the folder name.
+  final PhpVersion version;
+  final String path;
+  final InstallRecord? record;
+
+  const InstalledSlot(this.version, this.path, this.record);
+}
 
 /// Manages available PHP versions in the versions directory.
 class VersionRegistry {
@@ -10,15 +22,48 @@ class VersionRegistry {
 
   VersionRegistry(this._osManager);
 
-  /// Get all installed PHP versions, sorted newest first.
-  Future<List<PhpVersion>> getInstalledVersions() async {
-    final path = _osManager.phpVersionsPath;
-    if (!await _osManager.directoryExists(path)) {
-      return [];
-    }
+  /// Every slot, newest first. Skips names that are not versions
+  /// (`.staging-*`, `.old-*`, `tmp`).
+  Future<List<InstalledSlot>> installedSlots() async {
+    final root = _osManager.phpVersionsPath;
+    if (!await _osManager.directoryExists(root)) return [];
 
-    return parseVersionNames(_osManager.getAvailableVersions(path));
+    final slots = <InstalledSlot>[];
+    for (final name in _osManager.getAvailableVersions(root)) {
+      final PhpVersion parsed;
+      try {
+        parsed = PhpVersion.parse(name);
+      } on InvalidVersionFormatException {
+        continue;
+      }
+      final path = p.join(root, name);
+      InstallRecord? record;
+      try {
+        record = await InstallRecord.readFrom(path);
+      } catch (_) {
+        record = null; // Unreadable: `pvm doctor --verify` reports it.
+      }
+      slots.add(
+        InstalledSlot(_recordedVersion(record) ?? parsed, path, record),
+      );
+    }
+    slots.sort((a, b) => b.version.compareTo(a.version));
+    return slots;
   }
+
+  static PhpVersion? _recordedVersion(InstallRecord? record) {
+    if (record == null) return null;
+    try {
+      return PhpVersion.parse(record.version);
+    } on InvalidVersionFormatException {
+      return null;
+    }
+  }
+
+  /// Get all installed PHP versions, sorted newest first.
+  Future<List<PhpVersion>> getInstalledVersions() async => [
+    for (final s in await installedSlots()) s.version,
+  ];
 
   /// Parses directory names into versions, newest first, silently skipping
   /// folders that are not versions (e.g. `tmp`, `8.3-old`).
@@ -41,8 +86,8 @@ class VersionRegistry {
     return await _osManager.directoryExists(sourcePath);
   }
 
-  /// Get the installation directory for a version.
+  /// The slot directory for [version]: `versions/<X.Y>`.
   String getVersionPath(PhpVersion version) {
-    return p.join(_osManager.phpVersionsPath, version.toString());
+    return p.join(_osManager.phpVersionsPath, version.slot);
   }
 }

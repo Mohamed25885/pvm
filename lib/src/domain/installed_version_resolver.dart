@@ -14,13 +14,17 @@ final class ResolvedInstalledVersion extends InstalledVersionResolveResult {
 final class NotFoundInstalledVersion extends InstalledVersionResolveResult {}
 
 /// Multiple installed versions share the requested major.minor; patch required.
+/// Only legacy full-patch folders that `SlotMigration` refused to merge can
+/// produce this: migrated slots hold one version per minor.
 final class AmbiguousInstalledVersion extends InstalledVersionResolveResult {
   final List<PhpVersion> candidates;
 
   AmbiguousInstalledVersion(this.candidates);
 }
 
-/// Resolves shorthand `major.minor` against installed PHP versions.
+/// Resolves a request against installed slots: an exact match first, then the
+/// slot of the requested minor (a full patch such as a `.pvmrc` `8.2.28` maps
+/// to the `8.2` slot).
 class InstalledVersionResolver {
   InstalledVersionResolver._();
 
@@ -30,10 +34,6 @@ class InstalledVersionResolver {
   ) {
     if (installed.contains(requested)) {
       return ResolvedInstalledVersion(requested);
-    }
-
-    if (requested.hasPatch) {
-      return NotFoundInstalledVersion();
     }
 
     final candidates = installed

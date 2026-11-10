@@ -43,7 +43,8 @@ class FakeOSManager implements IOSManager {
     String from,
     String to,
   ) async {
-    throw UnimplementedError();
+    symlinkTargets[to] = from;
+    return (from: from, to: to);
   }
 
   @override
