@@ -22,19 +22,19 @@ void main() {
       resolver = ActiveVersionResolver(inspector);
     });
 
-    String _globalLink() =>
+    String globalLink() =>
         p.join(osManager.mockHomeDir, PvmConstants.pvmDirName);
-    String _localLink() => p.join(projectRoot, PvmConstants.pvmDirName);
-    String _versionDir(String version) =>
+    String localLink() => p.join(projectRoot, PvmConstants.pvmDirName);
+    String versionDir(String version) =>
         p.join(osManager.phpVersionsPath, version);
 
     test('returns local scope when local is ok (overrides global)', () async {
-      final globalTarget = _versionDir('8.2.10');
-      osManager.symlinkTargets[_globalLink()] = globalTarget;
+      final globalTarget = versionDir('8.2.10');
+      osManager.symlinkTargets[globalLink()] = globalTarget;
       osManager.setDirectoryExistsResult(globalTarget, true);
 
-      final localTarget = _versionDir('8.3.0');
-      osManager.symlinkTargets[_localLink()] = localTarget;
+      final localTarget = versionDir('8.3.0');
+      osManager.symlinkTargets[localLink()] = localTarget;
       osManager.setDirectoryExistsResult(localTarget, true);
 
       final active = await resolver.resolve(projectRoot: projectRoot);
@@ -46,8 +46,8 @@ void main() {
     });
 
     test('returns global scope when local is notSet', () async {
-      final globalTarget = _versionDir('8.2.10');
-      osManager.symlinkTargets[_globalLink()] = globalTarget;
+      final globalTarget = versionDir('8.2.10');
+      osManager.symlinkTargets[globalLink()] = globalTarget;
       osManager.setDirectoryExistsResult(globalTarget, true);
 
       final active = await resolver.resolve(projectRoot: projectRoot);
@@ -58,13 +58,13 @@ void main() {
     });
 
     test('returns global scope when local is broken', () async {
-      final globalTarget = _versionDir('8.2.10');
-      osManager.symlinkTargets[_globalLink()] = globalTarget;
+      final globalTarget = versionDir('8.2.10');
+      osManager.symlinkTargets[globalLink()] = globalTarget;
       osManager.setDirectoryExistsResult(globalTarget, true);
 
       // local link exists but target missing
-      final localTarget = _versionDir('8.4.0');
-      osManager.symlinkTargets[_localLink()] = localTarget;
+      final localTarget = versionDir('8.4.0');
+      osManager.symlinkTargets[localLink()] = localTarget;
       osManager.setDirectoryExistsResult(localTarget, false);
 
       final active = await resolver.resolve(projectRoot: projectRoot);
@@ -82,8 +82,8 @@ void main() {
     });
 
     test('returns none when global is broken and local is notSet', () async {
-      final globalTarget = _versionDir('8.2.10');
-      osManager.symlinkTargets[_globalLink()] = globalTarget;
+      final globalTarget = versionDir('8.2.10');
+      osManager.symlinkTargets[globalLink()] = globalTarget;
       osManager.setDirectoryExistsResult(globalTarget, false);
 
       final active = await resolver.resolve(projectRoot: projectRoot);

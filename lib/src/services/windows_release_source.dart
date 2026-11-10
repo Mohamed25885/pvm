@@ -14,12 +14,10 @@ class WindowsReleaseSource implements IReleaseSource {
   final Console? _console;
 
   WindowsReleaseSource({
-    required IReleaseFetcher fetcher,
-    WindowsArchiveIndex? archiveIndex,
-    Console? console,
-  }) : _fetcher = fetcher,
-       _archiveIndex = archiveIndex,
-       _console = console;
+    required this._fetcher,
+    this._archiveIndex,
+    this._console,
+  });
 
   @override
   String get name => 'windows.php.net';

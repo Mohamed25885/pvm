@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:test/test.dart';
-import '../lib/src/version.dart' as version;
+import 'package:pvm/src/version.dart' as version;
 
 void main() {
   group('Version Reading Tests', () {

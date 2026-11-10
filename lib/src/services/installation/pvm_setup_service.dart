@@ -19,11 +19,10 @@ class PvmSetupService {
   PvmSetupService({
     required IOSManager osManager,
     required IEnvironmentConfigurator configurator,
-    required Console console,
+    required this._console,
     SetupPreflight? preflight,
   }) : _osManager = osManager,
        _configurator = configurator,
-       _console = console,
        _preflight = preflight ?? SetupPreflight(osManager, configurator);
 
   Future<SetupCheckResult> run({

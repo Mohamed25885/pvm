@@ -1,6 +1,6 @@
 import 'package:test/test.dart';
 
-import '../../lib/src/domain/php_release.dart';
+import 'package:pvm/src/domain/php_release.dart';
 
 void main() {
   group('Architecture', () {

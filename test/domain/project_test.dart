@@ -20,7 +20,7 @@ final _hostHomes = [
 
 Map<String, String> get _hostHomeEnv => {
   for (final key in const ['USERPROFILE', 'HOME'])
-    if (Platform.environment[key] case final v?) key: v,
+    key: ?Platform.environment[key],
 };
 
 Future<Project> _find(String path) =>

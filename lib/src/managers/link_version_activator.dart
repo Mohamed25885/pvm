@@ -16,10 +16,10 @@ class LinkVersionActivator implements IVersionActivator {
   final String homeDirectory;
 
   LinkVersionActivator({
-    required IOSManager osManager,
+    required this._osManager,
     required this.versionsPath,
     required this.homeDirectory,
-  }) : _osManager = osManager;
+  });
 
   @override
   Future<void> activateGlobal(String version) async {

@@ -170,7 +170,9 @@ void main() {
       () async {
         final long = List.generate(
           120,
-          (i) => r'C:\Tools\some-long-folder-name-' + '$i',
+          (i) =>
+              r'C:\Tools\some-long-folder-name-'
+              '$i',
         ).join(';');
         expect(long.length, greaterThan(3000));
         responses['path_reg'] = result(

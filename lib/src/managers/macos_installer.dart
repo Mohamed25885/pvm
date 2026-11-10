@@ -8,10 +8,10 @@ class MacOSInstaller extends PackageManagerInstaller {
   final bool useSudo;
 
   MacOSInstaller({
-    required String versionsPath,
-    required IProcessManager processManager,
+    required super.versionsPath,
+    required super.processManager,
     this.useSudo = false,
-  }) : super(versionsPath: versionsPath, processManager: processManager);
+  });
 
   @override
   String get installationType => 'package manager (brew)';
