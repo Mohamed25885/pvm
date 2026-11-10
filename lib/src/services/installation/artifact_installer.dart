@@ -17,8 +17,9 @@ import '../../interfaces/i_installer.dart';
 /// (roadmap 2.6):
 ///
 /// download to a private temp dir → verify SHA-256 → extract into
-/// `versions/.staging-<v>-<pid>` → check the PHP binary ([PhpLayout]) →
-/// write `.pvm-install.json` → atomically rename to `versions/<v>`.
+/// `versions/.staging-<X.Y>-<pid>` → check the PHP binary ([PhpLayout]) →
+/// write `.pvm-install.json` → atomically rename to the slot `versions/<X.Y>`.
+/// The record keeps the full patch.
 ///
 /// Any failure leaves the versions directory exactly as it was.
 class ArtifactInstaller {
@@ -38,11 +39,13 @@ class ArtifactInstaller {
     this._retryDelay = const Duration(seconds: 1),
   }) : _client = client ?? http.Client();
 
-  /// Whether `versions/<version>` holds a PHP binary.
-  Future<bool> isInstalled(String version) =>
-      File(layout.phpExecutable(p.join(versionsPath, version))).exists();
+  /// Whether the slot of [version] (`versions/<X.Y>`) holds a PHP binary.
+  Future<bool> isInstalled(String version) => File(
+    layout.phpExecutable(p.join(versionsPath, PhpVersion.parse(version).slot)),
+  ).exists();
 
-  /// Install [release] as `versions/<version>`, replacing any existing tree.
+  /// Install [release] into its slot `versions/<X.Y>`, replacing any existing
+  /// tree.
   ///
   /// A release without a published checksum is only installed when
   /// [allowUnverified] is true; its actual hash is still recorded.
@@ -52,7 +55,7 @@ class ArtifactInstaller {
     required bool allowUnverified,
   }) async {
     // [version] becomes a directory name: guard every caller (path traversal).
-    PhpVersion.parse(version);
+    final slot = PhpVersion.parse(version).slot;
     final verified = release.sha256.trim().isNotEmpty;
     if (!verified && !allowUnverified) {
       throw UnverifiedReleaseException(version);
@@ -60,7 +63,7 @@ class ArtifactInstaller {
 
     await Directory(versionsPath).create(recursive: true);
     final tempDir = await Directory.systemTemp.createTemp('pvm-download-');
-    final staging = Directory(p.join(versionsPath, '.staging-$version-$pid'));
+    final staging = Directory(p.join(versionsPath, '.staging-$slot-$pid'));
     try {
       _console.print('Downloading PHP $version...');
       final archive = await download(release, tempDir.path);
@@ -100,7 +103,7 @@ class ArtifactInstaller {
         files: await InstallRecord.hashTree(staging.path),
       ).writeTo(staging.path);
 
-      await _commit(staging, Directory(p.join(versionsPath, version)));
+      await _commit(staging, Directory(p.join(versionsPath, slot)));
     } finally {
       await _deleteQuietly(staging);
       await _deleteQuietly(tempDir);

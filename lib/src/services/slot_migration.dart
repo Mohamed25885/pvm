@@ -5,7 +5,9 @@ import 'package:path/path.dart' as p;
 import '../core/constants.dart';
 import '../core/os_manager.dart';
 import '../domain/exceptions.dart';
+import '../domain/install_record.dart';
 import '../domain/php_version.dart';
+import '../domain/version_registry.dart';
 
 class MigrationResult {
   /// Legacy folder names renamed to their minor, e.g. `8.2.28`.
@@ -39,26 +41,42 @@ class SlotMigration {
       return MigrationResult(renamed, conflicts, messages);
     }
 
-    final bySlot = <String, List<PhpVersion>>{};
+    // Folder name, and the version `pvm uninstall` knows it by (the record's
+    // patch when there is one, as in `VersionRegistry.installedSlots`).
+    final bySlot = <String, List<({PhpVersion name, PhpVersion shown})>>{};
     for (final dir in root.listSync().whereType<Directory>()) {
+      final PhpVersion v;
       try {
-        final v = PhpVersion.parse(p.basename(dir.path));
-        bySlot.putIfAbsent(v.slot, () => []).add(v);
+        v = PhpVersion.parse(p.basename(dir.path));
       } on InvalidVersionFormatException {
-        // .staging-*, .old-*, tmp, ...
+        continue; // .staging-*, .old-*, tmp, ...
       }
+      InstallRecord? record;
+      try {
+        record = await InstallRecord.readFrom(dir.path);
+      } catch (_) {
+        record = null;
+      }
+      final shown = VersionRegistry.recordedVersion(record) ?? v;
+      bySlot.putIfAbsent(v.slot, () => []).add((name: v, shown: shown));
     }
 
     final globalLink = p.join(_homeDirectory, PvmConstants.pvmDirName);
     for (final MapEntry(key: slot, value: found) in bySlot.entries) {
-      final legacy = found.where((v) => v.hasPatch).toList();
+      final legacy = [
+        for (final f in found)
+          if (f.name.hasPatch) f.name,
+      ];
       if (legacy.isEmpty) continue;
       if (found.length > 1) {
-        found.sort();
+        found.sort((a, b) => a.shown.compareTo(b.shown));
+        // Suggest a legacy folder: uninstall accepts its full patch exactly.
+        final remove = found.firstWhere((f) => f.name.hasPatch).shown;
         conflicts.add(slot);
         messages.add(
-          'Two patches of $slot are installed (${found.join(', ')}). '
-          'Remove one with: pvm uninstall ${found.first}',
+          'Two patches of $slot are installed '
+          '(${found.map((f) => f.shown).join(', ')}). '
+          'Remove one with: pvm uninstall $remove',
         );
         continue;
       }

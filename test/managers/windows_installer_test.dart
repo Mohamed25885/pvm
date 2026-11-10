@@ -70,7 +70,7 @@ void main() {
       MockClient((_) async => http.Response.bytes(bytes, 200));
 
   test(
-    'installs into versions/<v> and leaves no staging/temp leftovers',
+    'installs into the slot versions/<X.Y> and leaves no staging/temp leftovers',
     () async {
       final zip = _zip({
         'php.exe': [1],
@@ -79,13 +79,13 @@ void main() {
 
       await installer(_release(zip), serving(zip)).install('8.3');
 
-      expect(File(p.join(versions, '8.3.1', 'php.exe')).existsSync(), isTrue);
+      expect(File(p.join(versions, '8.3', 'php.exe')).existsSync(), isTrue);
       expect(
-        File(p.join(versions, '8.3.1', 'ext', 'php_curl.dll')).existsSync(),
+        File(p.join(versions, '8.3', 'ext', 'php_curl.dll')).existsSync(),
         isTrue,
       );
       expect(Directory(versions).listSync().map((e) => p.basename(e.path)), [
-        '8.3.1',
+        '8.3',
       ]);
     },
   );
@@ -100,7 +100,7 @@ void main() {
       throwsA(isA<Exception>()),
     );
 
-    expect(Directory(p.join(versions, '8.3.1')).existsSync(), isFalse);
+    expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
     expect(Directory(versions).listSync(), isEmpty);
   });
 
@@ -114,7 +114,7 @@ void main() {
       installer(_release(zip), client).install('8.3'),
       throwsA(isA<DownloadException>()),
     );
-    expect(Directory(p.join(versions, '8.3.1')).existsSync(), isFalse);
+    expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
   });
 
   test('empty checksum is rejected', () async {
@@ -146,8 +146,8 @@ void main() {
           ),
         ),
       );
-      expect(Directory(p.join(versions, '8.3.10')).existsSync(), isFalse);
-      expect(Directory(p.join(versions, '8.3.1')).existsSync(), isFalse);
+      expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
+      expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
     },
   );
 
@@ -160,13 +160,13 @@ void main() {
       installer(_release(zip), serving(zip)).install('8.3'),
       throwsA(isA<Exception>()),
     );
-    expect(Directory(p.join(versions, '8.3.1')).existsSync(), isFalse);
+    expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
   });
 
   test('B11: --force replaces the whole tree (no stale files)', () async {
-    final stale = File(p.join(versions, '8.3.1', 'ext', 'old.dll'));
+    final stale = File(p.join(versions, '8.3', 'ext', 'old.dll'));
     await stale.create(recursive: true);
-    await File(p.join(versions, '8.3.1', 'php.exe')).writeAsBytes([0]);
+    await File(p.join(versions, '8.3', 'php.exe')).writeAsBytes([0]);
     final zip = _zip({
       'php.exe': [1],
     });
@@ -177,20 +177,20 @@ void main() {
     ).install('8.3', options: InstallOptions(force: true));
 
     expect(stale.existsSync(), isFalse);
-    expect(File(p.join(versions, '8.3.1', 'php.exe')).readAsBytesSync(), [1]);
+    expect(File(p.join(versions, '8.3', 'php.exe')).readAsBytesSync(), [1]);
   });
 
   test(
     'a leftover empty version dir is repaired, not "already installed"',
     () async {
-      await Directory(p.join(versions, '8.3.1')).create(recursive: true);
+      await Directory(p.join(versions, '8.3')).create(recursive: true);
       final zip = _zip({
         'php.exe': [1],
       });
 
       await installer(_release(zip), serving(zip)).install('8.3');
 
-      expect(File(p.join(versions, '8.3.1', 'php.exe')).existsSync(), isTrue);
+      expect(File(p.join(versions, '8.3', 'php.exe')).existsSync(), isTrue);
     },
   );
 
@@ -208,7 +208,7 @@ void main() {
     await installer(_release(zip), client).install('8.3');
 
     expect(calls, 2);
-    expect(File(p.join(versions, '8.3.1', 'php.exe')).existsSync(), isTrue);
+    expect(File(p.join(versions, '8.3', 'php.exe')).existsSync(), isTrue);
   });
 
   group('S7: download URL allow-list', () {

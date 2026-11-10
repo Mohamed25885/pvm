@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'package:pvm/src/core/constants.dart';
+import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/services/slot_migration.dart';
 
 import 'fake_os_manager.dart';
@@ -69,6 +70,30 @@ void main() {
     expect(Directory(p.join(v, '8.2.28')).existsSync(), isTrue);
     expect(Directory(p.join(v, '8.2')).existsSync(), isFalse);
   });
+
+  test(
+    'names the recorded patch and a legacy folder uninstall accepts',
+    () async {
+      await slot('8.2');
+      await InstallRecord(
+        version: '8.2.30',
+        sourceUrl: '',
+        archiveSha256: '',
+        verified: true,
+        installedAt: DateTime.utc(2026),
+        files: const {},
+      ).writeTo(p.join(v, '8.2'));
+      await slot('8.2.28');
+
+      final result = await migration().run();
+
+      expect(result.conflicts, ['8.2']);
+      expect(result.messages, [
+        'Two patches of 8.2 are installed (8.2.28, 8.2.30). '
+            'Remove one with: pvm uninstall 8.2.28',
+      ]);
+    },
+  );
 
   test('skips staging, old and plain files', () async {
     await slot('.staging-8.2.28-1');

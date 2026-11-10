@@ -93,11 +93,11 @@ void main() {
 
       expect(await unix.isInstalled('8.3.14'), isTrue);
       expect(
-        File(p.join(versions, '8.3.14', '.pvm-install.json')).existsSync(),
+        File(p.join(versions, '8.3', '.pvm-install.json')).existsSync(),
         isTrue,
       );
       expect(Directory(versions).listSync().map((e) => p.basename(e.path)), [
-        '8.3.14',
+        '8.3',
       ]);
     });
 

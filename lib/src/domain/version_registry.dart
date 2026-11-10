@@ -43,15 +43,14 @@ class VersionRegistry {
       } catch (_) {
         record = null; // Unreadable: `pvm doctor --verify` reports it.
       }
-      slots.add(
-        InstalledSlot(_recordedVersion(record) ?? parsed, path, record),
-      );
+      slots.add(InstalledSlot(recordedVersion(record) ?? parsed, path, record));
     }
     slots.sort((a, b) => b.version.compareTo(a.version));
     return slots;
   }
 
-  static PhpVersion? _recordedVersion(InstallRecord? record) {
+  /// The record's full patch, or `null` without a usable record.
+  static PhpVersion? recordedVersion(InstallRecord? record) {
     if (record == null) return null;
     try {
       return PhpVersion.parse(record.version);

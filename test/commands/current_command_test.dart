@@ -168,6 +168,25 @@ void main() {
       }
     });
 
+    test('a .pvmrc full patch matches its migrated slot link', () async {
+      final h = _Harness();
+      await h.initProject(phpVersionContent: '8.2.28');
+      try {
+        h.wireLocal('8.2');
+
+        final code = await h.run(['--json']);
+
+        expect(code, equals(ExitCode.success));
+        final local = (jsonDecode(h.console.printed.join()) as Map)['local'];
+        expect(local['drift'], isFalse);
+        h.console.printed.clear();
+        await h.run([]);
+        expect(h.console.printed.join(), isNot(contains('mismatch')));
+      } finally {
+        await h.cleanup();
+      }
+    });
+
     test('--global-only and --local-only are mutually exclusive', () async {
       final h = _Harness();
       await h.initProject();

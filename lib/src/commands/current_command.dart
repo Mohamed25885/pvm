@@ -156,7 +156,8 @@ class CurrentCommand extends Command<int> {
         _console.print('  link  : ${info.linkPath}');
         _console.print('  -> ok : ${info.target}');
         if (label == 'Local' && declaredVersion != null) {
-          if (info.version != declaredVersion) {
+          // Compare slots: a `.pvmrc` 8.2.28 is satisfied by `versions/8.2`.
+          if (info.version?.slot != declaredVersion.slot) {
             _console.print('  declared in .pvmrc: $declaredVersion (mismatch)');
             _console.print(
               '  Hint: run `pvm use` to re-activate the declared version.',
@@ -237,7 +238,7 @@ class CurrentCommand extends Command<int> {
         'drift':
             declared != null &&
             active.local.version != null &&
-            declared != active.local.version,
+            declared.slot != active.local.version!.slot,
       };
     }
     payload['effective'] = {
