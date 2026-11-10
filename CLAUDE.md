@@ -142,3 +142,17 @@ Overall average: **60-90% token reduction** on common development operations.
 - **SDK:** FVM + Flutter **3.44.2** (Dart **3.12.2**), pinned in `.fvmrc`. Use `fvm dart …` — see `.fvmrc` and `readme.md`.
 - **Analyze / test:** `rtk fvm dart analyze` and `rtk fvm dart test` (or `fvm dart` directly).
 - **Run CLI:** `fvm dart run pvm.dart <command>` — see `AGENTS.md` for architecture and command list (`current`, `doctor`, `uninstall`, `exec`, etc.).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for Mohamed25885/pvm, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root, created lazily. See `docs/agents/domain.md`.
