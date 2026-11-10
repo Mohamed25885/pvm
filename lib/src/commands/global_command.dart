@@ -3,6 +3,7 @@ import 'package:args/command_runner.dart';
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
@@ -81,7 +82,10 @@ class GlobalCommand extends Command<int> {
 
       await _versionActivator.activateGlobal(version.slot);
 
-      _console.print('Global version set to: ${version.toString()}');
+      _console.print(
+        'Global version set to: '
+        '${await installedLabel(version, sourcePath)}',
+      );
       return ExitCode.success;
     } on InvalidVersionFormatException catch (e) {
       _console.printError(e.message);

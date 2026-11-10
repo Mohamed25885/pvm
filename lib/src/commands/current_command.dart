@@ -9,6 +9,7 @@ import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../core/symlink_inspector.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
@@ -88,7 +89,7 @@ class CurrentCommand extends Command<int> {
         ),
       );
     } else {
-      _renderHuman(
+      await _renderHuman(
         active,
         declared,
         globalOnly: globalOnly,
@@ -99,17 +100,17 @@ class CurrentCommand extends Command<int> {
     return active.isNone ? ExitCode.configurationError : ExitCode.success;
   }
 
-  void _renderHuman(
+  Future<void> _renderHuman(
     ActiveVersion active,
     PhpVersion? declared, {
     required bool globalOnly,
     required bool localOnly,
-  }) {
+  }) async {
     _console.print('PVM - Current PHP Version');
     _console.print('');
 
     if (!localOnly) {
-      _renderScope(
+      await _renderScope(
         'Global',
         active.global,
         isEffective: active.scope == VersionScope.global,
@@ -117,7 +118,7 @@ class CurrentCommand extends Command<int> {
     }
 
     if (!globalOnly) {
-      _renderScope(
+      await _renderScope(
         'Local',
         active.local,
         isEffective: active.scope == VersionScope.local,
@@ -132,16 +133,22 @@ class CurrentCommand extends Command<int> {
       final scopeLabel = active.scope == VersionScope.local
           ? 'local'
           : 'global';
-      _console.print('Effective: ${active.version} ($scopeLabel)');
+      final info = active.scope == VersionScope.local
+          ? active.local
+          : active.global;
+      _console.print('Effective: ${await _label(info)} ($scopeLabel)');
     }
   }
 
-  void _renderScope(
+  Future<String> _label(SymLinkInfo info) =>
+      installedLabel(info.version!, info.target!);
+
+  Future<void> _renderScope(
     String label,
     SymLinkInfo info, {
     required bool isEffective,
     PhpVersion? declaredVersion,
-  }) {
+  }) async {
     switch (info.status) {
       case SymLinkStatus.notSet:
         _console.print('$label   : not set');
@@ -152,7 +159,7 @@ class CurrentCommand extends Command<int> {
         break;
       case SymLinkStatus.ok:
         final marker = isEffective ? ' (effective)' : '';
-        _console.print('$label   : ${info.version}$marker');
+        _console.print('$label   : ${await _label(info)}$marker');
         _console.print('  link  : ${info.linkPath}');
         _console.print('  -> ok : ${info.target}');
         if (label == 'Local' && declaredVersion != null) {

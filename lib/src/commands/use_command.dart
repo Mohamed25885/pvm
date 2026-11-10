@@ -7,6 +7,7 @@ import '../core/exit_codes.dart';
 import '../core/gitignore_service.dart';
 import '../core/os_manager.dart';
 import '../core/php_version_manager.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
@@ -254,7 +255,8 @@ class UseCommand extends Command<int> {
         );
       }
 
-      _console.print('Local link created: $localPath -> $sourcePath');
+      final label = await installedLabel(version, sourcePath);
+      _console.print('Local link created ($label): $localPath -> $sourcePath');
       return ExitCode.success;
     } catch (e) {
       _console.printError('Error: ${describeError(e)}');
