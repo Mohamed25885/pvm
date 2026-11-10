@@ -15,6 +15,11 @@ void main() {
       expect(PhpRelease.architectureFromString('i686'), Architecture.x86);
     });
 
+    test('architectureFromString handles arm64 variants', () {
+      expect(PhpRelease.architectureFromString('arm64'), Architecture.arm64);
+      expect(PhpRelease.architectureFromString('aarch64'), Architecture.arm64);
+    });
+
     test('architectureFromString returns null for invalid', () {
       expect(PhpRelease.architectureFromString('invalid'), isNull);
     });

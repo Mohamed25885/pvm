@@ -53,6 +53,9 @@ class MockPlatformInfo extends PlatformInfo {
     'composer.cmd',
     'composer.phar',
   ];
+
+  @override
+  String get hostArch => 'x86_64';
 }
 
 class MockComposerLocator implements IComposerLocator {

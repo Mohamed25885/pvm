@@ -1,9 +1,28 @@
+import 'dart:ffi';
+
 import 'package:test/test.dart';
 
 import 'package:pvm/src/core/platform_info.dart';
+import '../helpers.dart';
 
 void main() {
   group('PlatformInfo', () {
+    test('hostArch maps each supported ABI', () {
+      expect(hostArchFor(Abi.linuxX64), 'x86_64');
+      expect(hostArchFor(Abi.macosX64), 'x86_64');
+      expect(hostArchFor(Abi.windowsX64), 'x86_64');
+      expect(hostArchFor(Abi.linuxArm64), 'aarch64');
+      expect(hostArchFor(Abi.macosArm64), 'aarch64');
+      expect(hostArchFor(Abi.windowsArm64), 'aarch64');
+    });
+
+    test('every implementation reports a non-empty hostArch', () {
+      expect(WindowsPlatformInfo().hostArch, isNotEmpty);
+      expect(LinuxPlatformInfo().hostArch, isNotEmpty);
+      expect(MacOSPlatformInfo().hostArch, isNotEmpty);
+      expect(MockPlatformInfo().hostArch, isNotEmpty);
+    });
+
     group('WindowsPlatformInfo', () {
       late WindowsPlatformInfo info;
 
