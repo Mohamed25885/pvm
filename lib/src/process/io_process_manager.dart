@@ -10,9 +10,8 @@ class IOProcessManager implements IProcessManager {
   final IOSManager _osManager;
   final PlatformInfo _platform;
 
-  IOProcessManager({required IOSManager osManager, PlatformInfo? platformInfo})
-    : _osManager = osManager,
-      _platform = platformInfo ?? createPlatformInfo();
+  IOProcessManager({required this._osManager, PlatformInfo? platformInfo})
+    : _platform = platformInfo ?? createPlatformInfo();
 
   bool get _isWindows => _platform.osType == 'windows';
 

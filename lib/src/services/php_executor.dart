@@ -13,14 +13,11 @@ class PhpExecutor {
   final PlatformInfo _platform;
 
   PhpExecutor({
-    required IProcessManager processManager,
-    required IOSManager osManager,
-    required IExecutableResolver executableResolver,
+    required this._processManager,
+    required this._osManager,
+    required this._executableResolver,
     PlatformInfo? platformInfo,
-  }) : _processManager = processManager,
-       _osManager = osManager,
-       _executableResolver = executableResolver,
-       _platform = platformInfo ?? createPlatformInfo();
+  }) : _platform = platformInfo ?? createPlatformInfo();
 
   /// Run `php` with [args].
   ///

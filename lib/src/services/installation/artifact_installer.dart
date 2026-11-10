@@ -33,12 +33,10 @@ class ArtifactInstaller {
     required this.versionsPath,
     required this.layout,
     required this.allowedHosts,
-    required Console console,
+    required this._console,
     http.Client? client,
-    Duration retryDelay = const Duration(seconds: 1),
-  }) : _console = console,
-       _client = client ?? http.Client(),
-       _retryDelay = retryDelay;
+    this._retryDelay = const Duration(seconds: 1),
+  }) : _client = client ?? http.Client();
 
   /// Whether `versions/<version>` holds a PHP binary.
   Future<bool> isInstalled(String version) =>

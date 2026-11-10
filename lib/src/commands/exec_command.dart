@@ -40,20 +40,14 @@ class ExecCommand extends Command<int> {
   final Console _console;
 
   ExecCommand({
-    required IOSManager osManager,
-    required PlatformConstants platformConstants,
-    required PhpExecutor phpExecutor,
-    required IProcessManager processManager,
-    required IComposerLocator composerLocator,
-    required ActiveVersionResolver resolver,
-    required Console console,
-  }) : _osManager = osManager,
-       _platformConstants = platformConstants,
-       _phpExecutor = phpExecutor,
-       _processManager = processManager,
-       _composerLocator = composerLocator,
-       _resolver = resolver,
-       _console = console;
+    required this._osManager,
+    required this._platformConstants,
+    required this._phpExecutor,
+    required this._processManager,
+    required this._composerLocator,
+    required this._resolver,
+    required this._console,
+  });
 
   @override
   Future<int> run() async {

@@ -1,11 +1,11 @@
 import 'package:test/test.dart';
 
-import '../../lib/src/domain/php_release.dart';
-import '../../lib/src/services/release_fetcher.dart';
-import '../../lib/src/services/release_fetcher_factory.dart';
-import '../../lib/src/services/windows_release_fetcher.dart';
-import '../../lib/src/services/linux_release_fetcher.dart';
-import '../../lib/src/services/macos_release_fetcher.dart';
+import 'package:pvm/src/domain/php_release.dart';
+import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:pvm/src/services/release_fetcher_factory.dart';
+import 'package:pvm/src/services/windows_release_fetcher.dart';
+import 'package:pvm/src/services/linux_release_fetcher.dart';
+import 'package:pvm/src/services/macos_release_fetcher.dart';
 
 void main() {
   group('WindowsReleaseFetcher', () {

@@ -10,7 +10,6 @@ import 'package:pvm/src/commands/list_command.dart';
 import 'package:pvm/src/commands/php_command.dart';
 import 'package:pvm/src/commands/use_command.dart';
 import 'package:pvm/src/commands/version_flag.dart';
-import 'package:pvm/src/core/console.dart';
 import 'package:pvm/src/core/gitignore_service.dart';
 import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/core/php_version_manager.dart';
@@ -28,8 +27,7 @@ import 'mocks/mock_console.dart';
 
 /// Private CommandRunner subclass that enables trailing options.
 class _PvmTestCommandRunner extends CommandRunner<int> {
-  _PvmTestCommandRunner(String name, String description)
-    : super(name, description);
+  _PvmTestCommandRunner(super.name, super.description);
 
   ArgParser? _parser;
   @override
@@ -222,7 +220,7 @@ class FakePhpVersionManager extends PhpVersionManager {
   PhpVersion? promptVersionPickResult;
   bool readLastUsedVersionCalled = false;
 
-  FakePhpVersionManager(Console console) : super(console);
+  FakePhpVersionManager(super.console);
 
   @override
   Future<PhpVersion?> readLastUsedVersion({required String rootPath}) async {
@@ -261,8 +259,7 @@ class FakeGitIgnoreService extends GitIgnoreService {
   bool ensureGitignoreCalled = false;
   bool ensureGitignoreResult = true;
 
-  FakeGitIgnoreService(IOSManager osManager, Console console)
-    : super(osManager, console);
+  FakeGitIgnoreService(super.osManager, super.console);
 
   @override
   Future<bool> ensureGitignoreIncludesPvm({required String rootPath}) async {

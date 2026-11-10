@@ -12,7 +12,6 @@ import 'package:pvm/src/core/platform_constants.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/symlink_inspector.dart';
-import 'package:pvm/src/core/os_manager.dart';
 import 'package:pvm/src/services/php_executor.dart';
 
 import '../mocks/mock_console.dart';
@@ -40,15 +39,10 @@ class _RecordingProcessManager implements IProcessManager {
 
 class _FakePhpExecutor extends PhpExecutor {
   _FakePhpExecutor({
-    required IProcessManager processManager,
-    required IOSManager osManager,
-    required IExecutableResolver executableResolver,
-  }) : _processManager = processManager,
-       super(
-         processManager: processManager,
-         osManager: osManager,
-         executableResolver: executableResolver,
-       );
+    required super.processManager,
+    required super.osManager,
+    required super.executableResolver,
+  }) : _processManager = processManager;
 
   final IProcessManager _processManager;
 

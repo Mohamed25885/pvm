@@ -10,7 +10,7 @@ class WindowsReleaseFetcher implements IReleaseFetcher {
 
   final http.Client? _client;
 
-  WindowsReleaseFetcher({http.Client? client}) : _client = client;
+  WindowsReleaseFetcher({this._client});
 
   @override
   String get platformName => 'Windows';

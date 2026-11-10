@@ -79,8 +79,9 @@ class PhpReleaseFilter {
     if (major != null && release.major != major) return false;
     if (minor != null && release.minor != minor) return false;
     if (patch != null && release.patch != patch) return false;
-    if (architecture != null && release.architecture != architecture)
+    if (architecture != null && release.architecture != architecture) {
       return false;
+    }
     if (buildType != null && release.buildType != buildType) return false;
     return true;
   }

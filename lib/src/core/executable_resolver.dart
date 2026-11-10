@@ -25,10 +25,9 @@ class ExecutableResolver implements IExecutableResolver {
   final IOSManager _osManager;
 
   ExecutableResolver({
-    required PlatformConstants platformConstants,
-    required IOSManager osManager,
-  }) : _platformConstants = platformConstants,
-       _osManager = osManager;
+    required this._platformConstants,
+    required this._osManager,
+  });
 
   @override
   String get phpExecutableName => _platformConstants.phpExecutableName;

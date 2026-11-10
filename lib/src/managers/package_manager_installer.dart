@@ -9,9 +9,9 @@ abstract class PackageManagerInstaller implements IInstaller {
   final IProcessManager processManager;
 
   PackageManagerInstaller({
-    required String versionsPath,
+    required this._versionsPath,
     required this.processManager,
-  }) : _versionsPath = versionsPath;
+  });
 
   @override
   String get versionsPath => _versionsPath;

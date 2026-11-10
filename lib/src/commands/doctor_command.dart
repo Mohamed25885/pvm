@@ -45,14 +45,11 @@ class DoctorCommand extends Command<int> {
   final ActiveVersionResolver _resolver;
 
   DoctorCommand({
-    required IOSManager osManager,
-    required PlatformConstants platformConstants,
-    required Console console,
-    required ActiveVersionResolver resolver,
-  }) : _osManager = osManager,
-       _platformConstants = platformConstants,
-       _console = console,
-       _resolver = resolver;
+    required this._osManager,
+    required this._platformConstants,
+    required this._console,
+    required this._resolver,
+  });
 
   @override
   Future<int> run() async {

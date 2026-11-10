@@ -49,12 +49,10 @@ class UninstallCommand extends Command<int> {
   final Console _console;
 
   UninstallCommand({
-    required IOSManager osManager,
+    required this._osManager,
     required SymLinkInspector symlinkInspector,
-    required Console console,
-  }) : _osManager = osManager,
-       _inspector = symlinkInspector,
-       _console = console;
+    required this._console,
+  }) : _inspector = symlinkInspector;
 
   @override
   Future<int> run() async {

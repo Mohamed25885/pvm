@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import '../../lib/src/core/os_manager.dart';
-import '../../lib/src/core/platform_info.dart';
-import '../../lib/src/core/process_manager.dart';
-import '../../lib/src/core/executable_resolver.dart';
-import '../../lib/src/services/php_executor.dart';
+import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/core/executable_resolver.dart';
+import 'package:pvm/src/services/php_executor.dart';
 import '../support/host_paths.dart';
 
 class TestExecutableResolver implements IExecutableResolver {

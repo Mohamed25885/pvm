@@ -19,10 +19,9 @@ class IoOSManager implements IOSManager {
   IoOSManager({
     required PlatformInfo platformInfo,
     required ILinkManager linkManager,
-    Map<String, String>? environment,
+    this._environment,
   }) : _platform = platformInfo,
-       _links = linkManager,
-       _environment = environment;
+       _links = linkManager;
 
   /// The directory of the running `pvm` binary (or of `pvm.dart` under
   /// `dart run`), used when `PVM_HOME` is not set.
