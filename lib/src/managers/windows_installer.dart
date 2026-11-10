@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../core/console.dart';
-import '../core/constants.dart';
 import '../core/php_layout.dart';
 import '../domain/php_release.dart';
 import '../domain/php_version.dart';
@@ -20,15 +19,10 @@ class WindowsInstaller implements IInstaller {
   final IReleaseSource _source;
   final ArtifactInstaller _artifacts;
 
-  /// [downloadBaseUrl] is kept for API compatibility; download URLs come
-  /// from the release data.
-  final String downloadBaseUrl;
-
   WindowsInstaller({
     required String versionsPath,
     required IReleaseFetcher releaseFetcher,
     required Console console,
-    this.downloadBaseUrl = PvmUrls.windowsDownloadBase,
     http.Client? client,
     Duration retryDelay = const Duration(seconds: 1),
     WindowsArchiveIndex? archiveIndex,

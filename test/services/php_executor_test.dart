@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../lib/src/core/os_manager.dart';
+import '../../lib/src/core/platform_info.dart';
 import '../../lib/src/core/process_manager.dart';
 import '../../lib/src/core/executable_resolver.dart';
 import '../../lib/src/services/php_executor.dart';
@@ -372,6 +373,38 @@ void main() {
           expect(processManager.lastSpec!.executable, equals(phpExe));
         },
       );
+    });
+
+    group('PATH follows the injected platform, not the host (2.8)', () {
+      Future<Map<String, String>> envFor(PlatformInfo platform) async {
+        final exec = PhpExecutor(
+          processManager: processManager,
+          osManager: osManager,
+          executableResolver: exeResolver,
+          platformInfo: platform,
+        );
+        await exec.runPhp(
+          ['-v'],
+          workingDirectory: '/proj',
+          phpExecutable: p.join('/pvm', 'v', 'bin', 'php'),
+          environment: {'Path': 'base'},
+        );
+        return processManager.lastSpec!.environment!;
+      }
+
+      test('Unix joins with ":" and keeps keys case-sensitive', () async {
+        final env = await envFor(LinuxPlatformInfo());
+
+        expect(env['PATH'], p.join('/pvm', 'v', 'bin'));
+        expect(env['Path'], 'base');
+      });
+
+      test('Windows joins with ";" into the existing Path key', () async {
+        final env = await envFor(WindowsPlatformInfo());
+
+        expect(env['Path'], '${p.join('/pvm', 'v', 'bin')};base');
+        expect(env.containsKey('PATH'), isFalse);
+      });
     });
   });
 }

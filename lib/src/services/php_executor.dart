@@ -1,9 +1,8 @@
-import 'dart:io';
-
 import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
 import '../core/path_env.dart';
+import '../core/platform_info.dart';
 import '../core/process_manager.dart';
 import '../core/executable_resolver.dart';
 
@@ -11,14 +10,17 @@ class PhpExecutor {
   final IProcessManager _processManager;
   final IOSManager _osManager;
   final IExecutableResolver _executableResolver;
+  final PlatformInfo _platform;
 
   PhpExecutor({
     required IProcessManager processManager,
     required IOSManager osManager,
     required IExecutableResolver executableResolver,
+    PlatformInfo? platformInfo,
   }) : _processManager = processManager,
        _osManager = osManager,
-       _executableResolver = executableResolver;
+       _executableResolver = executableResolver,
+       _platform = platformInfo ?? createPlatformInfo();
 
   /// Run `php` with [args].
   ///
@@ -57,8 +59,8 @@ class PhpExecutor {
   ) => prependToPath(
     environment ?? _osManager.currentEnvironment,
     p.dirname(phpExe),
-    separator: Platform.isWindows ? ';' : ':',
-    caseInsensitiveKeys: Platform.isWindows,
+    separator: _platform.pathSeparator,
+    caseInsensitiveKeys: _platform.osType == 'windows',
   );
 
   /// Run a PHP script file via `php <scriptPath> <args...>`.

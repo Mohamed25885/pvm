@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
 
@@ -20,6 +22,7 @@ import 'core/composer_locator.dart';
 import 'core/console.dart';
 import 'core/elevating_os_manager.dart';
 import 'core/environment_configurator_factory.dart';
+import 'core/error_text.dart';
 import 'core/executable_resolver.dart';
 import 'core/exit_codes.dart';
 import 'core/gitignore_service.dart';
@@ -168,6 +171,7 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
       platformConstants: constants,
       osManager: os,
     ),
+    platformInfo: deps.platform,
   );
 
   return PvmCommandRunner('pvm', 'PHP Version Manager')
@@ -225,7 +229,14 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
 
 /// Run PVM with [arguments] and return the process exit code.
 Future<int> runPvm(List<String> arguments, {PvmDependencies? deps}) async {
-  final resolved = deps ?? PvmDependencies.forHost();
+  final PvmDependencies resolved;
+  try {
+    resolved = deps ?? PvmDependencies.forHost();
+  } on Exception catch (e) {
+    // e.g. no HOME/USERPROFILE (cron, minimal containers): no console yet.
+    stderr.writeln('Error: ${describeError(e)}');
+    return ExitCode.configurationError;
+  }
   final console = resolved.console;
 
   if (arguments.isNotEmpty &&

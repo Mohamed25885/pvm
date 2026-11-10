@@ -10,6 +10,7 @@ import '../../core/constants.dart';
 import '../../core/php_layout.dart';
 import '../../domain/install_record.dart';
 import '../../domain/php_release.dart';
+import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
 
 /// The transactional install pipeline shared by every release source
@@ -52,6 +53,8 @@ class ArtifactInstaller {
     String version, {
     required bool allowUnverified,
   }) async {
+    // [version] becomes a directory name: guard every caller (path traversal).
+    PhpVersion.parse(version);
     final verified = release.sha256.trim().isNotEmpty;
     if (!verified && !allowUnverified) {
       throw UnverifiedReleaseException(version);

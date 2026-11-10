@@ -16,6 +16,8 @@ All notable changes to this project will be documented in this file.
   - CI runs the unit tests on Windows, Linux and macOS.
 - `pvm doctor`'s link-probe hint no longer tells Windows users to enable Developer Mode, because links are junctions, which don't need it.
 - On Linux/macOS the versions folder now follows the same rules as on Windows: `PVM_VERSIONS_HOME`, else `<PVM_HOME or program dir>/versions`. The old guess at `~/.pvm/versions` is gone; Phase 5.2 will define the Unix default homes. `pvm use` on Linux/macOS also checks that the version directory exists, like on Windows.
+- **Upgrading on Linux/macOS:** earlier versions made `.pvm/` (in a project) and `~/.pvm/` real directories holding a `php` link. PVM never deletes a real directory, so `pvm use` / `pvm global` stop with "slot occupied" until you remove that old `.pvm/` directory yourself.
+- With no home directory set (`HOME` / `USERPROFILE`, e.g. in cron), PVM now exits with a clear error (code 6) instead of a stack trace.
 
 ### Fixed
 - **On Linux/macOS, `current`, `doctor`, `exec` and `uninstall` reported a corrupt link** after `pvm use`, because Unix used a different link layout (B16).
