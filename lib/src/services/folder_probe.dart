@@ -63,11 +63,15 @@ class FolderProbe {
         'php in $folder exited with ${run.exitCode}: ${run.stderr.trim()}',
       );
     }
-    final Map<String, dynamic> j;
-    final String build;
+    final String build, version, rawArch, reportedExt;
+    final bool zts;
     try {
-      j = jsonDecode(run.stdout.trim()) as Map<String, dynamic>;
+      final j = jsonDecode(run.stdout.trim()) as Map<String, dynamic>;
       build = j['build'] as String;
+      version = j['v'] as String;
+      rawArch = j['arch'] as String;
+      reportedExt = j['ext'] as String;
+      zts = j['zts'] as bool;
     } catch (_) {
       throw ProbeException('Could not parse probe output from php in $folder');
     }
@@ -75,8 +79,10 @@ class FolderProbe {
     if (api == null) {
       throw ProbeException('php in $folder reported no API number: "$build"');
     }
-    final version = j['v'] as String;
-    final extDir = j['ext'] as String;
+    // With -n, Windows reports the compiled default, not this slot's folder.
+    final extDir = layout.binSubdirectory.isEmpty
+        ? p.join(folder, 'ext')
+        : reportedExt;
 
     String? phpConfig;
     String? prefix;
@@ -99,8 +105,8 @@ class FolderProbe {
 
     return ProbeResult(
       version: version,
-      zts: j['zts'] as bool,
-      arch: j['arch'] as String,
+      zts: zts,
+      arch: _normalizeArch(rawArch),
       apiNo: api,
       phpConfig: phpConfig,
       prefix: prefix,
@@ -108,6 +114,14 @@ class FolderProbe {
       writable: _isWritable(extDir),
       vsVersion: RegExp(r'VS\d+').firstMatch(build)?.group(0),
     );
+  }
+
+  static String _normalizeArch(String raw) {
+    final a = raw.toLowerCase();
+    if (const {'amd64', 'x86_64', 'x64'}.contains(a)) return 'x64';
+    if (const {'i386', 'i486', 'i586', 'i686', 'x86'}.contains(a)) return 'x86';
+    if (const {'aarch64', 'arm64'}.contains(a)) return 'arm64';
+    return a;
   }
 
   bool _isWritable(String dir) {

@@ -51,7 +51,7 @@ void main() {
     expect(r.version, '8.4.27');
     expect(r.zts, isFalse);
     expect(r.apiNo, '20240924');
-    expect(r.arch, 'x86_64');
+    expect(r.arch, 'x64');
     expect(r.phpConfig, cfg);
     expect(r.prefix, '/opt/php');
     expect(r.extensionDir, ext);
@@ -124,4 +124,72 @@ void main() {
       throwsA(isA<ProbeException>()),
     );
   });
+
+  test('wrong-shaped JSON throws ProbeException', () {
+    final php = touch('bin/php');
+    pm.capturedResults[php] = _ok('{"v":1}');
+    expect(
+      FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path),
+      throwsA(isA<ProbeException>()),
+    );
+  });
+
+  test('plain php-config wins over php-config<X.Y>', () async {
+    final php = touch('bin/php');
+    final cfg = touch('bin/php-config');
+    final cfg2 = touch('bin/php-config8.4');
+    pm.capturedResults[php] = _ok(_json('API20240924,NTS', ext));
+    pm.capturedResults[cfg] = _ok('/a\n');
+    pm.capturedResults[cfg2] = _ok('/b\n');
+    final r = await FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path);
+    expect(r.phpConfig, cfg);
+    expect(r.prefix, '/a');
+  });
+
+  test('arch is normalized', () async {
+    final php = touch('bin/php');
+    for (final (raw, want) in [
+      ('AMD64', 'x64'),
+      ('x86_64', 'x64'),
+      ('aarch64', 'arm64'),
+      ('i686', 'x86'),
+    ]) {
+      pm.capturedResults[php] = _ok(
+        jsonEncode({
+          'v': '8.4.27',
+          'zts': false,
+          'arch': raw,
+          'ext': ext,
+          'build': 'API20240924,NTS',
+        }),
+      );
+      final r = await FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path);
+      expect(r.arch, want, reason: raw);
+    }
+  });
+
+  test(
+    'windows: extensionDir is <folder>/ext, not the compiled default',
+    () async {
+      final php = touch('php.exe');
+      pm.capturedResults[php] = _ok(
+        _json('API20240924,TS,VS17', r'C:\php\ext'),
+      );
+      final r = await FolderProbe(pm, WindowsPlatformInfo()).probe(tmp.path);
+      expect(r.extensionDir, p.join(tmp.path, 'ext'));
+    },
+  );
+
+  test(
+    'writable false when extensionDir is read-only',
+    () async {
+      final php = touch('bin/php');
+      pm.capturedResults[php] = _ok(_json('API20240924,NTS', ext));
+      await Process.run('chmod', ['555', ext]);
+      addTearDown(() => Process.run('chmod', ['755', ext]));
+      final r = await FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path);
+      expect(r.writable, isFalse);
+    },
+    skip: Platform.isWindows ? 'chmod not applicable on Windows' : false,
+  );
 }
