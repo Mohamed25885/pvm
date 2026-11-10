@@ -28,10 +28,9 @@ dev_dependencies:
 dart_pre_commit:
   format: true
   analyze: true
-  test: true
   outdated:
     level: major
-  osv_scanner: true
+  osv-scanner: true # runs only when the osv-scanner binary is on PATH; CI scans either way
   pull-up-dependencies:
     allowed:
       - meta # held at ^1.18.0 for flutter-compat (Flutter pins 1.18.0)
