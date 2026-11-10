@@ -1,9 +1,9 @@
 /// OS-level version switching for PHP installations.
 ///
-/// This interface abstracts platform-specific symlink operations:
-/// - **Windows**: Creates symlinks via `mklink /D`
-/// - **Linux**: Updates alternatives via `update-alternatives`
-/// - **macOS**: Creates symlinks via `ln -s`
+/// One link model on every platform: `.pvm` is a directory link to
+/// `versions/<version>` (a junction on Windows, a symlink elsewhere). The only
+/// implementation is `LinkVersionActivator`; where PHP sits inside that
+/// directory is `PhpLayout`'s job.
 ///
 /// ## Responsibilities
 ///

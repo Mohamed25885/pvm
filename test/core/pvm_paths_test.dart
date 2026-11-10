@@ -18,7 +18,10 @@ void main() {
       );
 
       expect(paths.pvmHome, p.normalize(r'C:\tools\pvm'));
-      expect(paths.versionsHome, p.normalize(r'C:\tools\pvm\versions'));
+      expect(
+        paths.versionsHome,
+        p.normalize(p.join(r'C:\tools\pvm', 'versions')),
+      );
     });
 
     test('respects PVM_HOME and defaults versions under home', () {
@@ -27,7 +30,10 @@ void main() {
       }, programDirectoryFallback: r'C:\ignored');
 
       expect(paths.pvmHome, p.normalize(r'D:\custom\pvm'));
-      expect(paths.versionsHome, p.normalize(r'D:\custom\pvm\versions'));
+      expect(
+        paths.versionsHome,
+        p.normalize(p.join(r'D:\custom\pvm', 'versions')),
+      );
     });
 
     test('respects PVM_VERSIONS_HOME override', () {
@@ -47,7 +53,10 @@ void main() {
       }, programDirectoryFallback: r'C:\pvm\bin');
 
       expect(paths.pvmHome, p.normalize(r'C:\pvm\bin'));
-      expect(paths.versionsHome, p.normalize(r'C:\pvm\bin\versions'));
+      expect(
+        paths.versionsHome,
+        p.normalize(p.join(r'C:\pvm\bin', 'versions')),
+      );
     });
 
     test('normalizes home and versions paths', () {

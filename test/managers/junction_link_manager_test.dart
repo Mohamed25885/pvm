@@ -6,7 +6,12 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
-import 'package:pvm/src/managers/windows_os_manager.dart';
+import 'package:pvm/src/core/link_manager.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/managers/io_os_manager.dart';
+
+IoOSManager _manager([ILinkManager links = const JunctionLinkManager()]) =>
+    IoOSManager(platformInfo: WindowsPlatformInfo(), linkManager: links);
 
 /// Junctions store the long, resolved path; the temp dir may be an 8.3
 /// short name on CI (`C:\Users\RUNNER~1`), so compare canonical forms.
@@ -16,7 +21,7 @@ Future<bool> _sameDir(String a, String b) async => p.equals(
 );
 
 void main() {
-  group('WindowsOSManager links (1.1)', () {
+  group('JunctionLinkManager via IoOSManager (1.1)', () {
     late Directory temp;
     late String target;
 
@@ -37,7 +42,7 @@ void main() {
       final project = await Directory(p.join(temp.path, 'project')).create();
       final link = p.join(project.path, '.pvm');
 
-      await WindowsOSManager().createSymLink('8.3.14', target, link);
+      await _manager().createSymLink('8.3.14', target, link);
 
       expect(await FileSystemEntity.isLink(link), isTrue);
       expect(await _sameDir(await Link(link).target(), target), isTrue);
@@ -57,7 +62,7 @@ void main() {
       await File(p.join(other, 'php.exe')).create(recursive: true);
       final project = await Directory(p.join(temp.path, 'project')).create();
       final link = p.join(project.path, '.pvm');
-      final manager = WindowsOSManager();
+      final manager = _manager();
 
       await manager.createSymLink('8.3.14', target, link);
       await manager.createSymLink('8.2.0', other, link);
@@ -69,8 +74,10 @@ void main() {
     test('falls back to a symlink when a junction cannot be made', () async {
       final project = await Directory(p.join(temp.path, 'project')).create();
       final link = p.join(project.path, '.pvm');
-      final manager = WindowsOSManager(
-        createJunction: (_, _) async => throw Exception('not on NTFS'),
+      final manager = _manager(
+        JunctionLinkManager(
+          createJunction: (_, _) async => throw Exception('not on NTFS'),
+        ),
       );
 
       try {

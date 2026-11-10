@@ -114,5 +114,38 @@ void main() {
         equals(['composer.bat', 'composer.cmd', 'composer.phar']),
       );
     });
-  });
+  }, testOn: 'windows');
+
+  group('ComposerLocator (Unix)', () {
+    late FakeOSManager osManager;
+    late ComposerLocator locator;
+
+    setUp(() {
+      osManager = FakeOSManager();
+      locator = ComposerLocator(
+        platformConstants: PlatformConstants(LinuxPlatformInfo()),
+        osManager: osManager,
+      );
+    });
+
+    test('finds composer in PATH order', () async {
+      osManager.setFileExists('/usr/local/bin/composer', true);
+      osManager.setFileExists('/usr/bin/composer.phar', true);
+
+      final result = await locator.findComposer({
+        'PATH': '/opt/none:/usr/local/bin:/usr/bin',
+      });
+
+      expect(result, '/usr/local/bin/composer');
+    });
+
+    test('S5: ignores empty and relative PATH segments', () async {
+      osManager.setFileExists('composer', true);
+      osManager.setFileExists('bin/composer', true);
+
+      final result = await locator.findComposer({'PATH': ':bin:.:/nope:'});
+
+      expect(result, isNull);
+    });
+  }, testOn: '!windows');
 }

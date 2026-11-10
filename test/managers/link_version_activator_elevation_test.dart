@@ -4,7 +4,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/constants.dart';
 import 'package:pvm/src/core/elevating_os_manager.dart';
 import 'package:pvm/src/interfaces/i_privilege_escalator.dart';
-import 'package:pvm/src/managers/windows_version_activator.dart';
+import 'package:pvm/src/managers/link_version_activator.dart';
 import 'package:pvm/src/services/privilege_escalation_service.dart';
 
 import '../mocks/mock_console.dart';
@@ -41,7 +41,7 @@ class _RecordingEscalator implements IPrivilegeEscalator {
 }
 
 void main() {
-  group('WindowsVersionActivator elevation', () {
+  group('LinkVersionActivator elevation', () {
     late _FailOnceSymlinkMock osManager;
     late MockConsole console;
     late _RecordingEscalator escalator;
@@ -59,7 +59,7 @@ void main() {
         osManager,
         PrivilegeEscalationService(console, escalator),
       );
-      final activator = WindowsVersionActivator(
+      final activator = LinkVersionActivator(
         osManager: elevating,
         versionsPath: r'C:\pvm\versions',
         homeDirectory: r'C:\Users\sam',

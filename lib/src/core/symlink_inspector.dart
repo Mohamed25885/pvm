@@ -63,6 +63,9 @@ class SymLinkInspector {
 
   SymLinkInspector(this._osManager);
 
+  /// The OS layer this inspector reads links through.
+  IOSManager get osManager => _osManager;
+
   /// Inspect the slot at [linkPath] and classify it.
   ///
   /// [versionsRoot] is the root under which valid version directories live

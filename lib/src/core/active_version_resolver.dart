@@ -34,13 +34,13 @@ class ActiveVersionResolver {
   ActiveVersionResolver(this._inspector);
 
   /// Resolve the effective version for [projectRoot] (defaults to walking
-  /// up from CWD via [Project.findFromCurrentDirectory] when null).
+  /// up from the current directory via [Project.locate] when null).
   Future<ActiveVersion> resolve({String? projectRoot}) async {
     final globalInfo = await _inspector.inspectGlobal();
 
     final root =
         projectRoot ??
-        (await Project.findFromCurrentDirectory()).rootDirectory.path;
+        (await Project.locate(_inspector.osManager)).rootDirectory.path;
     final localInfo = await _inspector.inspectLocal(root);
 
     // Local overrides global when local is OK.

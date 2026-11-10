@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
 
+### Changed
+- **One code path for every OS (roadmap Phase 2).**
+  - `PhpLayout` decides where `php` lives in a version directory (`php.exe` at the root on Windows, `bin/php` on Unix).
+  - Every OS uses the same link model, `.pvm` → `versions/<v>`, through a single `LinkVersionActivator`.
+  - `ILinkManager` creates the links: junctions on Windows, symlinks on Linux/macOS.
+  - One `IoOSManager` replaces the three per-OS managers.
+  - `Project.locate` takes the working and home directories from the OS layer.
+  - A single composition root (`lib/src/app.dart`: `PvmDependencies`, `buildRunner`, `runPvm`) picks the platform implementations from `PlatformInfo`, and tests can build the real runner. The `get_it` dependency is removed.
+  - The installer is split into a release source (`IReleaseSource`; `WindowsReleaseSource` finds the build) and a shared, transactional `ArtifactInstaller` (download, verify, extract, stage, commit, driven by `PhpLayout`), so Phase 3's Linux/macOS builds reuse the same pipeline.
+  - CI runs the unit tests on Windows, Linux and macOS.
+- `pvm doctor`'s link-probe hint no longer tells Windows users to enable Developer Mode, because links are junctions, which don't need it.
+- On Linux/macOS the versions folder now follows the same rules as on Windows: `PVM_VERSIONS_HOME`, else `<PVM_HOME or program dir>/versions`. The old guess at `~/.pvm/versions` is gone; Phase 5.2 will define the Unix default homes. `pvm use` on Linux/macOS also checks that the version directory exists, like on Windows.
+- **Upgrading on Linux/macOS:** earlier versions made `.pvm/` (in a project) and `~/.pvm/` real directories holding a `php` link. PVM never deletes a real directory, so `pvm use` / `pvm global` stop with "slot occupied" until you remove that old `.pvm/` directory yourself.
+- With no home directory set (`HOME` / `USERPROFILE`, e.g. in cron), PVM now exits with a clear error (code 6) instead of a stack trace.
+
+### Fixed
+- **On Linux/macOS, `current`, `doctor`, `exec` and `uninstall` reported a corrupt link** after `pvm use`, because Unix used a different link layout (B16).
+
 ## [2.1.0](https://github.com/Mohamed25885/pvm/compare/v2.0.0...v2.1.0) - 2026-11-05
 
 ### Added

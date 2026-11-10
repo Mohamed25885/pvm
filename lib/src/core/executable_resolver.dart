@@ -35,10 +35,10 @@ class ExecutableResolver implements IExecutableResolver {
 
   @override
   Future<String> resolvePhpExecutable(String projectPath) async {
-    final phpExe = p.join(
-      projectPath,
-      PvmConstants.pvmDirName,
-      _platformConstants.phpExecutableName,
+    // `.pvm` links to a version directory on every platform; the layout
+    // knows whether PHP is at its root (Windows) or under bin/ (Unix).
+    final phpExe = _platformConstants.phpLayout.phpExecutable(
+      p.join(projectPath, PvmConstants.pvmDirName),
     );
 
     if (!(await _osManager.fileExists(phpExe))) {

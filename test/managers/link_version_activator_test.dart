@@ -4,12 +4,12 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'package:pvm/src/core/constants.dart';
-import 'package:pvm/src/managers/windows_version_activator.dart';
+import 'package:pvm/src/managers/link_version_activator.dart';
 
 import '../mocks/mock_os_manager.dart';
 
 void main() {
-  group('WindowsVersionActivator', () {
+  group('LinkVersionActivator', () {
     late MockOSManager osManager;
 
     setUp(() {
@@ -21,7 +21,7 @@ void main() {
       test(
         'creates symlink at <home>/.pvm pointing to versionsPath/<version>',
         () async {
-          final activator = WindowsVersionActivator(
+          final activator = LinkVersionActivator(
             osManager: osManager,
             versionsPath: r'C:\pvm\versions',
             homeDirectory: r'C:\Users\sam',
@@ -41,7 +41,7 @@ void main() {
       );
 
       test('forwards version string verbatim (does not mutate)', () async {
-        final activator = WindowsVersionActivator(
+        final activator = LinkVersionActivator(
           osManager: osManager,
           versionsPath: r'C:\pvm\versions',
           homeDirectory: r'C:\Users\sam',
@@ -56,7 +56,7 @@ void main() {
         osManager.shouldThrowOnSymlink = true;
         osManager.symlinkErrorMessage = 'Permission denied';
 
-        final activator = WindowsVersionActivator(
+        final activator = LinkVersionActivator(
           osManager: osManager,
           versionsPath: r'C:\pvm\versions',
           homeDirectory: r'C:\Users\sam',
@@ -98,7 +98,7 @@ void main() {
 
           osManager.mockCurrentDirectory = tempDir.path;
 
-          final activator = WindowsVersionActivator(
+          final activator = LinkVersionActivator(
             osManager: osManager,
             versionsPath: r'C:\pvm\versions',
             homeDirectory: r'C:\Users\sam',
@@ -126,7 +126,7 @@ void main() {
         await nested.create(recursive: true);
         osManager.mockCurrentDirectory = nested.path;
 
-        final activator = WindowsVersionActivator(
+        final activator = LinkVersionActivator(
           osManager: osManager,
           versionsPath: r'C:\pvm\versions',
           homeDirectory: r'C:\Users\sam',
@@ -141,7 +141,7 @@ void main() {
       test('falls back to current directory when no .pvmrc found', () async {
         osManager.mockCurrentDirectory = tempDir.path;
 
-        final activator = WindowsVersionActivator(
+        final activator = LinkVersionActivator(
           osManager: osManager,
           versionsPath: r'C:\pvm\versions',
           homeDirectory: r'C:\Users\sam',

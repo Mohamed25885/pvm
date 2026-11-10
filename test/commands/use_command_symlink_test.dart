@@ -8,6 +8,7 @@ import 'package:pvm/src/commands/use_command.dart';
 import 'package:pvm/src/core/exit_codes.dart';
 import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/interfaces/i_version_activator.dart';
+import '../support/host_paths.dart';
 
 Future<int> _runUseCommand({
   required MockOSManager osManager,
@@ -42,7 +43,7 @@ void main() {
       'a) pvm use with no args and no .pvmrc file: exit code 1, no .pvm symlink created',
       () async {
         final osManager = MockOSManager();
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         final console = MockConsole();
         final phpVer = FakePhpVersionManager(console);
         final gitIgnore = FakeGitIgnoreService(osManager, console);
@@ -72,11 +73,11 @@ void main() {
       () async {
         final osManager = MockOSManager();
         osManager.mockVersions = ['8.0', '8.2'];
-        osManager.mockProgramDir = r'C:\pvm';
-        osManager.mockLocalPath = r'C:\project\.pvm';
+        osManager.mockProgramDir = hostPath(r'C:\pvm');
+        osManager.mockLocalPath = hostPath(r'C:\project\.pvm');
         osManager.symlinkSourceExistsOverride =
             true; // Simulate version dir exists
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         final console = MockConsole();
 
         final phpVer = FakePhpVersionManager(console);
@@ -104,7 +105,7 @@ void main() {
         // .pvmrc should be written
         expect(phpVer.writeVersion, equals('8.2'));
         // Root comes from the OS manager's cwd, same as the activator.
-        expect(phpVer.writeRootPath, equals(r'C:\project'));
+        expect(phpVer.writeRootPath, equals(hostPath(r'C:\project')));
       },
     );
 
@@ -113,11 +114,11 @@ void main() {
       () async {
         final osManager = MockOSManager();
         osManager.mockVersions = ['8.0', '8.2'];
-        osManager.mockProgramDir = r'C:\pvm';
-        osManager.mockLocalPath = r'C:\project\.pvm';
+        osManager.mockProgramDir = hostPath(r'C:\pvm');
+        osManager.mockLocalPath = hostPath(r'C:\project\.pvm');
         osManager.symlinkSourceExistsOverride =
             true; // Simulate version dir exists
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         final console = MockConsole();
 
         final phpVer = FakePhpVersionManager(console);
@@ -153,11 +154,11 @@ void main() {
       () async {
         final osManager = MockOSManager();
         osManager.mockVersions = ['8.0', '8.2'];
-        osManager.mockProgramDir = r'C:\pvm';
-        osManager.mockLocalPath = r'C:\project\.pvm';
+        osManager.mockProgramDir = hostPath(r'C:\pvm');
+        osManager.mockLocalPath = hostPath(r'C:\project\.pvm');
         osManager.symlinkSourceExistsOverride =
             false; // Simulate version dir missing
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         final console = MockConsole();
 
         final phpVer = FakePhpVersionManager(console);
@@ -191,10 +192,10 @@ void main() {
       () async {
         final osManager = MockOSManager();
         osManager.mockVersions = ['8.0', '8.2'];
-        osManager.mockProgramDir = r'C:\pvm';
-        osManager.mockLocalPath = r'C:\project\.pvm';
+        osManager.mockProgramDir = hostPath(r'C:\pvm');
+        osManager.mockLocalPath = hostPath(r'C:\project\.pvm');
         osManager.symlinkSourceExistsOverride = true;
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         final console = MockConsole();
 
         final phpVer = FakePhpVersionManager(console);

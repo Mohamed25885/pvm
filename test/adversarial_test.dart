@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'dart:io';
 
 import 'package:test/test.dart';
@@ -249,8 +250,8 @@ void main() {
 
     test('php command with path containing spaces', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm adv spaces-');
-      await Directory('${tempDir.path}\\.pvm').create();
-      await File('${tempDir.path}\\.pvm\\php.exe').create();
+      await Directory(p.join(tempDir.path, '.pvm')).create();
+      await File(p.join(tempDir.path, '.pvm', 'php.exe')).create();
 
       await _cleanupPhpVersionInParents(tempDir);
 
@@ -270,7 +271,7 @@ void main() {
       expect(exitCode, equals(37));
       expect(
         processManager.lastInteractiveSpec?.executable,
-        equals('${tempDir.path}\\.pvm\\php.exe'),
+        equals(p.join(tempDir.path, '.pvm', 'php.exe')),
       );
       expect(
         processManager.lastInteractiveSpec?.arguments,
@@ -282,8 +283,8 @@ void main() {
 
     test('php command with very long argument', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm adv long-');
-      await Directory('${tempDir.path}\\.pvm').create();
-      await File('${tempDir.path}\\.pvm\\php.exe').create();
+      await Directory(p.join(tempDir.path, '.pvm')).create();
+      await File(p.join(tempDir.path, '.pvm', 'php.exe')).create();
 
       await _cleanupPhpVersionInParents(tempDir);
 
@@ -303,7 +304,7 @@ void main() {
       expect(exitCode, equals(ExitCode.success));
       expect(
         processManager.lastInteractiveSpec?.executable,
-        equals('${tempDir.path}\\.pvm\\php.exe'),
+        equals(p.join(tempDir.path, '.pvm', 'php.exe')),
       );
       expect(processManager.lastInteractiveSpec?.arguments, hasLength(1));
       expect(processManager.lastInteractiveSpec?.arguments.first, longArg);
@@ -629,7 +630,7 @@ void main() {
 /// Walk up from [dir] and delete any .pvmrc files found.
 Future<void> _cleanupPhpVersionInParents(Directory dir) async {
   while (true) {
-    final pvmrc = File('${dir.path}\\.pvmrc');
+    final pvmrc = File(p.join(dir.path, '.pvmrc'));
     if (await pvmrc.exists()) {
       await pvmrc.delete();
     }

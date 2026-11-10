@@ -1,14 +1,24 @@
-import '../core/php_version_candidate.dart';
+import '../domain/php_release.dart';
+import '../domain/php_version.dart';
 
-/// Release source interface for fetching available PHP versions across platforms.
+/// Where PHP builds come from (roadmap 2.6): turns a requested version into
+/// the one concrete, downloadable build to install.
 ///
-/// - Windows: fetches from PHP windows.php.net API
-/// - Linux: queries apt-cache
-/// - Mac: queries brew
-abstract class IReleaseSource {
-  /// Human-readable platform name (e.g., "Windows", "Linux (apt)", "macOS (brew)")
-  String get platformName;
+/// Windows: windows.php.net `releases.json`, then the archive for older
+/// patches. Phase 3 adds static builds for Linux/macOS.
+abstract interface class IReleaseSource {
+  /// Human-readable name for messages (e.g. `windows.php.net`).
+  String get name;
 
-  /// Fetch available PHP versions for this platform.
-  Future<List<PhpVersionCandidate>> fetchReleases();
+  /// The best build matching [version] (newest patch when [version] has
+  /// none).
+  ///
+  /// Throws `NoMatchingReleaseException` when nothing matches and
+  /// `ReleaseFetcherException` when the source cannot be reached, so a
+  /// network error is never reported as "no such version".
+  Future<PhpRelease> resolve(
+    PhpVersion version, {
+    required Architecture architecture,
+    required BuildType buildType,
+  });
 }

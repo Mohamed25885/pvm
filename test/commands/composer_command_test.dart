@@ -9,6 +9,7 @@ import '../helpers.dart';
 import '../services/fake_os_manager.dart';
 import '../services/fake_process_manager.dart';
 import 'package:pvm/src/services/php_executor.dart';
+import '../support/host_paths.dart';
 
 void main() {
   group('ComposerCommand', () {
@@ -40,8 +41,8 @@ void main() {
 
     group('run()', () {
       test('error when local .pvm directory missing', () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', false);
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), false);
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
 
         final exitCode = await runner.run(['composer']);
 
@@ -50,8 +51,8 @@ void main() {
       });
 
       test('error when Composer not found in PATH', () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', true);
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), true);
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         // PATH empty => not found
         osManager.environment = {'PATH': ''};
 
@@ -62,26 +63,31 @@ void main() {
       });
 
       test('success: finds Composer in PATH and forwards args', () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', true);
-        osManager.mockCurrentDirectory = r'C:\project';
+        osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), true);
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
         // Simulate composer.phar in C:\usr\local\bin
-        osManager.fileExistsMap[r'C:\usr\local\bin\composer.phar'] = true;
-        osManager.environment = {'PATH': r'C:\usr\local\bin'};
+        osManager.fileExistsMap[hostPath(r'C:\usr\local\bin\composer.phar')] =
+            true;
+        osManager.environment = {'PATH': hostPath(r'C:\usr\local\bin')};
         phpExecutor.mockExitCode = 0;
 
         final exitCode = await runner.run(['composer']);
 
         expect(exitCode, equals(0));
-        expect(phpExecutor.lastScriptPath, r'C:\usr\local\bin\composer.phar');
+        expect(
+          phpExecutor.lastScriptPath,
+          hostPath(r'C:\usr\local\bin\composer.phar'),
+        );
         expect(phpExecutor.lastArgs, []); // no extra args
-        expect(phpExecutor.lastWorkingDirectory, r'C:\project');
+        expect(phpExecutor.lastWorkingDirectory, hostPath(r'C:\project'));
       });
 
       test('forwards arguments unchanged', () async {
-        osManager.setDirectoryExists(r'C:\project\.pvm', true);
-        osManager.mockCurrentDirectory = r'C:\project';
-        osManager.fileExistsMap[r'C:\usr\local\bin\composer.phar'] = true;
-        osManager.environment = {'PATH': r'C:\usr\local\bin'};
+        osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), true);
+        osManager.mockCurrentDirectory = hostPath(r'C:\project');
+        osManager.fileExistsMap[hostPath(r'C:\usr\local\bin\composer.phar')] =
+            true;
+        osManager.environment = {'PATH': hostPath(r'C:\usr\local\bin')};
 
         await runner.run(['composer', 'install', '--no-dev', '-vvv']);
 
@@ -91,16 +97,20 @@ void main() {
       test(
         'batch file resolution: finds composer.phar in same dir',
         () async {
-          osManager.setDirectoryExists(r'C:\project\.pvm', true);
-          osManager.mockCurrentDirectory = r'C:\project';
+          osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), true);
+          osManager.mockCurrentDirectory = hostPath(r'C:\project');
           // Simulate composer.bat in C:\Composer
-          osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
-          osManager.fileExistsMap[r'C:\Composer\composer.phar'] = true;
-          osManager.environment = {'PATH': r'C:\Composer'};
+          osManager.fileExistsMap[hostPath(r'C:\Composer\composer.bat')] = true;
+          osManager.fileExistsMap[hostPath(r'C:\Composer\composer.phar')] =
+              true;
+          osManager.environment = {'PATH': hostPath(r'C:\Composer')};
 
           await runner.run(['composer', 'update']);
 
-          expect(phpExecutor.lastScriptPath, r'C:\Composer\composer.phar');
+          expect(
+            phpExecutor.lastScriptPath,
+            hostPath(r'C:\Composer\composer.phar'),
+          );
         },
         skip: !Platform.isWindows,
       );
@@ -108,18 +118,18 @@ void main() {
       test(
         'batch file without .phar is skipped (treated as not found)',
         () async {
-          osManager.setDirectoryExists(r'C:\project\.pvm', true);
-          osManager.mockCurrentDirectory = r'C:\project';
-          osManager.fileExistsMap[r'C:\Composer\composer.bat'] = true;
+          osManager.setDirectoryExists(hostPath(r'C:\project\.pvm'), true);
+          osManager.mockCurrentDirectory = hostPath(r'C:\project');
+          osManager.fileExistsMap[hostPath(r'C:\Composer\composer.bat')] = true;
           // NO composer.phar in same dir
-          osManager.environment = {'PATH': r'C:\Composer'};
+          osManager.environment = {'PATH': hostPath(r'C:\Composer')};
 
           final exitCode = await runner.run(['composer', 'update']);
 
           expect(exitCode, equals(0));
           expect(
             phpExecutor.lastScriptPath,
-            equals(r'C:\Composer\composer.bat'),
+            equals(hostPath(r'C:\Composer\composer.bat')),
           );
         },
         skip: !Platform.isWindows,

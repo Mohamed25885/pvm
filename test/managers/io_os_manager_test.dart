@@ -2,14 +2,19 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
-import 'package:pvm/src/managers/windows_os_manager.dart';
+import 'package:pvm/src/core/link_manager.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/managers/io_os_manager.dart';
 
 void main() {
-  group('WindowsOSManager', () {
-    late WindowsOSManager manager;
+  group('IoOSManager on Windows', () {
+    late IoOSManager manager;
 
     setUp(() {
-      manager = WindowsOSManager();
+      manager = IoOSManager(
+        platformInfo: WindowsPlatformInfo(),
+        linkManager: const JunctionLinkManager(),
+      );
     });
 
     test('getHomeDirectory returns valid path', () async {

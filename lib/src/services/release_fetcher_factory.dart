@@ -1,13 +1,18 @@
-import 'package:pvm/src/core/platform_detector.dart';
-
+import '../core/platform_info.dart';
 import 'release_fetcher.dart';
 import 'windows_release_fetcher.dart';
 import 'linux_release_fetcher.dart';
 import 'macos_release_fetcher.dart';
 
-IReleaseFetcher createReleaseFetcher() {
-  if (PlatformDetector.isWindows) return WindowsReleaseFetcher();
-  if (PlatformDetector.isLinux) return LinuxReleaseFetcher();
-  if (PlatformDetector.isMacOS) return MacosReleaseFetcher();
-  throw const ReleaseFetcherException('Unsupported platform');
+IReleaseFetcher createReleaseFetcher([PlatformInfo? platform]) {
+  switch ((platform ?? createPlatformInfo()).osType) {
+    case 'windows':
+      return WindowsReleaseFetcher();
+    case 'linux':
+      return LinuxReleaseFetcher();
+    case 'macos':
+      return MacosReleaseFetcher();
+    default:
+      throw const ReleaseFetcherException('Unsupported platform');
+  }
 }

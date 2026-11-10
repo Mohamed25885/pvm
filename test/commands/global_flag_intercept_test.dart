@@ -1,3 +1,4 @@
+import 'package:path/path.dart' as p;
 import 'dart:async';
 import 'dart:io';
 
@@ -64,9 +65,9 @@ void main() {
       () async {
         // Setup: create a project directory with .pvmrc and .pvm/php.exe
         final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
-        await File('${tempDir.path}\\.pvmrc').writeAsString('8.2\n');
-        await Directory('${tempDir.path}\\.pvm').create();
-        await File('${tempDir.path}\\.pvm\\php.exe').create();
+        await File(p.join(tempDir.path, '.pvmrc')).writeAsString('8.2\n');
+        await Directory(p.join(tempDir.path, '.pvm')).create();
+        await File(p.join(tempDir.path, '.pvm', 'php.exe')).create();
 
         osManager.mockCurrentDirectory = tempDir.path;
 
@@ -94,7 +95,7 @@ void main() {
         expect(processManager.runInteractiveCallCount, equals(1));
         expect(
           processManager.lastInteractiveSpec?.executable,
-          endsWith(r'\.pvm\php.exe'),
+          endsWith(p.join('.pvm', 'php.exe')),
         );
         expect(
           processManager.lastInteractiveSpec?.arguments,
@@ -108,9 +109,9 @@ void main() {
 
     test('pvm php --help delegates to PhpCommand help', () async {
       final tempDir = await Directory.systemTemp.createTemp('pvm-php-test-');
-      await File('${tempDir.path}\\.pvmrc').writeAsString('8.2\n');
-      await Directory('${tempDir.path}\\.pvm').create();
-      await File('${tempDir.path}\\.pvm\\php.exe').create();
+      await File(p.join(tempDir.path, '.pvmrc')).writeAsString('8.2\n');
+      await Directory(p.join(tempDir.path, '.pvm')).create();
+      await File(p.join(tempDir.path, '.pvm', 'php.exe')).create();
 
       osManager.mockCurrentDirectory = tempDir.path;
 
@@ -134,7 +135,7 @@ void main() {
       expect(processManager.runInteractiveCallCount, equals(1));
       expect(
         processManager.lastInteractiveSpec?.executable,
-        endsWith(r'\.pvm\php.exe'),
+        endsWith(p.join('.pvm', 'php.exe')),
       );
       expect(
         processManager.lastInteractiveSpec?.arguments,

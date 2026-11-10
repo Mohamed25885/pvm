@@ -4,9 +4,11 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import '../../lib/src/core/os_manager.dart';
+import '../../lib/src/core/platform_info.dart';
 import '../../lib/src/core/process_manager.dart';
 import '../../lib/src/core/executable_resolver.dart';
 import '../../lib/src/services/php_executor.dart';
+import '../support/host_paths.dart';
 
 class TestExecutableResolver implements IExecutableResolver {
   @override
@@ -99,9 +101,7 @@ class FakeOSManager implements IOSManager {
   }
 
   @override
-  String getHomeDirectory() {
-    throw UnimplementedError();
-  }
+  String getHomeDirectory() => '/fake/home';
 
   void setFileExists(String path, bool exists) {
     fileExistsMap[path] = exists;
@@ -125,7 +125,7 @@ class FakeOSManager implements IOSManager {
 }
 
 String getPhpExe(String rootPath) {
-  return '$rootPath\\.pvm\\php.exe';
+  return p.join(rootPath, '.pvm', 'php.exe');
 }
 
 void main() {
@@ -305,7 +305,7 @@ void main() {
         () async {
           final root = '/some/dir';
           // No file registered for root/.pvm/php.exe, resolver would throw.
-          const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
+          final overridePath = hostPath(r'C:\pvm\versions\8.3.0\php.exe');
 
           final exitCode = await executor.runPhp(
             ['-v'],
@@ -321,7 +321,7 @@ void main() {
       test('runScript uses provided phpExecutable verbatim and bypasses '
           'resolver', () async {
         final root = '/some/dir';
-        const overridePath = r'C:\pvm\versions\8.2.10\php.exe';
+        final overridePath = hostPath(r'C:\pvm\versions\8.2.10\php.exe');
 
         final exitCode = await executor.runScript(
           'tool.php',
@@ -340,8 +340,11 @@ void main() {
 
       test('runPhp forwards custom environment to ProcessSpec', () async {
         final root = '/another';
-        const overridePath = r'C:\pvm\versions\8.3.0\php.exe';
-        final env = {'PATH': r'C:\pvm\versions\8.3.0', 'CUSTOM': 'yes'};
+        final overridePath = hostPath(r'C:\pvm\versions\8.3.0\php.exe');
+        final env = {
+          'PATH': hostPath(r'C:\pvm\versions\8.3.0'),
+          'CUSTOM': 'yes',
+        };
 
         await executor.runPhp(
           ['-v'],
@@ -351,7 +354,10 @@ void main() {
         );
 
         final spec = processManager.lastSpec!;
-        expect(spec.environment?['PATH'], equals(r'C:\pvm\versions\8.3.0'));
+        expect(
+          spec.environment?['PATH'],
+          equals(hostPath(r'C:\pvm\versions\8.3.0')),
+        );
         expect(spec.environment?['CUSTOM'], equals('yes'));
       });
 
@@ -367,6 +373,38 @@ void main() {
           expect(processManager.lastSpec!.executable, equals(phpExe));
         },
       );
+    });
+
+    group('PATH follows the injected platform, not the host (2.8)', () {
+      Future<Map<String, String>> envFor(PlatformInfo platform) async {
+        final exec = PhpExecutor(
+          processManager: processManager,
+          osManager: osManager,
+          executableResolver: exeResolver,
+          platformInfo: platform,
+        );
+        await exec.runPhp(
+          ['-v'],
+          workingDirectory: '/proj',
+          phpExecutable: p.join('/pvm', 'v', 'bin', 'php'),
+          environment: {'Path': 'base'},
+        );
+        return processManager.lastSpec!.environment!;
+      }
+
+      test('Unix joins with ":" and keeps keys case-sensitive', () async {
+        final env = await envFor(LinuxPlatformInfo());
+
+        expect(env['PATH'], p.join('/pvm', 'v', 'bin'));
+        expect(env['Path'], 'base');
+      });
+
+      test('Windows joins with ";" into the existing Path key', () async {
+        final env = await envFor(WindowsPlatformInfo());
+
+        expect(env['Path'], '${p.join('/pvm', 'v', 'bin')};base');
+        expect(env.containsKey('PATH'), isFalse);
+      });
     });
   });
 }
