@@ -89,4 +89,12 @@ void main() {
     final r = (await InstallRecord.readFrom(dir.path))!;
     expect(r.extensionDir, p.join(dir.path, 'ext'));
   });
+
+  test('readFrom treats an empty v2 extensionDir as <slot>/ext', () async {
+    final dir = await Directory.systemTemp.createTemp('pvm-rec-');
+    addTearDown(() => dir.delete(recursive: true));
+    await sampleRecord().copyWith(extensionDir: '').writeTo(dir.path);
+    final r = (await InstallRecord.readFrom(dir.path))!;
+    expect(r.extensionDir, p.join(dir.path, 'ext'));
+  });
 }

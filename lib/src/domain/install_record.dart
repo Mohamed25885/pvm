@@ -186,7 +186,10 @@ class InstallRecord {
     apiNo: json['apiNo'] as String? ?? '',
     phpConfig: json['phpConfig'] as String?,
     prefix: json['prefix'] as String?,
-    extensionDir: json['extensionDir'] as String? ?? defaultExtensionDir,
+    extensionDir: switch (json['extensionDir']) {
+      final String d when d.isNotEmpty => d,
+      _ => defaultExtensionDir,
+    },
     writable: json['writable'] as bool? ?? true,
     vsVersion: json['vsVersion'] as String?,
     extensions: (json['extensions'] as List<dynamic>? ?? const [])
