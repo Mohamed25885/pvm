@@ -8,6 +8,9 @@ class FakeProcessManager implements IProcessManager {
   int mockExitCode = 0;
   bool shouldThrow = false;
 
+  /// Results for [runCaptured], keyed by executable.
+  final Map<String, CapturedProcessResult> capturedResults = {};
+
   @override
   Future<int> runInteractive(ProcessSpec spec) async {
     capturedSpecs.add(spec);
@@ -20,7 +23,12 @@ class FakeProcessManager implements IProcessManager {
 
   @override
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
-    throw UnimplementedError('runCaptured not needed for these tests');
+    capturedSpecs.add(spec);
+    final result = capturedResults[spec.executable];
+    if (result == null) {
+      throw UnimplementedError('no captured result for ${spec.executable}');
+    }
+    return result;
   }
 
   @override
