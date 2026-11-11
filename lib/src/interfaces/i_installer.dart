@@ -105,6 +105,24 @@ class SlotInUseException implements Exception {
       'files). Stop it, then run: pvm update $slot';
 }
 
+/// Thrown when the swap failed after the old slot was moved to [backup] and
+/// moving it back failed too: the slot is gone until the user renames it.
+class SlotRestoreException implements Exception {
+  final String slot;
+  final String backup;
+  final String target;
+
+  /// The error that failed the swap.
+  final Object cause;
+
+  const SlotRestoreException(this.slot, this.backup, this.target, this.cause);
+
+  @override
+  String toString() =>
+      'PHP $slot was moved to $backup and could not be put back; '
+      'rename it to $target yourself';
+}
+
 /// Installer interface for PHP installation across platforms.
 ///
 /// Windows: windows.php.net ZIPs. Linux/macOS: static-php.dev builds.

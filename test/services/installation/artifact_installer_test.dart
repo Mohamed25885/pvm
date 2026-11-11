@@ -242,6 +242,54 @@ void main() {
       ]);
     });
 
+    test('a backup that cannot be put back is named exactly', () async {
+      File(p.join(versions, '8.4', 'bin', 'php'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1]);
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [2]),
+      ]);
+      final slot = p.join(versions, '8.4');
+      final backup = '$slot.old-$pid';
+      final stuck = ArtifactInstaller(
+        versionsPath: versions,
+        layout: PhpLayout.unix,
+        platform: _host,
+        allowedHosts: const ['example.org'],
+        console: MockConsole(),
+        client: MockClient((_) async => http.Response.bytes(tgz, 200)),
+        retryDelay: Duration.zero,
+        // Moving the slot aside works; moving anything into it fails.
+        renameDir: (dir, to) async => p.equals(to, slot)
+            ? throw FileSystemException('denied', dir.path)
+            : dir.rename(to),
+      );
+
+      await expectLater(
+        stuck.install(
+          _release(
+            '8.4.27',
+            url: 'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz',
+            sha: crypto.sha256.convert(tgz).toString(),
+          ),
+          '8.4.27',
+          kind: SlotKind.static,
+          allowUnverified: false,
+        ),
+        throwsA(
+          isA<SlotRestoreException>()
+              .having(
+                (e) => '$e',
+                'message',
+                'PHP 8.4 was moved to ${p.absolute(backup)} and could not be '
+                    'put back; rename it to ${p.absolute(slot)} yourself',
+              )
+              .having((e) => e.cause, 'cause', isA<FileSystemException>()),
+        ),
+      );
+      expect(File(p.join(backup, 'bin', 'php')).readAsBytesSync(), [1]);
+    });
+
     test('records the slot kind it was given', () async {
       await installTarGz(
         _tarGz([

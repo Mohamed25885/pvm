@@ -272,8 +272,19 @@ class ArtifactInstaller {
     }
     try {
       await _rename(staging, target.path);
-    } catch (_) {
-      if (backup != null) await _rename(backup, target.path);
+    } catch (e) {
+      if (backup != null) {
+        try {
+          await _rename(backup, target.path);
+        } catch (_) {
+          throw SlotRestoreException(
+            p.basename(target.path),
+            p.absolute(backup.path),
+            p.absolute(target.path),
+            e,
+          );
+        }
+      }
       rethrow;
     }
     if (backup != null) await _deleteQuietly(backup);
