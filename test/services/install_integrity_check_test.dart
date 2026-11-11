@@ -14,7 +14,8 @@ void main() {
   late MockOSManager os;
 
   Future<String> install(String version, {bool verified = true}) async {
-    final dir = p.join(temp.path, 'versions', version);
+    final slot = version.substring(0, version.lastIndexOf('.'));
+    final dir = p.join(temp.path, 'versions', slot);
     await File(p.join(dir, 'php.exe')).create(recursive: true);
     await File(p.join(dir, 'php.exe')).writeAsBytes([1, 2, 3]);
     await InstallRecord(
@@ -39,7 +40,7 @@ void main() {
 
   test('intact verified installs are ok', () async {
     await install('8.3.14');
-    os.mockVersions = ['8.3.14'];
+    os.mockVersions = ['8.3'];
 
     final r = await InstallIntegrityCheck(os).run();
 
@@ -50,7 +51,7 @@ void main() {
   test('a changed php.exe fails and names the file', () async {
     final dir = await install('8.3.14');
     await File(p.join(dir, 'php.exe')).writeAsBytes([6, 6, 6]);
-    os.mockVersions = ['8.3.14'];
+    os.mockVersions = ['8.3'];
 
     final r = await InstallIntegrityCheck(os).run();
 
@@ -61,10 +62,10 @@ void main() {
 
   test('unverified source and missing record are warnings', () async {
     await install('8.2.0', verified: false);
-    final legacy = p.join(temp.path, 'versions', '8.1.0');
+    final legacy = p.join(temp.path, 'versions', '8.1');
     await File(p.join(legacy, 'php.exe')).create(recursive: true);
     os.setDirectoryExistsResult(legacy, true);
-    os.mockVersions = ['8.2.0', '8.1.0'];
+    os.mockVersions = ['8.2', '8.1'];
 
     final r = await InstallIntegrityCheck(os).run();
 

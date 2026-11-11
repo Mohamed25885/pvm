@@ -35,17 +35,17 @@ void main() {
       return await runner.run(['global', ...args]) ?? 1;
     }
 
-    test('major.minor resolves when exactly one matching version', () async {
-      osManager.mockVersions = ['8.4.1', '8.3.0'];
+    test('major.minor activates its slot', () async {
+      osManager.mockVersions = ['8.4', '8.3'];
       osManager.setDirectoryExistsResult(
-        p.join(r'C:\pvm\versions', '8.4.1'),
+        p.join(r'C:\pvm\versions', '8.4'),
         true,
       );
 
       final code = await run(['8.4']);
 
       expect(code, ExitCode.success);
-      expect(activator.activateGlobalVersion, '8.4.1');
+      expect(activator.activateGlobalVersion, '8.4');
     });
 
     test('major.minor fails when multiple patches installed', () async {
@@ -56,11 +56,17 @@ void main() {
       expect(console.errors.last, contains('ambiguous'));
     });
 
-    test('exact patch version activates', () async {
+    test('a full patch activates its minor slot', () async {
+      osManager.mockVersions = ['8.4', '8.3'];
+      osManager.setDirectoryExistsResult(
+        p.join(r'C:\pvm\versions', '8.4'),
+        true,
+      );
+
       final code = await run(['8.4.1']);
 
       expect(code, ExitCode.success);
-      expect(activator.activateGlobalVersion, '8.4.1');
+      expect(activator.activateGlobalVersion, '8.4');
     });
   });
 }

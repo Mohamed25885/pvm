@@ -106,14 +106,33 @@ void main() {
       final h = _Harness();
       await h.initProject();
       try {
-        h.osManager.symlinkTargets[h.globalLink] = h.versionDir('9.9.9');
-        h.osManager.setDirectoryExistsResult(h.versionDir('9.9.9'), false);
+        h.osManager.symlinkTargets[h.globalLink] = h.versionDir('9.9');
+        h.osManager.setDirectoryExistsResult(h.versionDir('9.9'), false);
 
         final code = await h.run([]);
 
         expect(code, equals(ExitCode.configurationError));
         final out = h.console.printed.join('\n');
         expect(out, contains('BROKEN'));
+      } finally {
+        await h.cleanup();
+      }
+    });
+
+    test('a stale local .pvm pointing at versions/8.2.28 is reported as stale '
+        'with hint "pvm use 8.2"', () async {
+      final h = _Harness();
+      await h.initProject();
+      try {
+        h.osManager.symlinkTargets[h.localLink] = h.versionDir('8.2.28');
+        h.osManager.setDirectoryExistsResult(h.versionDir('8.2.28'), false);
+
+        final code = await h.run([]);
+
+        expect(code, equals(ExitCode.configurationError));
+        final out = h.console.printed.join('\n');
+        expect(out, contains('Local   : STALE'));
+        expect(out, contains('pvm use 8.2'));
       } finally {
         await h.cleanup();
       }
@@ -144,6 +163,25 @@ void main() {
         expect(code, equals(ExitCode.success));
         final out = h.console.printed.join('\n');
         expect(out, contains('mismatch'));
+      } finally {
+        await h.cleanup();
+      }
+    });
+
+    test('a .pvmrc full patch matches its migrated slot link', () async {
+      final h = _Harness();
+      await h.initProject(phpVersionContent: '8.2.28');
+      try {
+        h.wireLocal('8.2');
+
+        final code = await h.run(['--json']);
+
+        expect(code, equals(ExitCode.success));
+        final local = (jsonDecode(h.console.printed.join()) as Map)['local'];
+        expect(local['drift'], isFalse);
+        h.console.printed.clear();
+        await h.run([]);
+        expect(h.console.printed.join(), isNot(contains('mismatch')));
       } finally {
         await h.cleanup();
       }

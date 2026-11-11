@@ -148,7 +148,7 @@ class ExecCommand extends Command<int> {
       return ExitCode.usageError;
     }
 
-    final phpDir = p.join(_osManager.phpVersionsPath, version.toString());
+    final phpDir = registry.getVersionPath(version);
     final layout = _platformConstants.phpLayout;
     final phpExe = layout.phpExecutable(phpDir);
     final phpBinDir = layout.binDirectory(phpDir);

@@ -76,7 +76,8 @@ class UninstallCommand extends Command<int> {
     }
 
     final registry = VersionRegistry(_osManager);
-    final installed = await registry.getInstalledVersions();
+    final slots = await registry.installedSlots();
+    final installed = [for (final s in slots) s.version];
     final PhpVersion resolved;
     switch (InstalledVersionResolver.resolve(parsed, installed)) {
       case ResolvedInstalledVersion(:final version):
@@ -99,7 +100,25 @@ class UninstallCommand extends Command<int> {
         return ExitCode.versionNotFound;
     }
 
-    final versionDir = registry.getVersionPath(resolved);
+    // A full patch must match exactly: never delete 8.4.27 for `8.4.1`.
+    if (parsed.hasPatch && resolved != parsed) {
+      final holds = resolved.hasPatch
+          ? resolved.toString()
+          : 'an unrecorded patch';
+      _console.printError(
+        '$parsed is not installed; ${resolved.slot} holds $holds.',
+      );
+      return ExitCode.versionNotFound;
+    }
+
+    // The slot's own path: while two legacy patches conflict, `8.2.27` must
+    // remove exactly `versions/8.2.27` (preferring the folder of that name).
+    final versionDir = slots
+        .firstWhere(
+          (s) => p.basename(s.path) == parsed.toString(),
+          orElse: () => slots.firstWhere((s) => s.version == resolved),
+        )
+        .path;
     if (!await _osManager.directoryExists(versionDir)) {
       _console.printError(
         VersionDiagnostics.notInstalledMessage(

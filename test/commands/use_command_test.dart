@@ -83,33 +83,30 @@ void main() {
   });
 
   group('UseCommand - version argument', () {
-    test(
-      'major.minor shorthand resolves when exactly one patch installed',
-      () async {
-        final osManager = MockOSManager();
-        osManager.mockVersions = ['8.4.1', '8.3.0'];
-        osManager.mockLocalPath = r'C:\project\.pvm';
-        osManager.symlinkSourceExistsOverride = true;
-        final console = MockConsole();
+    test('a full patch resolves to its minor slot', () async {
+      final osManager = MockOSManager();
+      osManager.mockVersions = ['8.4', '8.3'];
+      osManager.mockLocalPath = r'C:\project\.pvm';
+      osManager.symlinkSourceExistsOverride = true;
+      final console = MockConsole();
 
-        final phpVer = FakePhpVersionManager(console);
-        final gitIgnore = FakeGitIgnoreService(osManager, console);
-        final versionActivator = MockVersionActivator(osManager);
+      final phpVer = FakePhpVersionManager(console);
+      final gitIgnore = FakeGitIgnoreService(osManager, console);
+      final versionActivator = MockVersionActivator(osManager);
 
-        final exitCode = await _runUseCommand(
-          osManager: osManager,
-          phpVersionManager: phpVer,
-          gitIgnoreService: gitIgnore,
-          console: console,
-          versionActivator: versionActivator,
-          args: ['8.4'],
-        );
+      final exitCode = await _runUseCommand(
+        osManager: osManager,
+        phpVersionManager: phpVer,
+        gitIgnoreService: gitIgnore,
+        console: console,
+        versionActivator: versionActivator,
+        args: ['8.4.1'],
+      );
 
-        expect(exitCode, equals(0));
-        expect(phpVer.writeVersion, equals('8.4.1'));
-        expect(versionActivator.activateLocalVersion, equals('8.4.1'));
-      },
-    );
+      expect(exitCode, equals(0));
+      expect(phpVer.writeVersion, equals('8.4'));
+      expect(versionActivator.activateLocalVersion, equals('8.4'));
+    });
 
     test(
       'major.minor shorthand fails when multiple patches installed',

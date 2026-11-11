@@ -7,6 +7,7 @@ import '../../core/constants.dart';
 import '../../core/os_manager.dart';
 import '../../core/platform_constants.dart';
 import '../../core/symlink_inspector.dart';
+import '../../core/version_label.dart';
 import '../../domain/exceptions.dart';
 import '../../domain/install_record.dart';
 import '../../domain/project.dart';
@@ -123,7 +124,7 @@ class InstalledVersionsCheck implements DiagnosticCheck {
   @override
   Future<DiagnosticResult> run() async {
     final registry = VersionRegistry(_osManager);
-    final versions = await registry.getInstalledVersions();
+    final slots = await registry.installedSlots();
     final versionsPath = _osManager.phpVersionsPath;
     final exists = await _osManager.directoryExists(versionsPath);
 
@@ -139,7 +140,7 @@ class InstalledVersionsCheck implements DiagnosticCheck {
       );
     }
 
-    if (versions.isEmpty) {
+    if (slots.isEmpty) {
       return DiagnosticResult(
         id: id,
         label: label,
@@ -153,13 +154,13 @@ class InstalledVersionsCheck implements DiagnosticCheck {
 
     final lines = <String>[];
     var hasBroken = false;
-    for (final v in versions) {
-      final dir = registry.getVersionPath(v);
+    for (final s in slots) {
+      final dir = s.path;
       final phpExe = _platformConstants.phpLayout.phpExecutable(dir);
       final ok = await _osManager.fileExists(phpExe);
       if (!ok) hasBroken = true;
       lines.add(
-        '  - ${v.toString()}${ok ? '' : '  (missing ${p.basename(phpExe)})'}',
+        '  - ${s.record == null ? s.version : versionLabel(s.version, s.record!.version)}${ok ? '' : '  (missing ${p.basename(phpExe)})'}',
       );
     }
 
@@ -167,7 +168,7 @@ class InstalledVersionsCheck implements DiagnosticCheck {
       id: id,
       label: label,
       status: hasBroken ? DiagnosticStatus.warn : DiagnosticStatus.ok,
-      lines: ['count: ${versions.length}', ...lines],
+      lines: ['count: ${slots.length}', ...lines],
     );
   }
 }
@@ -188,9 +189,9 @@ class ActiveVersionsCheck implements DiagnosticCheck {
   Future<DiagnosticResult> run() async {
     final active = await _resolver.resolve();
     final lines = <String>[
-      'global  : ${_formatSlot(active.global)}',
-      'local   : ${_formatSlot(active.local)}',
-      'effective: ${active.isNone ? 'none' : '${active.version} (${active.scope.name})'}',
+      'global  : ${await _formatSlot(active.global)}',
+      'local   : ${await _formatSlot(active.local)}',
+      'effective: ${active.isNone ? 'none' : '${await _label(active.scope == VersionScope.local ? active.local : active.global)} (${active.scope.name})'}',
     ];
     final anyBroken =
         active.global.status == SymLinkStatus.broken ||
@@ -203,12 +204,15 @@ class ActiveVersionsCheck implements DiagnosticCheck {
     );
   }
 
-  String _formatSlot(SymLinkInfo info) {
+  Future<String> _label(SymLinkInfo info) =>
+      installedLabel(info.version!, info.target!);
+
+  Future<String> _formatSlot(SymLinkInfo info) async {
     switch (info.status) {
       case SymLinkStatus.notSet:
         return 'not set';
       case SymLinkStatus.ok:
-        return '${info.version} -> ${info.target}';
+        return '${await _label(info)} -> ${info.target}';
       case SymLinkStatus.broken:
         return 'BROKEN -> ${info.target ?? '(unknown)'}';
       case SymLinkStatus.orphaned:

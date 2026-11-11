@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/active_version_resolver.dart';
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
 import '../core/symlink_inspector.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
@@ -87,7 +89,7 @@ class CurrentCommand extends Command<int> {
         ),
       );
     } else {
-      _renderHuman(
+      await _renderHuman(
         active,
         declared,
         globalOnly: globalOnly,
@@ -98,17 +100,17 @@ class CurrentCommand extends Command<int> {
     return active.isNone ? ExitCode.configurationError : ExitCode.success;
   }
 
-  void _renderHuman(
+  Future<void> _renderHuman(
     ActiveVersion active,
     PhpVersion? declared, {
     required bool globalOnly,
     required bool localOnly,
-  }) {
+  }) async {
     _console.print('PVM - Current PHP Version');
     _console.print('');
 
     if (!localOnly) {
-      _renderScope(
+      await _renderScope(
         'Global',
         active.global,
         isEffective: active.scope == VersionScope.global,
@@ -116,7 +118,7 @@ class CurrentCommand extends Command<int> {
     }
 
     if (!globalOnly) {
-      _renderScope(
+      await _renderScope(
         'Local',
         active.local,
         isEffective: active.scope == VersionScope.local,
@@ -131,16 +133,22 @@ class CurrentCommand extends Command<int> {
       final scopeLabel = active.scope == VersionScope.local
           ? 'local'
           : 'global';
-      _console.print('Effective: ${active.version} ($scopeLabel)');
+      final info = active.scope == VersionScope.local
+          ? active.local
+          : active.global;
+      _console.print('Effective: ${await _label(info)} ($scopeLabel)');
     }
   }
 
-  void _renderScope(
+  Future<String> _label(SymLinkInfo info) =>
+      installedLabel(info.version!, info.target!);
+
+  Future<void> _renderScope(
     String label,
     SymLinkInfo info, {
     required bool isEffective,
     PhpVersion? declaredVersion,
-  }) {
+  }) async {
     switch (info.status) {
       case SymLinkStatus.notSet:
         _console.print('$label   : not set');
@@ -151,11 +159,12 @@ class CurrentCommand extends Command<int> {
         break;
       case SymLinkStatus.ok:
         final marker = isEffective ? ' (effective)' : '';
-        _console.print('$label   : ${info.version}$marker');
+        _console.print('$label   : ${await _label(info)}$marker');
         _console.print('  link  : ${info.linkPath}');
         _console.print('  -> ok : ${info.target}');
         if (label == 'Local' && declaredVersion != null) {
-          if (info.version != declaredVersion) {
+          // Compare slots: a `.pvmrc` 8.2.28 is satisfied by `versions/8.2`.
+          if (info.version?.slot != declaredVersion.slot) {
             _console.print('  declared in .pvmrc: $declaredVersion (mismatch)');
             _console.print(
               '  Hint: run `pvm use` to re-activate the declared version.',
@@ -164,6 +173,16 @@ class CurrentCommand extends Command<int> {
             _console.print('  declared in .pvmrc: $declaredVersion');
           }
         }
+        break;
+      case SymLinkStatus.broken when _legacyTarget(info) != null:
+        final command = label == 'Local' ? 'use' : 'global';
+        _console.print('$label   : STALE');
+        _console.print('  link  : ${info.linkPath}');
+        _console.print('  -> X  : ${info.target} (old full-patch folder)');
+        _console.print(
+          '  Hint: slots are now one per minor; run '
+          '`pvm $command ${_legacyTarget(info)!.slot}` to re-point it.',
+        );
         break;
       case SymLinkStatus.broken:
         _console.print('$label   : BROKEN');
@@ -197,6 +216,18 @@ class CurrentCommand extends Command<int> {
     _console.print('');
   }
 
+  /// A missing link target named `X.Y.Z` predates one slot per minor.
+  static PhpVersion? _legacyTarget(SymLinkInfo info) {
+    final target = info.target;
+    if (target == null) return null;
+    try {
+      final v = PhpVersion.parse(p.basename(target));
+      return v.hasPatch ? v : null;
+    } on InvalidVersionFormatException {
+      return null;
+    }
+  }
+
   String _renderJson(
     ActiveVersion active,
     PhpVersion? declared, {
@@ -214,7 +245,7 @@ class CurrentCommand extends Command<int> {
         'drift':
             declared != null &&
             active.local.version != null &&
-            declared != active.local.version,
+            declared.slot != active.local.version!.slot,
       };
     }
     payload['effective'] = {

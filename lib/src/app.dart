@@ -46,6 +46,7 @@ import 'services/php_executor.dart';
 import 'services/privilege_escalation_service.dart';
 import 'services/release_fetcher.dart';
 import 'services/release_fetcher_factory.dart';
+import 'services/slot_migration.dart';
 import 'services/windows_archive_index.dart';
 import 'version.dart';
 
@@ -245,6 +246,8 @@ Future<int> runPvm(List<String> arguments, {PvmDependencies? deps}) async {
     return ExitCode.success;
   }
 
+  await _migrateSlots(resolved);
+
   try {
     return await buildRunner(resolved).run(arguments) ?? ExitCode.success;
   } on UsageException catch (e) {
@@ -253,5 +256,23 @@ Future<int> runPvm(List<String> arguments, {PvmDependencies? deps}) async {
   } catch (e) {
     console.printError('Unexpected error: $e');
     return ExitCode.generalError;
+  }
+}
+
+/// Full-patch slots become one slot per minor before any command runs. A
+/// conflict or failure is reported and the command still runs.
+Future<void> _migrateSlots(PvmDependencies deps) async {
+  final os = deps.osManager;
+  try {
+    final result = await SlotMigration(
+      os,
+      os.phpVersionsPath,
+      os.getHomeDirectory(),
+    ).run();
+    result.messages.forEach(deps.console.printError);
+  } on Exception catch (e) {
+    deps.console.printWarning(
+      'Could not migrate version slots: ${describeError(e)}',
+    );
   }
 }

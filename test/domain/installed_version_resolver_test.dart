@@ -20,12 +20,27 @@ void main() {
       expect((result as ResolvedInstalledVersion).version, equals(requested));
     });
 
-    test('not found when patch specified but only other patch installed', () {
+    test('a full patch resolves to the one slot of its minor', () {
       final requested = PhpVersion.parse('8.4.1');
       final result = InstalledVersionResolver.resolve(requested, [
         PhpVersion.parse('8.4.0'),
       ]);
-      expect(result, isA<NotFoundInstalledVersion>());
+      expect(result, isA<ResolvedInstalledVersion>());
+      expect((result as ResolvedInstalledVersion).version.toString(), '8.4.0');
+    });
+
+    test('a full patch resolves to a migrated slot without a record', () {
+      final requested = PhpVersion.parse('8.2.28');
+      final result = InstalledVersionResolver.resolve(requested, [
+        PhpVersion.parse('8.2'),
+      ]);
+      expect((result as ResolvedInstalledVersion).version.toString(), '8.2');
+    });
+
+    test('an exact patch wins while two legacy patches conflict', () {
+      final requested = PhpVersion.parse('8.4.0');
+      final result = InstalledVersionResolver.resolve(requested, two84);
+      expect((result as ResolvedInstalledVersion).version, requested);
     });
 
     test(

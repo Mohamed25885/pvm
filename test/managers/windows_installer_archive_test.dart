@@ -118,7 +118,7 @@ void main() {
         installer().install('8.3.2'),
         throwsA(isA<UnverifiedReleaseException>()),
       );
-      expect(Directory(p.join(versions, '8.3.2')).existsSync(), isFalse);
+      expect(Directory(p.join(versions, '8.3')).existsSync(), isFalse);
     });
 
     test('installs it with --allow-unverified and records it', () async {
@@ -128,7 +128,7 @@ void main() {
       );
 
       expect(result.version, '8.3.2');
-      final dir = p.join(versions, '8.3.2');
+      final dir = p.join(versions, '8.3');
       expect(File(p.join(dir, 'php.exe')).existsSync(), isTrue);
       final record = await InstallRecord.readFrom(dir);
       expect(record, isNotNull);
@@ -161,7 +161,7 @@ void main() {
   test(
     'already installed returns alreadyInstalled without downloading',
     () async {
-      await File(p.join(versions, '8.3.14', 'php.exe')).create(recursive: true);
+      await File(p.join(versions, '8.3', 'php.exe')).create(recursive: true);
 
       final result = await installer().install('8.3');
 
@@ -173,7 +173,7 @@ void main() {
   group('S8: install record', () {
     test('verified install records hashes of every file', () async {
       await installer().install('8.3');
-      final dir = p.join(versions, '8.3.14');
+      final dir = p.join(versions, '8.3');
 
       final record = (await InstallRecord.readFrom(dir))!;
 
@@ -186,7 +186,7 @@ void main() {
       'verify detects modified and missing files; added are informational',
       () async {
         await installer().install('8.3');
-        final dir = p.join(versions, '8.3.14');
+        final dir = p.join(versions, '8.3');
         await File(p.join(dir, 'php.exe')).writeAsBytes([6, 6, 6]);
         await File(p.join(dir, 'ext', 'php_curl.dll')).delete();
         await File(p.join(dir, 'php.ini')).writeAsString('memory_limit=1G');

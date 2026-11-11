@@ -1,9 +1,9 @@
 import 'package:args/command_runner.dart';
-import 'package:path/path.dart' as p;
 
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/installed_version_resolver.dart';
 import '../domain/php_version.dart';
@@ -68,7 +68,7 @@ class GlobalCommand extends Command<int> {
       }
       final version = (resolveResult as ResolvedInstalledVersion).version;
 
-      final sourcePath = p.join(_osManager.phpVersionsPath, version.toString());
+      final sourcePath = registry.getVersionPath(version);
 
       if (!await _osManager.directoryExists(sourcePath)) {
         _console.printError(
@@ -80,9 +80,12 @@ class GlobalCommand extends Command<int> {
         return ExitCode.versionNotFound;
       }
 
-      await _versionActivator.activateGlobal(version.toString());
+      await _versionActivator.activateGlobal(version.slot);
 
-      _console.print('Global version set to: ${version.toString()}');
+      _console.print(
+        'Global version set to: '
+        '${await installedLabel(version, sourcePath)}',
+      );
       return ExitCode.success;
     } on InvalidVersionFormatException catch (e) {
       _console.printError(e.message);

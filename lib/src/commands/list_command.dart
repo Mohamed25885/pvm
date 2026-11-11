@@ -1,9 +1,11 @@
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/console.dart';
 import '../core/exit_codes.dart';
 import '../core/os_manager.dart';
+import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
 
@@ -50,7 +52,8 @@ class ListCommand extends Command<int> {
 
     _console.print('Available PHP versions:');
     for (final version in versions) {
-      _console.print('  - ${version.toString()}');
+      final dir = p.join(_osManager.phpVersionsPath, version.toString());
+      _console.print('  - ${await installedLabel(version, dir)}');
     }
 
     return ExitCode.success;
