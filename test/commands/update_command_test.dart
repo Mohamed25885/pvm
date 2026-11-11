@@ -31,10 +31,14 @@ import '../mocks/mock_os_manager.dart';
 class _Pm implements IProcessManager {
   final broken = <String>{};
   final captured = <ProcessSpec>[];
+  String? probe; // FolderProbe's `php -n -r` JSON
 
   @override
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
     captured.add(spec);
+    if (probe != null && spec.arguments.contains('-r')) {
+      return CapturedProcessResult(stdout: probe!, stderr: '', exitCode: 0);
+    }
     final scan = Directory(spec.environment?['PHP_INI_SCAN_DIR'] ?? '');
     final loaded = [
       if (scan.existsSync())
@@ -189,6 +193,7 @@ void main() {
     installedAt: DateTime.utc(2026),
     files: files,
     kind: kind,
+    apiNo: '20240924',
     extensionDir: p.join(slotPath('8.4'), 'ext'),
     extensions: extensions,
   );
@@ -238,6 +243,36 @@ void main() {
     for (final e in Directory(os.phpVersionsPath).listSync())
       if (p.basename(e.path).startsWith('.')) p.basename(e.path),
   ];
+
+  test(
+    'a v1 TS x86 record is probed first, so update keeps TS x86 (R29)',
+    () async {
+      InstallOptions? asked;
+      installer = _Installer((o) async {
+        asked = o;
+        return const InstallResult('8.4.26', alreadyInstalled: true);
+      });
+      final dir = Directory(slotPath('8.4'))..createSync(recursive: true);
+      File(p.join(dir.path, 'php.exe')).writeAsBytesSync([1]);
+      File(p.join(dir.path, InstallRecord.fileName)).writeAsStringSync(
+        '{"schema":1,"version":"8.4.26","sourceUrl":"u","archiveSha256":"a",'
+        '"verified":true,"installedAt":"2025-01-01T00:00:00.000Z","files":{}}',
+      );
+      os.mockVersions.add('8.4');
+      os.setDirectoryExistsResult(slotPath('8.4'), true);
+      pm.probe =
+          '{"v":"8.4.26","zts":true,"arch":"x86","ext":"C:/php/ext",'
+          '"build":"API20240924,TS,VS17"}';
+
+      expect(await run(['8.4']), ExitCode.success);
+
+      expect(asked!.buildType, BuildType.ts);
+      expect(asked!.architecture, Architecture.x86);
+      final saved = (await VersionRegistry.readSlotRecord(slotPath('8.4')))!;
+      expect(saved.apiNo, '20240924');
+      expect(saved.vsVersion, 'VS17');
+    },
+  );
 
   group('windows-zip', () {
     final newZip = _zip({

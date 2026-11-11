@@ -19,6 +19,7 @@ import '../domain/version_registry.dart';
 import '../interfaces/i_installer.dart';
 import '../services/build_tools.dart';
 import '../services/extensions/extension_artifact.dart';
+import '../services/folder_probe.dart';
 import '../services/release_fetcher.dart';
 import '../services/slot_ini.dart';
 import 'ext_command.dart' show ExtensionRoute;
@@ -96,13 +97,17 @@ class UpdateCommand extends Command<int> {
       );
       return ExitCode.versionNotFound;
     }
-    final record = slot.record;
-    if (record == null) {
+    if (slot.record == null) {
       _console.printError(
         'PHP $x has no install record. Reinstall it (pvm install $x --force).',
       );
       return ExitCode.generalError;
     }
+    // A v1 record defaults to NTS x64: probe it so the build stays the same.
+    final record = await FolderProbe(
+      _pm,
+      _platform,
+    ).backfill(slot.path, slot.record!);
     final old = versionLabel(slot.version, record.version);
 
     final IInstaller installer;

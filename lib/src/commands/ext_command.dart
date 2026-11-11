@@ -20,6 +20,7 @@ import '../domain/version_registry.dart';
 import '../services/build_tools.dart';
 import '../services/extensions/extension_artifact.dart';
 import '../services/extensions/pecl_download.dart';
+import '../services/folder_probe.dart';
 import '../services/slot_ini.dart';
 
 /// One way to install an extension into a slot (`PeclSourceBuilder`,
@@ -90,17 +91,23 @@ class ExtInstallCommand extends Command<int> {
     final ext = rest.single;
     ExtensionArtifact.validateName(ext); // before ext reaches a path or URL
 
-    final (:slot, :code) = await _target(argResults!['version'] as String?);
-    if (slot == null) return code;
-    final x = slot.version.slot;
-    final record = slot.record;
-    if (record == null) {
+    final (slot: found, :code) = await _target(
+      argResults!['version'] as String?,
+    );
+    if (found == null) return code;
+    final x = found.version.slot;
+    if (found.record == null) {
       _console.printError(
         'PHP $x has no install record. Reinstall it '
         '(pvm install $x --force) or link it (pvm link $x <folder>).',
       );
       return ExitCode.generalError;
     }
+    final record = await FolderProbe(
+      _pm,
+      _platform,
+    ).backfill(found.path, found.record!);
+    final slot = InstalledSlot(found.version, found.path, record);
     final label = versionLabel(slot.version, record.version);
 
     try {

@@ -7,6 +7,8 @@ import '../core/php_layout.dart';
 import '../core/platform_info.dart';
 import '../core/process_manager.dart';
 import '../domain/exceptions/probe_exception.dart';
+import '../domain/install_record.dart';
+import '../domain/version_registry.dart';
 
 /// What a version folder's own `php` reported about itself.
 class ProbeResult {
@@ -34,7 +36,7 @@ class ProbeResult {
 }
 
 /// Asks a version folder's `php` what it is. Callers store the result in the
-/// slot's install record; nothing re-probes afterwards.
+/// slot's install record; nothing re-probes afterwards except [backfill].
 class FolderProbe {
   // `-n` keeps a broken php.ini from breaking the probe.
   static const _script =
@@ -114,6 +116,34 @@ class FolderProbe {
       writable: _isWritable(extDir),
       vsVersion: RegExp(r'VS\d+').firstMatch(build)?.group(0),
     );
+  }
+
+  /// A record without probe data (a v2.1.0 schema 1 record: no `apiNo`) of
+  /// a PVM-owned slot, filled from the slot's own php and saved (R29). Any
+  /// other record, or a failed probe, comes back unchanged. Schema 1 records
+  /// were only written on Windows, so their default kind stays.
+  Future<InstallRecord> backfill(String slotPath, InstallRecord record) async {
+    if (record.apiNo.isNotEmpty || record.kind == SlotKind.linked) {
+      return record;
+    }
+    final ProbeResult r;
+    try {
+      r = await probe(slotPath);
+    } catch (_) {
+      return record;
+    }
+    final filled = record.copyWith(
+      zts: r.zts,
+      arch: r.arch,
+      apiNo: r.apiNo,
+      phpConfig: r.phpConfig,
+      prefix: r.prefix,
+      extensionDir: r.extensionDir,
+      writable: r.writable,
+      vsVersion: r.vsVersion,
+    );
+    await VersionRegistry.writeSlotRecord(slotPath, filled);
+    return filled;
   }
 
   static String _normalizeArch(String raw) {

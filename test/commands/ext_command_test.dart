@@ -27,6 +27,7 @@ class _Pm implements IProcessManager {
   String modules = '[PHP Modules]\nCore\n';
   String scanDir = '(none)'; // `php --ini` scan dir
   String prefix = ''; // `php-config --prefix`
+  String? probe; // FolderProbe's `php -n -r` JSON
   final captured = <ProcessSpec>[];
   final interactive = <ProcessSpec>[];
 
@@ -35,7 +36,9 @@ class _Pm implements IProcessManager {
     captured.add(spec);
     final exe = spec.executable;
     var out = '';
-    if (exe == 'tar') {
+    if (probe != null && spec.arguments.contains('-r')) {
+      out = probe!;
+    } else if (exe == 'tar') {
       final dest = spec.arguments[spec.arguments.indexOf('-C') + 1];
       final tgz = p.basenameWithoutExtension(spec.arguments[1]);
       Directory(p.join(dest, tgz)).createSync(recursive: true);
@@ -141,6 +144,7 @@ void main() {
     installedAt: DateTime.utc(2026),
     files: const {},
     kind: kind,
+    apiNo: '20240924',
     writable: writable,
     phpConfig: phpConfig,
     prefix: prefix,
@@ -243,6 +247,68 @@ void main() {
       p.join(slotPath('8.4'), 'bin', 'php'),
     );
     expect(pm.captured.single.arguments, ['-m']);
+  });
+
+  test('a v1 record is probed and saved before the DLL route (R29)', () async {
+    platform = WindowsPlatformInfo();
+    addSlot('8.4', null);
+    File(p.join(slotPath('8.4'), 'php.exe')).writeAsBytesSync([1]);
+    File(p.join(slotPath('8.4'), InstallRecord.fileName)).writeAsStringSync(
+      jsonEncode({
+        'schema': 1,
+        'version': '8.4.27',
+        'sourceUrl': 'https://windows.php.net/x.zip',
+        'archiveSha256': 'abc',
+        'verified': true,
+        'installedAt': '2025-01-01T00:00:00.000Z',
+        'files': {'php.exe': 'h'},
+      }),
+    );
+    pm.probe = jsonEncode({
+      'v': '8.4.27',
+      'zts': true,
+      'arch': 'x86',
+      'ext': r'C:\php\ext',
+      'build': 'API20240924,TS,VS17',
+    });
+    String? vs;
+    final dll = route('dll');
+
+    final runner = CommandRunner<int>('pvm', 'test')
+      ..addCommand(
+        ExtCommand(
+          ExtInstallCommand(
+            osManager: os,
+            resolver: ActiveVersionResolver(SymLinkInspector(os)),
+            processManager: pm,
+            platform: platform,
+            console: console,
+            sourceBuilder: () => route('source'),
+            windowsDll: () => (
+              install: (String ext, InstalledSlot slot, {String? confDir}) {
+                vs = slot.record!.vsVersion;
+                return dll.install(ext, slot, confDir: confDir);
+              },
+              dispose: dll.dispose,
+            ),
+          ),
+        ),
+      );
+    expect(
+      await runner.run(['ext', 'install', 'xdebug', '--version=8.4']),
+      ExitCode.success,
+    );
+
+    expect(vs, 'VS17');
+    final rec = (await saved('8.4'))!;
+    expect(rec.apiNo, '20240924');
+    expect(rec.zts, isTrue);
+    expect(rec.arch, 'x86');
+    expect(rec.vsVersion, 'VS17');
+    expect(rec.kind, SlotKind.windowsZip);
+    expect(rec.sourceUrl, 'https://windows.php.net/x.zip');
+    expect(rec.files, {'php.exe': 'h'});
+    expect(rec.extensions, [_entry]);
   });
 
   test('windows-zip calls PeclWindowsDll', () async {
