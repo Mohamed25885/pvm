@@ -124,4 +124,21 @@ void main() {
     expect(result.renamed, isEmpty);
     expect(result.conflicts, isEmpty);
   });
+
+  test('leaves a linked slot and the folder it points at untouched', () async {
+    final target = Directory(p.join(tmp.path, 'plesk', '8.4.15'))
+      ..createSync(recursive: true);
+    File(
+      p.join(target.path, InstallRecord.fileName),
+    ).writeAsStringSync('{"version":"8.4.99"}');
+    Directory(v).createSync(recursive: true);
+    Link(p.join(v, '8.4')).createSync(target.path);
+
+    final result = await migration().run();
+
+    expect(result.renamed, isEmpty);
+    expect(result.conflicts, isEmpty);
+    expect(FileSystemEntity.isLinkSync(p.join(v, '8.4')), isTrue);
+    expect(target.listSync().length, 1);
+  });
 }

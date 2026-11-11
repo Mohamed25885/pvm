@@ -1,5 +1,5 @@
-import '../domain/install_record.dart';
 import '../domain/php_version.dart';
+import '../domain/version_registry.dart';
 
 /// Installed versions display as `8.5 (8.5.22)`; `8.5` without a patch.
 String versionLabel(PhpVersion slot, String? fullPatch) =>
@@ -10,7 +10,7 @@ String versionLabel(PhpVersion slot, String? fullPatch) =>
 /// keeps its patch).
 Future<String> installedLabel(PhpVersion version, String slotDir) async {
   try {
-    final record = await InstallRecord.readFrom(slotDir);
+    final record = await VersionRegistry.readSlotRecord(slotDir);
     return record == null
         ? version.toString()
         : versionLabel(version, record.version);

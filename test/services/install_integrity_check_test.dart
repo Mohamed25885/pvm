@@ -73,4 +73,29 @@ void main() {
     expect(r.lines.join('\n'), contains('UNVERIFIED'));
     expect(r.lines.join('\n'), contains('no install record'));
   });
+
+  test('a linked slot reports its record, not "no install record"', () async {
+    final target = Directory(p.join(temp.path, 'plesk'))..createSync();
+    File(p.join(target.path, 'php.exe')).writeAsBytesSync([1]);
+    final versions = p.join(temp.path, 'versions');
+    Directory(versions).createSync(recursive: true);
+    Link(p.join(versions, '8.4')).createSync(target.path);
+    await InstallRecord(
+      version: '8.4.15',
+      sourceUrl: target.path,
+      archiveSha256: '',
+      verified: false,
+      installedAt: DateTime.utc(2026),
+      files: const {},
+      kind: SlotKind.linked,
+    ).writeToFile(p.join(versions, '8.4.pvm-link.json'));
+    os.setDirectoryExistsResult(p.join(versions, '8.4'), true);
+    os.mockVersions = ['8.4'];
+
+    final r = await InstallIntegrityCheck(os).run();
+
+    expect(r.lines.join('\n'), isNot(contains('no install record')));
+    expect(r.lines.join('\n'), contains('linked to ${target.path}'));
+    expect(r.status, DiagnosticStatus.ok);
+  });
 }

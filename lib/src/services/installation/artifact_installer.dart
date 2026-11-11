@@ -11,6 +11,7 @@ import '../../core/php_layout.dart';
 import '../../core/platform_info.dart';
 import '../../domain/exceptions/probe_exception.dart';
 import '../../domain/install_record.dart';
+import '../../domain/version_registry.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
@@ -64,7 +65,7 @@ class ArtifactInstaller {
     final slot = PhpVersion.parse(version).slot;
     String? installed;
     try {
-      installed = (await InstallRecord.readFrom(
+      installed = (await VersionRegistry.readSlotRecord(
         p.join(versionsPath, slot),
       ))?.version;
     } catch (_) {

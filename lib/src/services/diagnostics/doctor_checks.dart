@@ -473,7 +473,7 @@ class InstallIntegrityCheck implements DiagnosticCheck {
       final dir = registry.getVersionPath(version);
       final InstallRecord? record;
       try {
-        record = await InstallRecord.readFrom(dir);
+        record = await VersionRegistry.readSlotRecord(dir);
       } catch (e) {
         lines.add('$version: install record unreadable ($e)');
         worsen(DiagnosticStatus.fail);
@@ -484,6 +484,14 @@ class InstallIntegrityCheck implements DiagnosticCheck {
           '$version: no install record (installed before 2.1 or by hand)',
         );
         worsen(DiagnosticStatus.warn);
+        continue;
+      }
+      if (record.kind == SlotKind.linked) {
+        // The user's own folder: PVM has no file hashes to verify.
+        lines.add(
+          '$version: linked to ${record.sourceUrl} '
+          '(${record.writable ? 'writable' : 'read-only'} extension dir)',
+        );
         continue;
       }
       final result = await record.verify(dir);

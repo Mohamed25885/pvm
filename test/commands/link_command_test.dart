@@ -14,6 +14,8 @@ import 'package:pvm/src/core/php_layout.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/symlink_inspector.dart';
+import 'package:pvm/src/core/version_label.dart';
+import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/domain/version_registry.dart';
 import 'package:pvm/src/managers/io_os_manager.dart';
@@ -153,5 +155,15 @@ void main() {
     expect(await os.isSymLink(p.join(versions, '8.4')), isFalse);
     expect(File(p.join(versions, '8.4.pvm-link.json')).existsSync(), isFalse);
     expect(File(p.join(folder, 'precious.txt')).readAsStringSync(), 'keep me');
+  });
+
+  test('installedLabel shows the linked slot as 8.4 (8.4.15)', () async {
+    fakePhp(folder, '8.4.15');
+    await run(['link', '8.4', folder]);
+
+    expect(
+      await installedLabel(PhpVersion(8, 4), p.join(versions, '8.4')),
+      '8.4 (8.4.15)',
+    );
   });
 }

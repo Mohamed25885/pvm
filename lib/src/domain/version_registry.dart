@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
@@ -41,9 +43,7 @@ class VersionRegistry {
       try {
         // A linked slot is the user's own folder: its record lives beside the
         // link, and nothing inside the folder is read.
-        record = await _osManager.isSymLink(path)
-            ? await InstallRecord.readFromFile(linkRecordPath(name))
-            : await InstallRecord.readFrom(path);
+        record = await readSlotRecord(path);
       } catch (_) {
         record = null; // Unreadable: `pvm doctor --verify` reports it.
       }
@@ -87,6 +87,23 @@ class VersionRegistry {
   Future<bool> isInstalled(PhpVersion version) async {
     final sourcePath = getVersionPath(version);
     return await _osManager.directoryExists(sourcePath);
+  }
+
+  /// The record of the slot at [slotPath]: the `<slot>.pvm-link.json` beside
+  /// a linked slot, else `.pvm-install.json` inside it. The one place that
+  /// decides, so nothing reads inside a user's linked folder.
+  static Future<InstallRecord?> readSlotRecord(String slotPath) {
+    final isLink =
+        FileSystemEntity.typeSync(slotPath, followLinks: false) ==
+        FileSystemEntityType.link;
+    return isLink
+        ? InstallRecord.readFromFile(
+            p.join(
+              p.dirname(slotPath),
+              '${p.basename(slotPath)}.pvm-link.json',
+            ),
+          )
+        : InstallRecord.readFrom(slotPath);
   }
 
   /// Where a linked slot's record lives: `versions/<slot>.pvm-link.json`.
