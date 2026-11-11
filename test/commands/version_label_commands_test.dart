@@ -19,6 +19,7 @@ import 'package:pvm/src/domain/install_record.dart';
 import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 /// Slot `8.5` installed with record `8.5.22`, activated globally.
 void main() {
@@ -29,7 +30,7 @@ void main() {
 
   setUp(() async {
     root = await Directory.systemTemp.createTemp('pvm_label_cmds_');
-    addTearDown(() => root.delete(recursive: true));
+    addTearDown(() => deleteTemp(root));
     slotDir = p.join(root.path, 'versions', '8.5');
     await Directory(slotDir).create(recursive: true);
     await InstallRecord(

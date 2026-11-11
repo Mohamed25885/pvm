@@ -18,6 +18,7 @@ import 'package:pvm/src/services/extension_hint.dart';
 import '../helpers.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 InstallRecord _record(String version, List<String> exts) => InstallRecord(
   version: version,
@@ -106,7 +107,7 @@ void main() {
           'xdebug is installed for 8.2 but not 8.3. Run: pvm ext install xdebug';
     });
 
-    tearDown(() => tmp.deleteSync(recursive: true));
+    tearDown(() => deleteTempSync(tmp));
 
     test('use 8.3', () async {
       final runner = CommandRunner<int>('t', 't')

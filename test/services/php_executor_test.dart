@@ -11,6 +11,7 @@ import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import '../support/host_paths.dart';
+import '../support/temp_dir.dart';
 
 class TestExecutableResolver implements IExecutableResolver {
   @override
@@ -423,7 +424,7 @@ void main() {
       pm = FakeProcessManager();
       os = FakeOSManager();
     });
-    tearDown(() => tmp.deleteSync(recursive: true));
+    tearDown(() => deleteTempSync(tmp));
 
     PhpExecutor make(PlatformInfo platform) => PhpExecutor(
       processManager: pm,

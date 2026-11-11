@@ -15,6 +15,7 @@ import 'package:pvm/src/services/release_fetcher.dart';
 import 'package:pvm/src/services/windows_archive_index.dart';
 
 import '../mocks/mock_console.dart';
+import '../support/temp_dir.dart';
 
 class _FakeFetcher implements IReleaseFetcher {
   final List<PhpRelease> releases;
@@ -72,7 +73,7 @@ void main() {
     });
   });
 
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   WindowsInstaller installer({List<PhpRelease>? releases, Object? fetchError}) {
     final client = MockClient((req) async {

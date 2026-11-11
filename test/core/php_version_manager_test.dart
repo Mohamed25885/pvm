@@ -7,6 +7,7 @@ import 'package:test/test.dart';
 import '../mocks/mock_console.dart';
 import 'package:pvm/src/core/php_version_manager.dart';
 import 'package:pvm/src/domain/php_version.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   late Directory tempDir;
@@ -19,7 +20,7 @@ void main() {
 
   tearDown(() async {
     if (await tempDir.exists()) {
-      await tempDir.delete(recursive: true);
+      await deleteTemp(tempDir);
     }
   });
 

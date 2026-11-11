@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:pvm/src/domain/install_record.dart';
 import 'package:test/test.dart';
+import '../support/temp_dir.dart';
 
 InstallRecord sampleRecord({
   SlotKind kind = SlotKind.static,
@@ -82,7 +83,7 @@ void main() {
 
   test('readFrom defaults extensionDir of a v1 record to <slot>/ext', () async {
     final dir = await Directory.systemTemp.createTemp('pvm-rec-');
-    addTearDown(() => dir.delete(recursive: true));
+    addTearDown(() => deleteTemp(dir));
     await File(
       p.join(dir.path, InstallRecord.fileName),
     ).writeAsString(jsonEncode({'schema': 1, 'version': '8.3.14'}));
@@ -92,7 +93,7 @@ void main() {
 
   test('readFrom treats an empty v2 extensionDir as <slot>/ext', () async {
     final dir = await Directory.systemTemp.createTemp('pvm-rec-');
-    addTearDown(() => dir.delete(recursive: true));
+    addTearDown(() => deleteTemp(dir));
     await sampleRecord().copyWith(extensionDir: '').writeTo(dir.path);
     final r = (await InstallRecord.readFrom(dir.path))!;
     expect(r.extensionDir, p.join(dir.path, 'ext'));

@@ -124,6 +124,7 @@ Use **FVM** so commands run on the Dart version pinned in `.fvmrc` (Flutter 3.44
 
 ### Build
 - **Compile Executable:** `fvm dart compile exe pvm.dart -o builds/pvm.exe`
+- **Release binaries:** `fvm dart run tool/build.dart` builds `pvm-<os>-<arch>` for the host plus Linux x64/arm64 (Dart cross-compiles only to Linux) and writes `builds/SHA256SUMS`.
 
 ### Testing
 - **Run all tests:** `fvm dart test`

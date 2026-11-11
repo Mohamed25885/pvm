@@ -15,6 +15,7 @@ import 'package:pvm/src/services/extensions/pecl_source_builder.dart';
 import 'package:test/test.dart';
 
 import '../../mocks/mock_console.dart';
+import '../../support/temp_dir.dart';
 
 final _tgz = utf8.encode('fake xdebug tgz');
 final _sha = crypto.sha256.convert(_tgz).toString();
@@ -86,7 +87,7 @@ void main() {
       File(p.join(slotDir, 'bin', n)).createSync(recursive: true);
     }
   });
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   InstalledSlot slot({String? phpConfig = ''}) => InstalledSlot(
     PhpVersion.parse('8.4.27'),

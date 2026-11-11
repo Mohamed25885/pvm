@@ -9,6 +9,7 @@ import 'package:pvm/src/services/folder_probe.dart';
 import 'package:test/test.dart';
 
 import 'fake_process_manager.dart';
+import '../support/temp_dir.dart';
 
 CapturedProcessResult _ok(String out) =>
     CapturedProcessResult(stdout: out, stderr: '', exitCode: 0);
@@ -39,7 +40,7 @@ void main() {
     ext = p.join(tmp.path, 'ext');
     Directory(ext).createSync(recursive: true);
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() => deleteTempSync(tmp));
 
   String touch(String rel) {
     final f = File(p.joinAll([tmp.path, ...rel.split('/')]))

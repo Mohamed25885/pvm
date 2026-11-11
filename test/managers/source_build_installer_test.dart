@@ -15,6 +15,7 @@ import 'package:pvm/src/services/folder_probe.dart';
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
+import '../support/temp_dir.dart';
 
 final _tarball = utf8.encode('fake php source tarball');
 final _sha = crypto.sha256.convert(_tarball).toString();
@@ -98,7 +99,7 @@ void main() {
     requested = [];
   });
 
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   String staging() => p.join(versions, '.staging-8.4-$pid');
 

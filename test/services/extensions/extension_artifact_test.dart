@@ -11,6 +11,7 @@ import 'package:pvm/src/services/extensions/extension_artifact.dart';
 import 'package:pvm/src/services/slot_ini.dart';
 
 import '../fake_process_manager.dart';
+import '../../support/temp_dir.dart';
 
 void main() {
   late Directory tmp;
@@ -38,13 +39,7 @@ void main() {
     );
     built = File(p.join(tmp.path, 'built.bin'))..writeAsBytesSync([1, 2, 3]);
   });
-  tearDown(() {
-    try {
-      tmp.deleteSync(recursive: true);
-    } on FileSystemException {
-      // Windows can briefly hold a just-written file (errno 145); it's temp.
-    }
-  });
+  tearDown(() => deleteTempSync(tmp));
 
   FakeProcessManager php(String stdout, {String stderr = ''}) =>
       FakeProcessManager()

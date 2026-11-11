@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/process/io_process_manager.dart';
 import '../services/fake_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('IOProcessManager.runInteractive', () {
@@ -19,7 +20,7 @@ void main() {
 
     tearDown(() async {
       if (await tempDirectory.exists()) {
-        await tempDirectory.delete(recursive: true);
+        await deleteTemp(tempDirectory);
       }
     });
 
@@ -77,7 +78,7 @@ void main() {
       final workingDir = await Directory.systemTemp.createTemp('pvm-cwd-');
       addTearDown(() async {
         if (await workingDir.exists()) {
-          await workingDir.delete(recursive: true);
+          await deleteTemp(workingDir);
         }
       });
 

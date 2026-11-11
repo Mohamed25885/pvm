@@ -8,6 +8,7 @@ import 'package:pvm/src/services/diagnostics/diagnostic_models.dart';
 import 'package:pvm/src/services/diagnostics/doctor_checks.dart';
 
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   late Directory temp;
@@ -36,7 +37,7 @@ void main() {
     os.setDirectoryExistsResult(p.join(temp.path, 'versions'), true);
   });
 
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   test('intact verified installs are ok', () async {
     await install('8.3.14');

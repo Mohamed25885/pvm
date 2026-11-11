@@ -488,6 +488,9 @@ fvm dart run pvm.dart current
 
 # Build executable
 fvm dart compile exe pvm.dart -o builds/pvm.exe
+
+# Build this OS + Linux x64/arm64 into builds/, with builds/SHA256SUMS
+fvm dart run tool/build.dart
 ```
 
 ### Testing

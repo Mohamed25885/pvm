@@ -18,6 +18,7 @@ import 'package:pvm/src/services/windows_release_source.dart';
 import 'package:test/test.dart';
 
 import '../../mocks/mock_console.dart';
+import '../../support/temp_dir.dart';
 
 List<int> _zip(Map<String, List<int>> files) {
   final archive = Archive();
@@ -78,7 +79,7 @@ void main() {
     });
 
     tearDown(() async {
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     ArtifactInstaller installer(

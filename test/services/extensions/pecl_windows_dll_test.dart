@@ -14,6 +14,7 @@ import 'package:pvm/src/services/extensions/pecl_windows_dll.dart';
 import 'package:test/test.dart';
 
 import '../../mocks/mock_console.dart';
+import '../../support/temp_dir.dart';
 
 List<int> _zip(Map<String, List<int>> files) {
   final a = Archive();
@@ -64,7 +65,7 @@ void main() {
       'README.md': [0],
     });
   });
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   InstalledSlot slot({
     bool zts = false,

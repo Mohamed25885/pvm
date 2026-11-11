@@ -8,6 +8,7 @@ import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/services/slot_migration.dart';
 
 import 'fake_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   late Directory tmp;
@@ -24,7 +25,7 @@ void main() {
     os = FakeOSManager();
   });
 
-  tearDown(() => tmp.delete(recursive: true));
+  tearDown(() => deleteTemp(tmp));
 
   Future<void> slot(String name) =>
       Directory(p.join(v, name)).create(recursive: true);

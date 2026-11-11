@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/services/slot_ini.dart';
+import '../support/temp_dir.dart';
 
 InstallRecord _record(SlotKind kind, {String extDir = '/x/ext'}) =>
     InstallRecord(
@@ -57,7 +58,7 @@ void main() {
   group('files', () {
     late Directory tmp;
     setUp(() => tmp = Directory.systemTemp.createTempSync('pvm-slot-ini'));
-    tearDown(() => tmp.deleteSync(recursive: true));
+    tearDown(() => deleteTempSync(tmp));
 
     test('enable, disable, remove', () async {
       final ini = SlotIni(
