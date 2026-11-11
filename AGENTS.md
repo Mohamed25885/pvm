@@ -289,7 +289,7 @@ import 'utils/utils.dart';
 1. **Link failures**: Junctions need no privilege; a permission error means the symlink fallback ran (e.g. versions on a network share). Developer Mode or an admin terminal fixes that case.
 2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
-4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` via `InstalledVersionResolver` when exactly one installed version matches; multiple patches require full `major.minor.patch`. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
+4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` (and a full patch, to its minor's slot) via `InstalledVersionResolver`; `uninstall` additionally refuses a full patch that differs from the slot's patch. Only two unmerged legacy patch folders are ambiguous and need the full patch. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
 5. **FVM / Dart SDK**: Use `fvm dart` for `pub get`, analyze, test, and compile — system Dart may be too old for `dart_pre_commit` and the `>=3.11.0` constraint.
 6. **`.pvmrc` only**: Never reintroduce `.php-version` runtime reads; migration is manual (`pvm use` or hand-authored JSON).
 
