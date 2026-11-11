@@ -38,7 +38,13 @@ void main() {
     );
     built = File(p.join(tmp.path, 'built.bin'))..writeAsBytesSync([1, 2, 3]);
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() {
+    try {
+      tmp.deleteSync(recursive: true);
+    } on FileSystemException {
+      // Windows can briefly hold a just-written file (errno 145); it's temp.
+    }
+  });
 
   FakeProcessManager php(String stdout, {String stderr = ''}) =>
       FakeProcessManager()
