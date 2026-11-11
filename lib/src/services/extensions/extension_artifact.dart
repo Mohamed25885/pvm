@@ -25,10 +25,14 @@ class ExtensionArtifact {
 
 /// True when [binary] exports `zend_extension_entry` (a Zend extension).
 /// Streams the file; a match may span chunk boundaries.
-Future<bool> exportsZendExtension(File binary) async {
+Future<bool> exportsZendExtension(File binary) =>
+    streamHasZendMarker(binary.openRead());
+
+/// Chunk-wise search used by [exportsZendExtension].
+Future<bool> streamHasZendMarker(Stream<List<int>> chunks) async {
   const needle = 'zend_extension_entry';
   var tail = <int>[];
-  await for (final chunk in binary.openRead()) {
+  await for (final chunk in chunks) {
     final window = [...tail, ...chunk];
     if (_indexOf(window, needle.codeUnits) >= 0) return true;
     tail = window.sublist(
@@ -93,18 +97,41 @@ class ExtensionInstallTxn {
     final backup = File('${target.path}.pvm-backup');
     final hadOld = await target.exists();
     if (hadOld) await target.copy(backup.path);
+    // Snapshot the live ini (enabled or disabled) so a failed reinstall
+    // leaves the old build registered as it was.
+    final confDir = ini.confDir;
+    String? savedName;
+    String? savedContent;
+    for (final n in ['50-$ext.ini', '50-$ext.ini.disabled']) {
+      final f = File(p.join(confDir, n));
+      if (await f.exists()) {
+        savedName = n;
+        savedContent = await f.readAsString();
+        break;
+      }
+    }
     try {
       await built.copy(target.path);
       await ini.enable(ext, zend: await exportsZendExtension(target));
       await checkLoads(pm, php, ini, ext);
       if (hadOld) await backup.delete();
     } catch (_) {
-      await ini.remove(ext);
-      if (hadOld) {
-        await backup.rename(target.path);
-      } else if (await target.exists()) {
-        await target.delete();
-      }
+      // Each step is independent; the original error is always rethrown.
+      try {
+        await ini.remove(ext);
+      } catch (_) {}
+      try {
+        if (savedName != null) {
+          await File(p.join(confDir, savedName)).writeAsString(savedContent!);
+        }
+      } catch (_) {}
+      try {
+        if (hadOld) {
+          await backup.rename(target.path);
+        } else if (await target.exists()) {
+          await target.delete();
+        }
+      } catch (_) {}
       rethrow;
     }
   }

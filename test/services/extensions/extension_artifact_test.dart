@@ -56,6 +56,18 @@ void main() {
       expect(await exportsZendExtension(built), isFalse);
     });
 
+    test('finds a marker split into 1-3 byte chunks', () async {
+      final all = [0, 1, ...marker, 2];
+      for (final n in [1, 2, 3]) {
+        final chunks = [
+          for (var i = 0; i < all.length; i += n)
+            all.sublist(i, i + n > all.length ? all.length : i + n),
+        ];
+        expect(await streamHasZendMarker(Stream.fromIterable(chunks)), isTrue);
+      }
+      expect(await streamHasZendMarker(Stream.value([1, 2, 3])), isFalse);
+    });
+
     test('finds a marker spanning chunk boundaries', () async {
       for (final at in [65536 - 5, 65536 - 1, 65536 - 19]) {
         final bytes = List<int>.filled(at, 0, growable: true)
@@ -133,6 +145,52 @@ void main() {
       expect(File(p.join(ini.confDir, iniName)).existsSync(), isFalse);
     });
 
+    test('failed reinstall restores an enabled ini byte-identical', () async {
+      Directory(ini.confDir).createSync(recursive: true);
+      final live = File(p.join(ini.confDir, iniName))
+        ..writeAsStringSync('zend_extension=/old/x.so\n; mine');
+      await expectLater(
+        ExtensionInstallTxn(
+          php('core\n'),
+          'php',
+        ).commit(built, extDir, ini, 'xdebug'),
+        throwsA(isA<ExtensionLoadException>()),
+      );
+      expect(live.readAsStringSync(), 'zend_extension=/old/x.so\n; mine');
+    });
+
+    test('failed reinstall restores a disabled ini as .disabled', () async {
+      Directory(ini.confDir).createSync(recursive: true);
+      final off = File(p.join(ini.confDir, '$iniName.disabled'))
+        ..writeAsStringSync('extension=/old.so\n');
+      await expectLater(
+        ExtensionInstallTxn(
+          php('core\n'),
+          'php',
+        ).commit(built, extDir, ini, 'xdebug'),
+        throwsA(isA<ExtensionLoadException>()),
+      );
+      expect(off.readAsStringSync(), 'extension=/old.so\n');
+      expect(File(p.join(ini.confDir, iniName)).existsSync(), isFalse);
+    });
+
+    test(
+      'a throwing ini.remove still restores the file, original error',
+      () async {
+        Directory(extDir).createSync(recursive: true);
+        final old = File(p.join(extDir, 'xdebug.so'))..writeAsBytesSync([9]);
+        await expectLater(
+          ExtensionInstallTxn(
+            php('core\n'),
+            'php',
+          ).commit(built, extDir, _BadRemove(ini), 'xdebug'),
+          throwsA(isA<ExtensionLoadException>()),
+        );
+        expect(old.readAsBytesSync(), [9]);
+        expect(Directory(extDir).listSync().length, 1);
+      },
+    );
+
     test('load failure restores a pre-existing file', () async {
       Directory(extDir).createSync(recursive: true);
       final old = File(p.join(extDir, 'xdebug.so'))
@@ -158,4 +216,10 @@ void main() {
       );
     }
   });
+}
+
+class _BadRemove extends SlotIni {
+  _BadRemove(SlotIni o) : super(o.slotDir, o.record, o.platform);
+  @override
+  Future<void> remove(String ext) => throw StateError('remove failed');
 }
