@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
@@ -405,6 +406,63 @@ void main() {
         expect(env['Path'], '${p.join('/pvm', 'v', 'bin')};base');
         expect(env.containsKey('PATH'), isFalse);
       });
+    });
+  });
+
+  group('PhpExecutor slot ini', () {
+    test(
+      'static slot: -c before user args, scan dir on the child only',
+      () async {
+        final tmp = Directory.systemTemp.createTempSync('pvm-exec-ini');
+        addTearDown(() => tmp.deleteSync(recursive: true));
+        final slot = p.join(tmp.path, '8.3');
+        Directory(slot).createSync();
+        await InstallRecord(
+          version: '8.3.1',
+          sourceUrl: 'u',
+          archiveSha256: 'a',
+          verified: true,
+          installedAt: DateTime.utc(2026),
+          files: const {},
+          kind: SlotKind.static,
+        ).writeTo(slot);
+        final pm = FakeProcessManager();
+        final before = Map.of(Platform.environment);
+        final given = {'FOO': 'bar'};
+        final executor = PhpExecutor(
+          processManager: pm,
+          osManager: FakeOSManager(),
+          executableResolver: TestExecutableResolver(),
+          platformInfo: LinuxPlatformInfo(),
+        );
+
+        await executor.runPhp(
+          ['-v'],
+          phpExecutable: p.join(slot, 'bin', 'php'),
+          environment: given,
+        );
+
+        final spec = pm.lastSpec!;
+        expect(spec.arguments, ['-c', p.join(slot, 'etc', 'php.ini'), '-v']);
+        expect(
+          spec.environment!['PHP_INI_SCAN_DIR'],
+          p.join(slot, 'etc', 'conf.d'),
+        );
+        expect(given, {'FOO': 'bar'});
+        expect(Platform.environment, before);
+      },
+    );
+
+    test('no record: unchanged', () async {
+      final pm = FakeProcessManager();
+      await PhpExecutor(
+        processManager: pm,
+        osManager: FakeOSManager(),
+        executableResolver: TestExecutableResolver(),
+        platformInfo: LinuxPlatformInfo(),
+      ).runPhp(['-v'], phpExecutable: '/nope/8.3/bin/php');
+      expect(pm.lastSpec!.arguments, ['-v']);
+      expect(pm.lastSpec!.environment!.containsKey('PHP_INI_SCAN_DIR'), false);
     });
   });
 }
