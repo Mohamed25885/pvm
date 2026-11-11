@@ -63,11 +63,15 @@ class PhpExecutor {
       var slot = layout.binSubdirectory.isEmpty
           ? p.dirname(phpExe)
           : p.dirname(p.dirname(phpExe));
-      // `.pvm` is a link to the slot: use the real slot path.
-      if (Directory(slot).existsSync()) {
-        slot = Directory(slot).resolveSymbolicLinksSync();
+      var record = await VersionRegistry.readSlotRecord(slot);
+      // `.pvm` links to `versions/<X.Y>`: follow that one level only, so a
+      // linked slot is still read through the registry, never its target.
+      if (record == null &&
+          p.basename(slot) == '.pvm' &&
+          FileSystemEntity.isLinkSync(slot)) {
+        slot = p.join(p.dirname(slot), Link(slot).targetSync());
+        record = await VersionRegistry.readSlotRecord(slot);
       }
-      final record = await VersionRegistry.readSlotRecord(slot);
       if (record == null) return null;
       return SlotIni(slot, record, _platform).childInvocation();
     } catch (_) {
