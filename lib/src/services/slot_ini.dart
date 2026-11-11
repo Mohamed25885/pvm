@@ -5,6 +5,10 @@ import 'package:path/path.dart' as p;
 import '../core/platform_info.dart';
 import '../domain/install_record.dart';
 
+/// The file name PHP loads for [ext] on [platform].
+String extensionFileName(PlatformInfo platform, String ext) =>
+    platform.osType == 'windows' ? 'php_$ext.dll' : '$ext.so';
+
 /// The ini of one PVM-owned slot. PVM hands it only to the PHP it starts
 /// itself ([childInvocation]), never to the environment users' shells inherit.
 class SlotIni {
@@ -32,8 +36,7 @@ class SlotIni {
       File(p.join(confDir, '50-$ext.ini${disabled ? '.disabled' : ''}'));
 
   Future<void> enable(String ext, {required bool zend}) async {
-    final name = platform.osType == 'windows' ? 'php_$ext.dll' : '$ext.so';
-    final path = p.join(record.extensionDir, name);
+    final path = p.join(record.extensionDir, extensionFileName(platform, ext));
     await Directory(confDir).create(recursive: true);
     await _file(
       ext,
