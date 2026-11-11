@@ -39,7 +39,11 @@ class VersionRegistry {
       final path = p.join(root, name);
       InstallRecord? record;
       try {
-        record = await InstallRecord.readFrom(path);
+        // A linked slot is the user's own folder: its record lives beside the
+        // link, and nothing inside the folder is read.
+        record = await _osManager.isSymLink(path)
+            ? await InstallRecord.readFromFile(linkRecordPath(name))
+            : await InstallRecord.readFrom(path);
       } catch (_) {
         record = null; // Unreadable: `pvm doctor --verify` reports it.
       }
@@ -84,6 +88,10 @@ class VersionRegistry {
     final sourcePath = getVersionPath(version);
     return await _osManager.directoryExists(sourcePath);
   }
+
+  /// Where a linked slot's record lives: `versions/<slot>.pvm-link.json`.
+  String linkRecordPath(String slot) =>
+      p.join(_osManager.phpVersionsPath, '$slot.pvm-link.json');
 
   /// The slot directory for [version]: `versions/<X.Y>`.
   String getVersionPath(PhpVersion version) {

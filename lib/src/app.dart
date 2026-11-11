@@ -10,6 +10,7 @@ import 'commands/doctor_command.dart';
 import 'commands/exec_command.dart';
 import 'commands/global_command.dart';
 import 'commands/install_command.dart';
+import 'commands/link_command.dart';
 import 'commands/list_command.dart';
 import 'commands/list_remote_command.dart';
 import 'commands/php_command.dart';
@@ -219,6 +220,9 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
     )
     ..addCommand(GlobalCommand(os, deps.versionActivator, console))
     ..addCommand(ListCommand(os, console))
+    ..addCommand(
+      LinkCommand(os, FolderProbe(deps.processManager, deps.platform), console),
+    )
     ..addCommand(CurrentCommand(os, resolver, console))
     ..addCommand(
       DoctorCommand(
