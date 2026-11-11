@@ -213,8 +213,9 @@ class UpdateCommand extends Command<int> {
   }
 
   /// A source build's `etc/php.ini` and its `etc/conf.d` inis move to
-  /// [staged]; the inis of recorded extensions are skipped, as the rebuild
-  /// writes them again. The user's php.ini replaces whatever staging has.
+  /// [staged], extension inis included: the rebuild only updates their load
+  /// line, so settings and a disabled state survive. The user's php.ini
+  /// replaces whatever staging has.
   Future<void> _keepIni(
     String oldSlot,
     InstallRecord old,
@@ -227,16 +228,10 @@ class UpdateCommand extends Command<int> {
     }
     final confD = Directory(p.join(oldSlot, 'etc', 'conf.d'));
     if (!await confD.exists()) return;
-    final rebuilt = {
-      for (final e in old.extensions) ...[
-        '50-${e.name}.ini',
-        '50-${e.name}.ini.disabled',
-      ],
-    };
     final to = Directory(p.join(staged, 'etc', 'conf.d'));
     await for (final f in confD.list(followLinks: false)) {
       final name = p.basename(f.path);
-      if (f is! File || rebuilt.contains(name)) continue;
+      if (f is! File) continue;
       final dest = File(p.join(to.path, name));
       if (await dest.exists()) continue;
       await to.create(recursive: true);
@@ -245,7 +240,7 @@ class UpdateCommand extends Command<int> {
   }
 
   /// Rebuilds each of [extensions] against the updated source slot; one that
-  /// fails is dropped from the record with how to reinstall it.
+  /// fails is dropped from the record (and its ini) with how to reinstall it.
   Future<void> _rebuild(
     String slotPath,
     List<ExtensionEntry> extensions,
@@ -263,6 +258,10 @@ class UpdateCommand extends Command<int> {
       try {
         kept.add(await route.install(ext.name, slot));
       } on Exception {
+        // Its carried ini would load a build that is gone.
+        try {
+          await SlotIni(slotPath, record, _platform).remove(ext.name);
+        } catch (_) {}
         _console.printWarning(
           '${ext.name} could not be rebuilt; run: pvm ext install ${ext.name}',
         );

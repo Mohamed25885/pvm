@@ -39,15 +39,39 @@ class SlotIni {
   File _file(String ext, {bool disabled = false}) =>
       File(p.join(confDir, '50-$ext.ini${disabled ? '.disabled' : ''}'));
 
-  Future<void> enable(String ext, {required bool zend}) async {
-    final path = p.join(record.extensionDir, extensionFileName(platform, ext));
-    await Directory(confDir).create(recursive: true);
-    await _file(
-      ext,
-    ).writeAsString('${zend ? 'zend_extension' : 'extension'}=$path\n');
+  /// Points [ext]'s ini at the slot's build. An existing ini keeps its other
+  /// lines (settings such as `xdebug.mode`) and its disabled state; only
+  /// without one is a new, enabled ini written. True when [ext] is enabled.
+  Future<bool> enable(String ext, {required bool zend}) async {
+    final line =
+        '${zend ? 'zend_extension' : 'extension'}='
+        '${p.join(record.extensionDir, extensionFileName(platform, ext))}';
+    final on = _file(ext);
     final off = _file(ext, disabled: true);
-    if (await off.exists()) await off.delete();
+    if (await on.exists()) {
+      await on.writeAsString(_withLoadLine(await on.readAsString(), line));
+      if (await off.exists()) await off.delete();
+      return true;
+    }
+    if (await off.exists()) {
+      await off.writeAsString(_withLoadLine(await off.readAsString(), line));
+      return false;
+    }
+    await Directory(confDir).create(recursive: true);
+    await on.writeAsString('$line\n');
+    return true;
   }
+
+  static final _loadLine = RegExp(
+    r'^[ \t]*(zend_)?extension[ \t]*=.*$',
+    multiLine: true,
+  );
+
+  /// [text] with its first load line replaced by [line] (prepended if none).
+  static String _withLoadLine(String text, String line) =>
+      _loadLine.hasMatch(text)
+      ? text.replaceFirst(_loadLine, line)
+      : '$line\n$text';
 
   Future<void> disable(String ext) async {
     final f = _file(ext);

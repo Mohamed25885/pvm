@@ -68,17 +68,23 @@ int _indexOf(List<int> h, List<int> n) {
 }
 
 /// Runs `php -m` with the slot's ini and throws unless [ext] is listed.
+/// [load] (`extension=<path>`) is passed as `-d` for an ini kept disabled.
 Future<void> checkLoads(
   IProcessManager pm,
   String php,
   SlotIni ini,
-  String ext,
-) async {
+  String ext, {
+  String? load,
+}) async {
   final inv = ini.childInvocation();
   final r = await pm.runCaptured(
     ProcessSpec(
       executable: php,
-      arguments: [...inv.args, '-m'],
+      arguments: [
+        ...inv.args,
+        if (load != null) ...['-d', load],
+        '-m',
+      ],
       environment: inv.env,
     ),
   );
@@ -126,8 +132,18 @@ class ExtensionInstallTxn {
     }
     try {
       await built.copy(target.path);
-      await ini.enable(ext, zend: await exportsZendExtension(target));
-      await checkLoads(pm, php, ini, ext);
+      final zend = await exportsZendExtension(target);
+      // A disabled ini stays disabled; the build is still checked.
+      final enabled = await ini.enable(ext, zend: zend);
+      await checkLoads(
+        pm,
+        php,
+        ini,
+        ext,
+        load: enabled
+            ? null
+            : '${zend ? 'zend_extension' : 'extension'}=${target.path}',
+      );
       if (hadOld) await backup.delete();
     } catch (_) {
       // Each step is independent; the original error is always rethrown.

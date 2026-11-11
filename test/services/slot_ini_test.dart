@@ -82,6 +82,45 @@ void main() {
       await ini.disable('xdebug');
     });
 
+    test('enable replaces only the load line of an existing ini', () async {
+      final ini = SlotIni(
+        tmp.path,
+        _record(SlotKind.source, extDir: p.join(tmp.path, 'ext')),
+        linux,
+      );
+      final f = File(p.join(ini.confDir, '50-xdebug.ini'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '; mine\nzend_extension=/old/xdebug.so\nxdebug.mode=debug\n',
+        );
+      expect(await ini.enable('xdebug', zend: true), isTrue);
+      expect(
+        f.readAsStringSync(),
+        '; mine\nzend_extension=${p.join(tmp.path, 'ext', 'xdebug.so')}\n'
+        'xdebug.mode=debug\n',
+      );
+    });
+
+    test('enable keeps a disabled ini disabled', () async {
+      final ini = SlotIni(
+        tmp.path,
+        _record(SlotKind.source, extDir: p.join(tmp.path, 'ext')),
+        linux,
+      );
+      final off = File(p.join(ini.confDir, '50-xdebug.ini.disabled'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          'zend_extension=/old/xdebug.so\nxdebug.mode=debug\n',
+        );
+      expect(await ini.enable('xdebug', zend: true), isFalse);
+      expect(
+        off.readAsStringSync(),
+        'zend_extension=${p.join(tmp.path, 'ext', 'xdebug.so')}\n'
+        'xdebug.mode=debug\n',
+      );
+      expect(File(p.join(ini.confDir, '50-xdebug.ini')).existsSync(), isFalse);
+    });
+
     test('windows enable writes php_<ext>.dll path', () async {
       final ini = SlotIni(
         tmp.path,

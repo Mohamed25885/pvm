@@ -21,6 +21,7 @@ import 'package:pvm/src/interfaces/i_release_source.dart';
 import 'package:pvm/src/managers/static_php_installer.dart';
 import 'package:pvm/src/managers/windows_installer.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:pvm/src/services/slot_ini.dart';
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
@@ -511,6 +512,53 @@ void main() {
       expect(saved.extensions, [_ext('redis', '6.0.0')]);
       expect(console.printed, contains('Updated 8.4 (8.4.26) → 8.4 (8.4.27)'));
     });
+
+    test(
+      'keeps extension settings and a disabled extension stays disabled',
+      () async {
+        // Plays PeclSourceBuilder's ini write against the updated slot.
+        sourceBuilder = () => (
+          install: (String ext, InstalledSlot slot, {String? confDir}) async {
+            await SlotIni(
+              slot.path,
+              slot.record!,
+              platform,
+            ).enable(ext, zend: ext == 'xdebug');
+            return _ext(ext, '6.0.0');
+          },
+          dispose: () {},
+        );
+        await addSlot(
+          '8.4',
+          record(
+            '8.4.26',
+            SlotKind.source,
+            extensions: [_ext('xdebug'), _ext('redis')],
+          ),
+          {
+            'bin/php': [1],
+            'etc/conf.d/50-xdebug.ini':
+                'zend_extension=/old/xdebug.so\nxdebug.mode=debug\n'.codeUnits,
+            'etc/conf.d/50-redis.ini.disabled':
+                'extension=/old/redis.so\nredis.x=1\n'.codeUnits,
+          },
+        );
+
+        expect(await run(['8.4']), ExitCode.success);
+
+        final confD = p.join(slotPath('8.4'), 'etc', 'conf.d');
+        final ext = p.join(slotPath('8.4'), 'ext');
+        expect(
+          File(p.join(confD, '50-xdebug.ini')).readAsStringSync(),
+          'zend_extension=${p.join(ext, 'xdebug.so')}\nxdebug.mode=debug\n',
+        );
+        expect(
+          File(p.join(confD, '50-redis.ini.disabled')).readAsStringSync(),
+          'extension=${p.join(ext, 'redis.so')}\nredis.x=1\n',
+        );
+        expect(File(p.join(confD, '50-redis.ini')).existsSync(), isFalse);
+      },
+    );
 
     test('keeps the edited php.ini and custom conf.d inis', () async {
       final ini = [...'memory_limit=1G\r\n'.codeUnits, 0xE9];

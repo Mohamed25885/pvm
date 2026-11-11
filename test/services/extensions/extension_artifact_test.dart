@@ -159,6 +159,23 @@ void main() {
       expect(live.readAsStringSync(), 'zend_extension=/old/x.so\n; mine');
     });
 
+    test('a reinstall keeps a disabled ini disabled and checks the build '
+        'with -d', () async {
+      built.writeAsBytesSync([...marker]);
+      Directory(ini.confDir).createSync(recursive: true);
+      final off = File(p.join(ini.confDir, '$iniName.disabled'))
+        ..writeAsStringSync('zend_extension=/old.so\nxdebug.mode=debug\n');
+      final pm = php('[Zend Modules]\nXdebug\n');
+      await ExtensionInstallTxn(pm, 'php').commit(built, extDir, ini, 'xdebug');
+      final so = p.join(extDir, 'xdebug.so');
+      expect(off.readAsStringSync(), 'zend_extension=$so\nxdebug.mode=debug\n');
+      expect(File(p.join(ini.confDir, iniName)).existsSync(), isFalse);
+      expect(
+        pm.capturedSpecs.single.arguments,
+        containsAllInOrder(['-d', 'zend_extension=$so', '-m']),
+      );
+    });
+
     test('failed reinstall restores a disabled ini as .disabled', () async {
       Directory(ini.confDir).createSync(recursive: true);
       final off = File(p.join(ini.confDir, '$iniName.disabled'))
