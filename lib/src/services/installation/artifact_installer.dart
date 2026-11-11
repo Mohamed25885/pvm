@@ -368,6 +368,7 @@ class ArtifactInstaller {
         if (response.statusCode != 200) {
           throw DownloadException(
             'Failed to download: HTTP ${response.statusCode}',
+            statusCode: response.statusCode,
           );
         }
 
@@ -398,6 +399,8 @@ class ArtifactInstaller {
           await sink?.close();
         } catch (_) {}
         if (await partFile.exists()) await partFile.delete();
+        // A 404 will not change on retry.
+        if (e is DownloadException && e.statusCode == 404) rethrow;
         if (attempt == PvmTimeouts.downloadMaxRetries - 1) rethrow;
         await Future<void>.delayed(_retryDelay * (attempt + 1));
       }

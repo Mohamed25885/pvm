@@ -17,7 +17,10 @@ class DownloadProgress {
 /// Exception for download errors
 class DownloadException implements Exception {
   final String message;
-  const DownloadException(this.message);
+
+  /// The HTTP status of a non-200 response, when that was the failure.
+  final int? statusCode;
+  const DownloadException(this.message, {this.statusCode});
 
   @override
   String toString() => message;
