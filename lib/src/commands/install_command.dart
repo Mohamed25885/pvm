@@ -159,7 +159,7 @@ class InstallCommand extends Command<int> {
     } on MissingToolsException catch (e) {
       _console.printError('Missing build tools: ${e.missing.join(', ')}');
       _console.print(e.installCommand);
-      return ExitCode.generalError;
+      return ExitCode.toolMissing;
     } on Exception catch (e) {
       _console.printError('Installation failed: ${describeError(e)}');
       return ExitCode.generalError;

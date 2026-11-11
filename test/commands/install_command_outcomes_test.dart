@@ -205,7 +205,7 @@ void main() {
         sourceInstaller: source,
       );
 
-      expect(code, ExitCode.generalError);
+      expect(code, ExitCode.toolMissing);
       expect(console.errors.join(), contains('re2c'));
       expect(
         console.printed,
