@@ -1,6 +1,6 @@
-# PVM — PHP Version Manager for Windows
+# PVM — PHP Version Manager
 
-A command-line tool for managing multiple PHP versions on Windows. PVM lets you switch between PHP versions per-project or globally, using Windows directory junctions (no admin rights needed) for fast, zero-overhead version switching.
+A command-line tool for managing multiple PHP versions on Windows, Linux and macOS. On Windows PVM lets you switch between PHP versions per-project or globally, using Windows directory junctions (no admin rights needed) for fast, zero-overhead version switching.
 
 **Latest release:** [v2.1.0](https://github.com/Mohamed25885/pvm/releases/tag/v2.1.0): no admin rights or Developer Mode needed (directory junctions), transactional and verified installs, `pvm doctor --verify`, older patches via `--allow-unverified`, correct exit codes, and fixes for PATH truncation and data-loss bugs. See [CHANGELOG.md](CHANGELOG.md).
 
@@ -20,6 +20,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 - [`pvm exec`](#pvm-exec)
 - [`pvm uninstall`](#pvm-uninstall)
 - [`pvm setup`](#pvm-setup)
+- [`pvm update` / `pvm link` / `pvm ext install`](#pvm-update--pvm-link--pvm-ext-install)
 - [`pvm install` / `pvm list-remote`](#pvm-install--pvm-list-remote)
 - [`pvm php [arguments]`](#pvm-php-arguments)
 - [`pvm composer [arguments]`](#pvm-composer-arguments)
@@ -38,12 +39,13 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 ## Platform Support
 
-**Current**: Windows 10/11 only  
-**Requirements**:
+**Windows 10/11**: PHP from windows.php.net.
 - No admin rights or Developer Mode needed: links are directory junctions (see [Requirements](#requirements))
 - PowerShell or CMD
 
-**Planned**: Linux and macOS support in future releases.
+**Linux and macOS** (x64 and arm64): `pvm install` downloads a static-php prebuilt (the `bulk` extension set), or `pvm install 8.4 --from-source` builds the php.net tarball (needs a compiler toolchain; PVM names what is missing). `pvm link` adopts a PHP you already have. Shell setup (`pvm setup`) and shims are not done yet: add `~/.pvm/bin` to your PATH yourself (`~/.pvm` links to the global version's folder, whose `php` is in `bin/`).
+
+**One folder per minor.** `versions/8.5` holds one 8.5.x patch and is shown as `8.5 (8.5.22)`. `pvm update 8.5` moves it to the newest patch. From static-php, only the newest patch of each minor is available, because only it has a published checksum. `--allow-unverified` applies to archived Windows releases and to `--from-source` php.net tarballs without a checksum.
 
 ---
 
@@ -76,7 +78,7 @@ A command-line tool for managing multiple PHP versions on Windows. PVM lets you 
 
 ### Version shorthand (`major.minor`)
 
-For **`pvm use`**, **`pvm global`**, **`pvm exec`**, and **`pvm uninstall`**, you may pass `major.minor` (e.g. `8.4`) instead of a full patch when **exactly one** installed version matches that line (e.g. only `8.4.1` is installed). If multiple patches are installed (e.g. `8.4.0` and `8.4.1`), you must specify the full version (`8.4.1`). `pvm install` is unchanged (it selects from remote releases, not installed folders).
+`X.Y` (e.g. `8.4`) names the slot `versions/8.4`, which holds one patch. For **`pvm use`**, **`pvm global`** and **`pvm exec`**, a full `X.Y.Z` (as in a `.pvmrc`) also resolves to its minor's slot. **`pvm uninstall`** is stricter: a full patch must match the slot's installed patch, otherwise it refuses (`8.4.1 is not installed; 8.4 holds 8.4.27.`) and deletes nothing. The only way `X.Y` can be ambiguous is two legacy `X.Y.Z` folders that slot migration would not merge; then you must give the full patch, and uninstalling one of them clears the conflict. `pvm install` is unchanged (it selects from remote releases, not installed folders).
 
 ---
 
@@ -92,7 +94,7 @@ pvm global 8.2
 
 **Requirements:**
 - Version must already exist in the `versions/` directory
-- Version format: `x.y` or `x.y.z` (e.g., `8.2`, `8.2.1`); `x.y` resolves automatically when unambiguous (see [Version shorthand](#version-shorthand-majorminor))
+- Version format: `x.y` or `x.y.z` (e.g., `8.2`, `8.2.1`); `x.y` names the slot (see [Version shorthand](#version-shorthand-majorminor))
 
 ---
 
@@ -123,11 +125,28 @@ pvm use               # reads .pvmrc and applies that version
 
 **Version format validation:**
 ```
-pvm use 8.2        # OK (resolves to 8.2.x when only one match)
-pvm use 8.2.1      # OK
-pvm use 8.2        # ERROR if both 8.2.0 and 8.2.1 installed (ambiguous)
+pvm use 8.2        # OK (the 8.2 slot)
+pvm use 8.2.1      # OK: uses the 8.2 slot, whichever 8.2.x it holds
 pvm use stable     # ERROR: Invalid version format. Expected: x.y or x.y.z
 ```
+
+---
+
+### `pvm update` / `pvm link` / `pvm ext install`
+
+```
+pvm update 8.4                   # move slot 8.4 to the newest patch (--allow-unverified if it has no checksum)
+pvm link 8.4 /opt/plesk/php/8.4 # adopt an existing PHP (its bin/php) as slot 8.4
+pvm ext install xdebug           # into the active version; --version=8.3 for another
+pvm install 8.4 --from-source    # Linux/macOS: build from the php.net tarball
+```
+
+- `update` keeps files and ini edits you added to the slot. `install --force` reinstalls the same patch, or replaces a slot of another kind (a static slot with `--from-source`) at any patch; a newer patch of the same kind is `update`.
+- `link` records the folder and never edits it, except that `ext install` into a linked, writable folder writes into the folder PHP's own ini scan dir.
+- `ext install` needs a folder with `php-config`: a linked or `--from-source` slot on Linux/macOS, or any Windows slot (PECL DLL). A static prebuilt refuses it and names those two routes. PECL downloads publish no checksum, so the extension is recorded as unverified with its SHA-256; running the command is the request.
+- Extensions are per version. `pvm use`, `global` and `current` print a hint when another version has one the chosen version lacks, for example `xdebug is installed for 8.2 but not 8.3. Run: pvm ext install xdebug`.
+
+Design and trust rules: [ADR 0001](docs/adr/0001-php-sources-and-trust.md).
 
 ---
 
@@ -208,7 +227,7 @@ pvm exec --version 8.2 -- php -v
 pvm exec --cwd C:\Projects\MyApp -- composer install
 ```
 
-If the first token looks like a version but is **not** installed (or is ambiguous — multiple `8.2.x` installed), PVM exits with an error instead of treating it as part of the command.
+If the first token looks like a version but is **not** installed (or is ambiguous — two unmerged legacy `8.2.x` folders), PVM exits with an error instead of treating it as part of the command.
 
 ---
 
@@ -469,6 +488,9 @@ fvm dart run pvm.dart current
 
 # Build executable
 fvm dart compile exe pvm.dart -o builds/pvm.exe
+
+# Build this OS + Linux x64/arm64 into builds/, with builds/SHA256SUMS
+fvm dart run tool/build.dart
 ```
 
 ### Testing

@@ -18,6 +18,7 @@ import 'package:pvm/src/services/windows_release_source.dart';
 import 'package:test/test.dart';
 
 import '../../mocks/mock_console.dart';
+import '../../support/temp_dir.dart';
 
 List<int> _zip(Map<String, List<int>> files) {
   final archive = Archive();
@@ -78,7 +79,7 @@ void main() {
     });
 
     tearDown(() async {
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     ArtifactInstaller installer(
@@ -127,7 +128,11 @@ void main() {
       );
 
       expect(await unix.isInstalled('8.3.14'), isTrue);
-      expect(Directory(p.join(versions, '8.3', 'conf.d')).existsSync(), isTrue);
+      // Windows extensions go in php.ini's managed block, not a conf.d.
+      expect(
+        Directory(p.join(versions, '8.3', 'conf.d')).existsSync(),
+        isFalse,
+      );
       expect(
         File(p.join(versions, '8.3', '.pvm-install.json')).existsSync(),
         isTrue,
@@ -191,6 +196,103 @@ void main() {
         ),
         throwsA(isA<DownloadException>()),
       );
+    });
+
+    test('a slot that cannot be moved away is SlotInUseException', () async {
+      final php = File(p.join(versions, '8.4', 'bin', 'php'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1]);
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [2]),
+      ]);
+      final locked = ArtifactInstaller(
+        versionsPath: versions,
+        layout: PhpLayout.unix,
+        platform: _host,
+        allowedHosts: const ['example.org'],
+        console: MockConsole(),
+        client: MockClient((_) async => http.Response.bytes(tgz, 200)),
+        retryDelay: Duration.zero,
+        renameDir: (dir, to) async =>
+            p.equals(dir.path, p.dirname(php.parent.path))
+            ? throw const FileSystemException('locked')
+            : dir.rename(to),
+      );
+
+      await expectLater(
+        locked.install(
+          _release(
+            '8.4.27',
+            url: 'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz',
+            sha: crypto.sha256.convert(tgz).toString(),
+          ),
+          '8.4.27',
+          kind: SlotKind.static,
+          allowUnverified: false,
+        ),
+        throwsA(
+          isA<SlotInUseException>()
+              .having((e) => e.slot, 'slot', '8.4')
+              .having(
+                (e) => '$e',
+                'message',
+                'PHP 8.4 is in use (a running php.exe or web server holds '
+                    'its files). Stop it, then run: pvm update 8.4',
+              ),
+        ),
+      );
+      expect(php.readAsBytesSync(), [1]);
+      expect(Directory(versions).listSync().map((e) => p.basename(e.path)), [
+        '8.4',
+      ]);
+    });
+
+    test('a backup that cannot be put back is named exactly', () async {
+      File(p.join(versions, '8.4', 'bin', 'php'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1]);
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [2]),
+      ]);
+      final slot = p.join(versions, '8.4');
+      final backup = '$slot.old-$pid';
+      final stuck = ArtifactInstaller(
+        versionsPath: versions,
+        layout: PhpLayout.unix,
+        platform: _host,
+        allowedHosts: const ['example.org'],
+        console: MockConsole(),
+        client: MockClient((_) async => http.Response.bytes(tgz, 200)),
+        retryDelay: Duration.zero,
+        // Moving the slot aside works; moving anything into it fails.
+        renameDir: (dir, to) async => p.equals(to, slot)
+            ? throw FileSystemException('denied', dir.path)
+            : dir.rename(to),
+      );
+
+      await expectLater(
+        stuck.install(
+          _release(
+            '8.4.27',
+            url: 'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz',
+            sha: crypto.sha256.convert(tgz).toString(),
+          ),
+          '8.4.27',
+          kind: SlotKind.static,
+          allowUnverified: false,
+        ),
+        throwsA(
+          isA<SlotRestoreException>()
+              .having(
+                (e) => '$e',
+                'message',
+                'PHP 8.4 was moved to ${p.absolute(backup)} and could not be '
+                    'put back; rename it to ${p.absolute(slot)} yourself',
+              )
+              .having((e) => e.cause, 'cause', isA<FileSystemException>()),
+        ),
+      );
+      expect(File(p.join(backup, 'bin', 'php')).readAsBytesSync(), [1]);
     });
 
     test('records the slot kind it was given', () async {

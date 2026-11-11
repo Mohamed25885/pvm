@@ -5,6 +5,7 @@ import 'package:test/test.dart';
 
 import 'package:pvm/src/core/link_slot.dart';
 import 'package:pvm/src/domain/exceptions.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('clearLinkSlot (S2)', () {
@@ -15,7 +16,7 @@ void main() {
     });
 
     tearDown(() async {
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     test('is a no-op when nothing exists', () async {

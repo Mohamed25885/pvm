@@ -23,6 +23,7 @@ import 'package:pvm/src/services/folder_probe.dart';
 
 import '../mocks/mock_console.dart';
 import '../services/fake_process_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   late Directory tmp;
@@ -52,7 +53,7 @@ void main() {
     pm = FakeProcessManager();
     console = MockConsole();
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() => deleteTempSync(tmp));
 
   /// Makes [dir] look like a PHP folder whose php reports [version].
   void fakePhp(String dir, String version) {

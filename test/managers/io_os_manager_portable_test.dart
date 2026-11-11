@@ -6,6 +6,7 @@ import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/exceptions.dart';
 import 'package:pvm/src/managers/io_os_manager.dart';
 import 'package:test/test.dart';
+import '../support/temp_dir.dart';
 
 /// Records calls instead of touching the filesystem.
 class _RecordingLinks implements ILinkManager {
@@ -90,7 +91,7 @@ void main() {
       });
 
       tearDown(() async {
-        await temp.delete(recursive: true);
+        await deleteTemp(temp);
       });
 
       test('getAvailableVersions lists bare directory names only', () async {

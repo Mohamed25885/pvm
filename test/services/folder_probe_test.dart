@@ -9,6 +9,7 @@ import 'package:pvm/src/services/folder_probe.dart';
 import 'package:test/test.dart';
 
 import 'fake_process_manager.dart';
+import '../support/temp_dir.dart';
 
 CapturedProcessResult _ok(String out) =>
     CapturedProcessResult(stdout: out, stderr: '', exitCode: 0);
@@ -21,6 +22,13 @@ String _json(String build, String ext) => jsonEncode({
   'build': build,
 });
 
+/// Fails the way IoProcessManager does when the binary cannot be started.
+class _UnstartablePm extends FakeProcessManager {
+  @override
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async =>
+      throw Exception('Failed to start process "${spec.executable}"');
+}
+
 void main() {
   late Directory tmp;
   late FakeProcessManager pm;
@@ -32,7 +40,7 @@ void main() {
     ext = p.join(tmp.path, 'ext');
     Directory(ext).createSync(recursive: true);
   });
-  tearDown(() => tmp.deleteSync(recursive: true));
+  tearDown(() => deleteTempSync(tmp));
 
   String touch(String rel) {
     final f = File(p.joinAll([tmp.path, ...rel.split('/')]))
@@ -99,6 +107,14 @@ void main() {
   test('throws ProbeException when php is missing', () {
     expect(
       FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path),
+      throwsA(isA<ProbeException>()),
+    );
+  });
+
+  test('throws ProbeException when php cannot be started (R12)', () {
+    touch('bin/php');
+    expect(
+      FolderProbe(_UnstartablePm(), LinuxPlatformInfo()).probe(tmp.path),
       throwsA(isA<ProbeException>()),
     );
   });

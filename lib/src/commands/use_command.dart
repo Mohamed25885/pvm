@@ -15,6 +15,7 @@ import '../domain/project.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
+import '../services/extension_hint.dart';
 import '../core/error_text.dart';
 
 class UseCommand extends Command<int> {
@@ -257,6 +258,7 @@ class UseCommand extends Command<int> {
 
       final label = await installedLabel(version, sourcePath);
       _console.print('Local link created ($label): $localPath -> $sourcePath');
+      await printExtensionHints(_console, registry, sourcePath);
       return ExitCode.success;
     } catch (e) {
       _console.printError('Error: ${describeError(e)}');

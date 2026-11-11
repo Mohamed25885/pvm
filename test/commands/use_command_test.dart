@@ -11,6 +11,7 @@ import 'package:pvm/src/commands/use_command.dart';
 import 'package:pvm/src/core/exit_codes.dart';
 import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/interfaces/i_version_activator.dart';
+import '../support/temp_dir.dart';
 
 Future<int> _runUseCommand({
   required MockOSManager osManager,
@@ -328,7 +329,7 @@ void main() {
     });
 
     tearDown(() async {
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     test('S3: refuses to run in the home directory (global slot)', () async {

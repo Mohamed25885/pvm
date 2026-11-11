@@ -7,6 +7,7 @@ import 'package:pvm/src/core/constants.dart';
 import 'package:pvm/src/managers/link_version_activator.dart';
 
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('LinkVersionActivator', () {
@@ -84,7 +85,7 @@ void main() {
 
       tearDown(() async {
         if (await tempDir.exists()) {
-          await tempDir.delete(recursive: true);
+          await deleteTemp(tempDir);
         }
       });
 

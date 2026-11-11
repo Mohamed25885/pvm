@@ -9,6 +9,7 @@ import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/domain/project.dart';
 
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 /// The host's real home directories. A developer's own global `~/.pvm` sits
 /// above `Directory.systemTemp` on Windows, so the walk-up must skip it just
@@ -36,7 +37,7 @@ void main() {
 
     tearDown(() async {
       if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
+        await deleteTemp(tempDir);
       }
     });
 

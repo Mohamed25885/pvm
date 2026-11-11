@@ -4,7 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
 
+### Added
+- **PHP on Linux/macOS.** `pvm install 8.4` downloads a checksum-verified static-php build. `pvm install 8.4 --from-source` builds PHP from php.net, verified against php.net's checksum, and prints the exact package-manager command when build tools are missing. PVM never runs `sudo`.
+- **`pvm link <X.Y> <folder>`** adopts a PHP installed elsewhere (Plesk, Homebrew, your own build) as a version.
+- **`pvm ext install <name>`** builds a PECL extension for the version (Linux/macOS), or downloads the matching PECL DLL (Windows). PVM checks that PHP loads the extension and undoes everything if it doesn't. Static builds refuse extensions and point to `--from-source`.
+- **`pvm update <X.Y>`** moves a version to its newest patch, keeping its extensions and ini settings.
+- Switching to a version prints a one-line hint when an extension you have in another version is missing.
+- New exit codes: 7 build tools missing, 8 extension unavailable, 9 version in use, 10 build failed.
+
 ### Changed
+- **One folder per minor version.** `versions/8.4` holds one patch and is shown as `8.4 (8.4.27)`. Existing `versions/8.4.27` folders are renamed on the first run, and links are re-pointed; if two patches of one minor exist, PVM asks you to remove one.
+- The Linux/macOS apt and Homebrew installers are removed in favour of static-php and `--from-source`.
+- On Windows, installed extensions go in a block PVM manages inside the version's own `php.ini`, so they also load outside PVM.
 - **One code path for every OS (roadmap Phase 2).**
   - `PhpLayout` decides where `php` lives in a version directory (`php.exe` at the root on Windows, `bin/php` on Unix).
   - Every OS uses the same link model, `.pvm` → `versions/<v>`, through a single `LinkVersionActivator`.

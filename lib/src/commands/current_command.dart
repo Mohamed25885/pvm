@@ -13,6 +13,8 @@ import '../core/version_label.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_version.dart';
 import '../domain/project.dart';
+import '../domain/version_registry.dart';
+import '../services/extension_hint.dart';
 
 /// `pvm current` — display the active PHP version (global and/or local).
 ///
@@ -95,6 +97,16 @@ class CurrentCommand extends Command<int> {
         globalOnly: globalOnly,
         localOnly: localOnly,
       );
+      final effective = active.scope == VersionScope.local
+          ? active.local
+          : active.global;
+      if (!active.isNone && effective.target != null) {
+        await printExtensionHints(
+          _console,
+          VersionRegistry(_osManager),
+          effective.target!,
+        );
+      }
     }
 
     return active.isNone ? ExitCode.configurationError : ExitCode.success;

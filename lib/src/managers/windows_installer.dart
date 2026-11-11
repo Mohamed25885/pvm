@@ -74,7 +74,13 @@ class WindowsInstaller implements IInstaller {
     );
     final resolved = release.displayVersion;
 
-    if (await _artifacts.slotHolds(resolved) && !(options?.force ?? false)) {
+    if (await _artifacts.slotHolds(
+          resolved,
+          SlotKind.windowsZip,
+          replace: options?.update != null,
+          force: options?.force ?? false,
+        ) &&
+        !(options?.force ?? false)) {
       return InstallResult(resolved, alreadyInstalled: true);
     }
 
@@ -85,6 +91,7 @@ class WindowsInstaller implements IInstaller {
         resolved,
         kind: SlotKind.windowsZip,
         allowUnverified: options?.allowUnverified ?? false,
+        beforeSwap: options?.update,
       );
     } on Exception catch (e) {
       await onInstallFailed(resolved, e);

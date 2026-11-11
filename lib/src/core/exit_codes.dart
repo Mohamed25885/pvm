@@ -7,4 +7,8 @@ class ExitCode {
   static const userCancelled = 4;
   static const permissionDenied = 5;
   static const configurationError = 6;
+  static const toolMissing = 7;
+  static const extensionUnavailable = 8;
+  static const slotInUse = 9;
+  static const buildFailed = 10;
 }

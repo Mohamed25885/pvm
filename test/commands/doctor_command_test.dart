@@ -15,6 +15,7 @@ import 'package:pvm/src/core/symlink_inspector.dart';
 
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('DoctorCommand', () {
@@ -51,7 +52,7 @@ void main() {
 
     tearDown(() async {
       if (await tempHome.exists()) {
-        await tempHome.delete(recursive: true);
+        await deleteTemp(tempHome);
       }
     });
 

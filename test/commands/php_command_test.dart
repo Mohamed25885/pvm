@@ -10,6 +10,7 @@ import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import 'package:pvm/src/commands/php_command.dart';
+import '../support/temp_dir.dart';
 
 class RecordingProcessManager implements IProcessManager {
   ProcessSpec? lastInteractiveSpec;
@@ -101,7 +102,7 @@ void main() {
 
     tearDown(() async {
       if (await tempDir.exists()) {
-        await tempDir.delete(recursive: true);
+        await deleteTemp(tempDir);
       }
     });
 

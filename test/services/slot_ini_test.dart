@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/services/slot_ini.dart';
+import '../support/temp_dir.dart';
 
 InstallRecord _record(SlotKind kind, {String extDir = '/x/ext'}) =>
     InstallRecord(
@@ -37,14 +38,14 @@ void main() {
     }
   });
 
-  test('windows-zip slot: scan dir only', () {
+  test('windows-zip slot passes nothing: php.exe reads its own php.ini', () {
     final i = SlotIni(
       slot,
       _record(SlotKind.windowsZip),
       WindowsPlatformInfo(),
     ).childInvocation();
     expect(i.args, isEmpty);
-    expect(i.env, {'PHP_INI_SCAN_DIR': p.join(slot, 'conf.d')});
+    expect(i.env, isEmpty);
   });
 
   test('linked confDir throws', () {
@@ -57,7 +58,7 @@ void main() {
   group('files', () {
     late Directory tmp;
     setUp(() => tmp = Directory.systemTemp.createTempSync('pvm-slot-ini'));
-    tearDown(() => tmp.deleteSync(recursive: true));
+    tearDown(() => deleteTempSync(tmp));
 
     test('enable, disable, remove', () async {
       final ini = SlotIni(
@@ -82,17 +83,122 @@ void main() {
       await ini.disable('xdebug');
     });
 
-    test('windows enable writes php_<ext>.dll path', () async {
+    test('enable replaces only the load line of an existing ini', () async {
       final ini = SlotIni(
         tmp.path,
-        _record(SlotKind.windowsZip, extDir: p.join(tmp.path, 'ext')),
-        WindowsPlatformInfo(),
+        _record(SlotKind.source, extDir: p.join(tmp.path, 'ext')),
+        linux,
       );
-      await ini.enable('mbstring', zend: false);
+      final f = File(p.join(ini.confDir, '50-xdebug.ini'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          '; mine\nzend_extension=/old/xdebug.so\nxdebug.mode=debug\n',
+        );
+      expect(await ini.enable('xdebug', zend: true), isTrue);
       expect(
-        File(p.join(ini.confDir, '50-mbstring.ini')).readAsStringSync(),
-        'extension=${p.join(tmp.path, 'ext', 'php_mbstring.dll')}\n',
+        f.readAsStringSync(),
+        '; mine\nzend_extension=${p.join(tmp.path, 'ext', 'xdebug.so')}\n'
+        'xdebug.mode=debug\n',
       );
+    });
+
+    test('enable keeps a disabled ini disabled', () async {
+      final ini = SlotIni(
+        tmp.path,
+        _record(SlotKind.source, extDir: p.join(tmp.path, 'ext')),
+        linux,
+      );
+      final off = File(p.join(ini.confDir, '50-xdebug.ini.disabled'))
+        ..createSync(recursive: true)
+        ..writeAsStringSync(
+          'zend_extension=/old/xdebug.so\nxdebug.mode=debug\n',
+        );
+      expect(await ini.enable('xdebug', zend: true), isFalse);
+      expect(
+        off.readAsStringSync(),
+        'zend_extension=${p.join(tmp.path, 'ext', 'xdebug.so')}\n'
+        'xdebug.mode=debug\n',
+      );
+      expect(File(p.join(ini.confDir, '50-xdebug.ini')).existsSync(), isFalse);
+    });
+
+    group('windows php.ini block', () {
+      late SlotIni ini;
+      late File phpIni;
+      late String dll;
+      const begin = '; BEGIN pvm extensions (managed by pvm)';
+      const end = '; END pvm extensions';
+      setUp(() {
+        ini = SlotIni(
+          tmp.path,
+          _record(SlotKind.windowsZip, extDir: p.join(tmp.path, 'ext')),
+          WindowsPlatformInfo(),
+        );
+        phpIni = File(p.join(tmp.path, 'php.ini'));
+        dll = p.join(tmp.path, 'ext', 'php_xdebug.dll');
+      });
+
+      test('a fresh slot gets php.ini with the block', () async {
+        expect(await ini.enable('xdebug', zend: true), isTrue);
+        expect(
+          phpIni.readAsStringSync(),
+          '$begin\nzend_extension=$dll\n$end\n',
+        );
+        expect(Directory(p.join(tmp.path, 'conf.d')).existsSync(), isFalse);
+      });
+
+      test('enable, disable, remove keep bytes outside the block', () async {
+        // CRLF and a non-UTF-8 byte: copied through untouched.
+        final head = [
+          ...'memory_limit=1G\r\n; caf'.codeUnits,
+          0xE9,
+          0x0D,
+          0x0A,
+        ];
+        final tail = '[xdebug]\r\nxdebug.mode=debug\r\n'.codeUnits;
+        phpIni.writeAsBytesSync([
+          ...head,
+          ...'$begin\nextension=C:/old/php_redis.dll\n$end\n'.codeUnits,
+          ...tail,
+        ]);
+        List<int> block(String lines) => [
+          ...head,
+          ...'$begin\n$lines$end\n'.codeUnits,
+          ...tail,
+        ];
+
+        await ini.enable('xdebug', zend: true);
+        expect(
+          phpIni.readAsBytesSync(),
+          block('extension=C:/old/php_redis.dll\nzend_extension=$dll\n'),
+        );
+
+        await ini.disable('xdebug');
+        expect(
+          phpIni.readAsBytesSync(),
+          block(
+            'extension=C:/old/php_redis.dll\n'
+            ';pvm-disabled: zend_extension=$dll\n',
+          ),
+        );
+
+        // Reinstalling keeps it disabled (as the conf.d form does).
+        expect(await ini.enable('xdebug', zend: true), isFalse);
+        await ini.remove('xdebug');
+        expect(
+          phpIni.readAsBytesSync(),
+          block('extension=C:/old/php_redis.dll\n'),
+        );
+      });
+
+      test('a php.ini without a block gets one appended', () async {
+        phpIni.writeAsStringSync('memory_limit=1G');
+        await ini.enable('xdebug', zend: true);
+        expect(
+          phpIni.readAsStringSync(),
+          'memory_limit=1G\n$begin\nzend_extension=$dll\n$end\n',
+        );
+      });
     });
   });
 }

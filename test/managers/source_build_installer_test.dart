@@ -15,6 +15,7 @@ import 'package:pvm/src/services/folder_probe.dart';
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
+import '../support/temp_dir.dart';
 
 final _tarball = utf8.encode('fake php source tarball');
 final _sha = crypto.sha256.convert(_tarball).toString();
@@ -98,7 +99,7 @@ void main() {
     requested = [];
   });
 
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   String staging() => p.join(versions, '.staging-8.4-$pid');
 
@@ -150,7 +151,10 @@ void main() {
             (first == null || s.arguments.first == first),
       );
 
-  Future<void> seedSlot(String version) async {
+  Future<void> seedSlot(
+    String version, {
+    SlotKind kind = SlotKind.source,
+  }) async {
     final php = File(p.join(prefix, 'bin', 'php'));
     await php.create(recursive: true);
     await php.writeAsString('old');
@@ -161,7 +165,7 @@ void main() {
       verified: true,
       installedAt: DateTime(2026),
       files: const {},
-      kind: SlotKind.source,
+      kind: kind,
     ).writeTo(prefix);
   }
 
@@ -304,6 +308,25 @@ void main() {
       throwsA(isA<SlotFilledException>()),
     );
     expect(pm.interactive, isEmpty);
+  });
+
+  test('--force turns a static slot of an older patch into a source slot '
+      '(R30)', () async {
+    await seedSlot('8.4.27', kind: SlotKind.static);
+    await installer(
+      patch: '28',
+    ).install('8.4', options: const InstallOptions(force: true));
+    final record = (await InstallRecord.readFrom(prefix))!;
+    expect(record.kind, SlotKind.source);
+    expect(record.version, '8.4.28');
+  });
+
+  test('another kind without --force is still SlotFilledException', () async {
+    await seedSlot('8.4.27', kind: SlotKind.static);
+    await expectLater(
+      installer(patch: '28').install('8.4'),
+      throwsA(isA<SlotFilledException>()),
+    );
   });
 
   test('the same patch is already installed without --force', () async {

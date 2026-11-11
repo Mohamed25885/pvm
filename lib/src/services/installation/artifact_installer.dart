@@ -42,6 +42,9 @@ class ArtifactInstaller {
   final http.Client _client;
   final Duration _retryDelay;
 
+  /// Renames a directory (the swap); tests fail it to play a locked slot.
+  final Future<Directory> Function(Directory dir, String to) _rename;
+
   ArtifactInstaller({
     required this.versionsPath,
     required this.layout,
@@ -51,7 +54,9 @@ class ArtifactInstaller {
     this.probe,
     http.Client? client,
     this._retryDelay = const Duration(seconds: 1),
-  }) : _client = client ?? http.Client();
+    Future<Directory> Function(Directory dir, String to)? renameDir,
+  }) : _client = client ?? http.Client(),
+       _rename = renameDir ?? ((dir, to) => dir.rename(to));
 
   /// Whether the slot of [version] (`versions/<X.Y>`) holds a PHP binary.
   Future<bool> isInstalled(String version) => File(
@@ -59,20 +64,26 @@ class ArtifactInstaller {
   ).exists();
 
   /// Whether the slot of [version] already holds exactly [version]. Throws
-  /// [SlotFilledException] when it holds another (recorded) patch.
-  Future<bool> slotHolds(String version) async {
+  /// [SlotFilledException] when it holds another (recorded) patch, unless
+  /// [replace] (`pvm update`) or [force] with a slot of another kind than
+  /// [kind] (a kind change is a replacement, R30), which answer false.
+  Future<bool> slotHolds(
+    String version,
+    SlotKind kind, {
+    bool replace = false,
+    bool force = false,
+  }) async {
     if (!await isInstalled(version)) return false;
     final slot = PhpVersion.parse(version).slot;
-    String? installed;
+    InstallRecord? record;
     try {
-      installed = (await VersionRegistry.readSlotRecord(
-        p.join(versionsPath, slot),
-      ))?.version;
+      record = await VersionRegistry.readSlotRecord(p.join(versionsPath, slot));
     } catch (_) {
       // Unreadable record: patch unknown, as for a hand-copied slot.
     }
-    if (installed != null && installed != version) {
-      throw SlotFilledException(slot, installed);
+    if (record != null && record.version != version) {
+      if (replace || (force && record.kind != kind)) return false;
+      throw SlotFilledException(slot, record.version);
     }
     return true;
   }
@@ -87,6 +98,7 @@ class ArtifactInstaller {
     String version, {
     required SlotKind kind,
     required bool allowUnverified,
+    Future<void> Function(String staged)? beforeSwap,
   }) async {
     // [version] becomes a directory name: guard every caller (path traversal).
     final slot = PhpVersion.parse(version).slot;
@@ -134,6 +146,7 @@ class ArtifactInstaller {
         kind: kind,
         archiveSha256: actualSha,
         verified: verified,
+        beforeSwap: beforeSwap,
       );
     } finally {
       await _deleteQuietly(staging);
@@ -156,7 +169,8 @@ class ArtifactInstaller {
 
   /// Check the PHP binary in [tree] (a dir inside `versions/`), probe it,
   /// write `.pvm-install.json` and atomically move [tree] to the slot of
-  /// [version]. The old slot survives any failure.
+  /// [version]. [beforeSwap] runs on [tree] just before the move. The old
+  /// slot survives any failure.
   Future<void> commit(
     String tree,
     PhpRelease release,
@@ -164,6 +178,7 @@ class ArtifactInstaller {
     required SlotKind kind,
     required String archiveSha256,
     required bool verified,
+    Future<void> Function(String staged)? beforeSwap,
   }) async {
     final binary = layout.phpExecutable(tree);
     if (!await File(binary).exists()) {
@@ -219,11 +234,12 @@ class ArtifactInstaller {
       vsVersion: probed?.vsVersion,
     ).writeTo(tree);
 
+    await beforeSwap?.call(tree);
     await _commit(Directory(tree), Directory(target));
   }
 
   /// Empty per-slot ini and `conf.d` (see SlotIni). Linked slots are the
-  /// user's folder; the Windows zip keeps its own `php.ini` handling.
+  /// user's folder; a Windows zip slot's extensions go in its `php.ini`.
   Future<void> _createIni(String tree, SlotKind kind) async {
     switch (kind) {
       case SlotKind.static:
@@ -232,7 +248,6 @@ class ArtifactInstaller {
         final ini = File(p.join(tree, 'etc', 'php.ini'));
         if (!await ini.exists()) await ini.writeAsString('');
       case SlotKind.windowsZip:
-        await Directory(p.join(tree, 'conf.d')).create(recursive: true);
       case SlotKind.linked:
         break;
     }
@@ -247,16 +262,32 @@ class ArtifactInstaller {
   }
 
   /// Atomically replace [target] with [staging]; on failure the previous
-  /// installation (if any) is restored.
+  /// installation (if any) is restored. A slot that cannot be moved aside
+  /// is [SlotInUseException] (Windows: a running PHP holds its files).
   Future<void> _commit(Directory staging, Directory target) async {
     Directory? backup;
     if (await target.exists()) {
-      backup = await target.rename('${target.path}.old-$pid');
+      try {
+        backup = await _rename(target, '${target.path}.old-$pid');
+      } on FileSystemException {
+        throw SlotInUseException(p.basename(target.path));
+      }
     }
     try {
-      await staging.rename(target.path);
-    } catch (_) {
-      if (backup != null) await backup.rename(target.path);
+      await _rename(staging, target.path);
+    } catch (e) {
+      if (backup != null) {
+        try {
+          await _rename(backup, target.path);
+        } catch (_) {
+          throw SlotRestoreException(
+            p.basename(target.path),
+            p.absolute(backup.path),
+            p.absolute(target.path),
+            e,
+          );
+        }
+      }
       rethrow;
     }
     if (backup != null) await _deleteQuietly(backup);
@@ -368,6 +399,7 @@ class ArtifactInstaller {
         if (response.statusCode != 200) {
           throw DownloadException(
             'Failed to download: HTTP ${response.statusCode}',
+            statusCode: response.statusCode,
           );
         }
 
@@ -398,6 +430,8 @@ class ArtifactInstaller {
           await sink?.close();
         } catch (_) {}
         if (await partFile.exists()) await partFile.delete();
+        // A 404 will not change on retry.
+        if (e is DownloadException && e.statusCode == 404) rethrow;
         if (attempt == PvmTimeouts.downloadMaxRetries - 1) rethrow;
         await Future<void>.delayed(_retryDelay * (attempt + 1));
       }

@@ -8,6 +8,7 @@ import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/services/slot_migration.dart';
 
 import 'fake_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   late Directory tmp;
@@ -24,7 +25,7 @@ void main() {
     os = FakeOSManager();
   });
 
-  tearDown(() => tmp.delete(recursive: true));
+  tearDown(() => deleteTemp(tmp));
 
   Future<void> slot(String name) =>
       Directory(p.join(v, name)).create(recursive: true);
@@ -115,6 +116,31 @@ void main() {
 
     expect(second.renamed, isEmpty);
     expect(second.conflicts, isEmpty);
+    expect(Directory(p.join(v, '8.2')).existsSync(), isTrue);
+  });
+
+  test('a rename that fails is reported and the others still run', () async {
+    await slot('8.3.14');
+    await slot('8.2.28');
+
+    final result = await SlotMigration(
+      os,
+      v,
+      home,
+      renameDir: (dir, to) async {
+        if (p.basename(dir.path) == '8.3.14') {
+          throw const FileSystemException('in use');
+        }
+        return dir.rename(to);
+      },
+    ).run();
+
+    expect(result.renamed, ['8.2.28']);
+    expect(result.messages, [
+      'Could not rename versions/8.3.14 to versions/8.3 '
+          '(stop any PHP running from it, then run any pvm command)',
+    ]);
+    expect(Directory(p.join(v, '8.3.14')).existsSync(), isTrue);
     expect(Directory(p.join(v, '8.2')).existsSync(), isTrue);
   });
 

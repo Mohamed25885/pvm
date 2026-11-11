@@ -17,7 +17,10 @@ class DownloadProgress {
 /// Exception for download errors
 class DownloadException implements Exception {
   final String message;
-  const DownloadException(this.message);
+
+  /// The HTTP status of a non-200 response, when that was the failure.
+  final int? statusCode;
+  const DownloadException(this.message, {this.statusCode});
 
   @override
   String toString() => message;
@@ -33,11 +36,17 @@ class InstallOptions {
   /// patch releases on windows.php.net). TLS is then the only protection.
   final bool allowUnverified;
 
+  /// `pvm update`: the install may replace another patch of the slot, and
+  /// this runs on the staged slot (record written) just before the swap. A
+  /// throw aborts the update and leaves the old slot as it was.
+  final Future<void> Function(String staged)? update;
+
   const InstallOptions({
     this.architecture,
     this.buildType,
     this.force = false,
     this.allowUnverified = false,
+    this.update,
   });
 }
 
@@ -82,6 +91,36 @@ class SlotFilledException implements Exception {
 
   @override
   String toString() => '$slot is installed ($installed). Run: pvm update $slot';
+}
+
+/// Thrown when the old slot cannot be moved aside for the swap: on Windows,
+/// a running PHP or web server holds its files.
+class SlotInUseException implements Exception {
+  final String slot;
+  const SlotInUseException(this.slot);
+
+  @override
+  String toString() =>
+      'PHP $slot is in use (a running php.exe or web server holds its '
+      'files). Stop it, then run: pvm update $slot';
+}
+
+/// Thrown when the swap failed after the old slot was moved to [backup] and
+/// moving it back failed too: the slot is gone until the user renames it.
+class SlotRestoreException implements Exception {
+  final String slot;
+  final String backup;
+  final String target;
+
+  /// The error that failed the swap.
+  final Object cause;
+
+  const SlotRestoreException(this.slot, this.backup, this.target, this.cause);
+
+  @override
+  String toString() =>
+      'PHP $slot was moved to $backup and could not be put back; '
+      'rename it to $target yourself';
 }
 
 /// Installer interface for PHP installation across platforms.

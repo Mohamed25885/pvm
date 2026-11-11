@@ -10,6 +10,7 @@ import 'package:pvm/src/core/symlink_inspector.dart';
 import 'package:pvm/src/managers/io_os_manager.dart';
 import 'package:pvm/src/managers/link_version_activator.dart';
 import 'package:test/test.dart';
+import '../support/temp_dir.dart';
 
 /// B16 regression on the real OS layer of whichever OS runs it (junction on
 /// Windows, symlink on Linux/macOS): activate, then every reader agrees the
@@ -37,7 +38,7 @@ void main() {
     final link = p.join(home.path, '.pvm');
     addTearDown(() async {
       await os.deleteSymLink(link);
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     await LinkVersionActivator(

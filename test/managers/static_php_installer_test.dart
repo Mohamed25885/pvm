@@ -19,6 +19,7 @@ import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
 import '../services/fake_process_manager.dart';
+import '../support/temp_dir.dart';
 
 // Tests may check the host; lib/ may not (no_host_platform_checks_test).
 final PlatformInfo _host = Platform.isWindows
@@ -77,7 +78,7 @@ void main() {
     console = MockConsole();
   });
 
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   String staging(String slot) => p.join(versions, '.staging-$slot-$pid');
 

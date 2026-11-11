@@ -4,6 +4,7 @@ import 'package:test/test.dart';
 
 import '../helpers.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('Version flag tests', () {
@@ -18,7 +19,7 @@ void main() {
 
     tearDown(() {
       if (tempDir.existsSync()) {
-        tempDir.deleteSync(recursive: true);
+        deleteTempSync(tempDir);
       }
     });
 

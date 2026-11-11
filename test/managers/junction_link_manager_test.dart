@@ -9,6 +9,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/link_manager.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/managers/io_os_manager.dart';
+import '../support/temp_dir.dart';
 
 IoOSManager _manager([ILinkManager links = const JunctionLinkManager()]) =>
     IoOSManager(platformInfo: WindowsPlatformInfo(), linkManager: links);
@@ -35,7 +36,7 @@ void main() {
     tearDown(() async {
       final link = p.join(temp.path, 'project', '.pvm');
       if (await FileSystemEntity.isLink(link)) await Link(link).delete();
-      await temp.delete(recursive: true);
+      await deleteTemp(temp);
     });
 
     test('creates a junction by default (no privilege needed)', () async {

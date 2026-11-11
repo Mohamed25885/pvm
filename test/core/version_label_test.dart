@@ -6,6 +6,7 @@ import 'package:test/test.dart';
 import 'package:pvm/src/core/version_label.dart';
 import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/domain/php_version.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   test('label shows minor and patch', () {
@@ -15,7 +16,7 @@ void main() {
 
   test('installedLabel reads the slot record', () async {
     final dir = await Directory.systemTemp.createTemp('pvm_label_');
-    addTearDown(() => dir.delete(recursive: true));
+    addTearDown(() => deleteTemp(dir));
     expect(await installedLabel(PhpVersion(8, 5), dir.path), '8.5');
     await InstallRecord(
       version: '8.5.22',

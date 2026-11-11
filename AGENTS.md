@@ -4,7 +4,7 @@ This document provides essential information for agentic coding agents working i
 
 ## Project Overview
 
-PVM is a Dart-based command-line tool designed to manage multiple PHP versions on Windows. It allows users to switch between global and local PHP versions by creating symbolic links and provides a proxy to run PHP commands through the selected version.
+PVM is a Dart-based command-line tool designed to manage multiple PHP versions on Windows, Linux and macOS. It allows users to switch between global and local PHP versions by creating symbolic links and provides a proxy to run PHP commands through the selected version.
 
 ## Using .agents Directory
 
@@ -32,7 +32,7 @@ The `.agents` directory contains all resources for agentic coding:
 ## Environment & Dependencies
 
 - **Language:** Dart (SDK `>=3.12.0 <4.0.0`, development pinned via FVM Flutter **3.44.2** → Dart **3.12.2**)
-- **Target Platform:** Windows (strictly uses Windows-specific APIs and path conventions)
+- **Target Platforms:** Windows (windows.php.net builds, junctions), Linux and macOS (static-php prebuilts, `--from-source`, symlinks). Host OS is detected only in `createPlatformInfo`.
 - **Key Dependencies:**
   - `args`: Command-line argument parsing (CommandRunner).
   - `path`: Path manipulation.
@@ -94,7 +94,12 @@ The CLI uses `package:args`'s `CommandRunner` for modular command handling (regi
 - `ExecCommand`: Runs a command with a chosen PHP on `PATH` (`pvm exec`); supports `--version`, optional leading version token, `--cwd`, and `php` / `composer` / generic dispatch.
 - `PhpCommand`: Runs PHP using local version via `PhpExecutor`.
 - `ComposerCommand`: Runs Composer using local PHP and PATH lookup.
-- Plus install/list-remote/version helpers as defined in `pvm.dart`.
+- `InstallCommand`: `pvm install <X.Y[.Z]> [--from-source] [--allow-unverified] [--arch] [--force]`. `--from-source` (Linux/macOS) builds the php.net tarball.
+- `UpdateCommand`: `pvm update <X.Y> [--allow-unverified]` moves a slot to the newest patch, keeping user-added files and ini edits.
+- `LinkCommand`: `pvm link <X.Y> <folder>` adopts an existing PHP as a linked slot.
+- `ExtCommand` / `ExtInstallCommand`: `pvm ext install <ext> [--version=X.Y]` (PECL source build, or PECL Windows DLL). Needs a full folder (one with `php-config`); static slots refuse it.
+- `use`, `global` and `current` print `extensionHints` (`services/extension_hint.dart`) when another slot has an extension the chosen one lacks.
+- Plus list-remote/version helpers as defined in `pvm.dart`. Design: `docs/adr/0001-php-sources-and-trust.md`.
 
 ## Critical Commands
 
@@ -119,6 +124,7 @@ Use **FVM** so commands run on the Dart version pinned in `.fvmrc` (Flutter 3.44
 
 ### Build
 - **Compile Executable:** `fvm dart compile exe pvm.dart -o builds/pvm.exe`
+- **Release binaries:** `fvm dart run tool/build.dart` builds `pvm-<os>-<arch>` for the host plus Linux x64/arm64 (Dart cross-compiles only to Linux) and writes `builds/SHA256SUMS`.
 
 ### Testing
 - **Run all tests:** `fvm dart test`
@@ -284,7 +290,7 @@ import 'utils/utils.dart';
 1. **Link failures**: Junctions need no privilege; a permission error means the symlink fallback ran (e.g. versions on a network share). Developer Mode or an admin terminal fixes that case.
 2. **Cross-platform testing**: On non-Windows platforms (Linux/macOS), always use `MockOSManager` (or Linux/mac `IOSManager` fakes) — never assume Windows-only APIs in shared logic.
 3. **Path Separators**: Always use `package:path` (`p.join()`) for building paths; never hardcode backslashes even on Windows. The `path` package ensures cross-platform correctness and avoids subtle bugs.
-4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` via `InstalledVersionResolver` when exactly one installed version matches; multiple patches require full `major.minor.patch`. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
+4. **`pvm exec` / version arguments**: `use`, `global`, `exec`, and `uninstall` resolve `major.minor` (and a full patch, to its minor's slot) via `InstalledVersionResolver`; `uninstall` additionally refuses a full patch that differs from the slot's patch. Only two unmerged legacy patch folders are ambiguous and need the full patch. First positional token in `exec` is a version only if it parses and resolves; otherwise the active version is used.
 5. **FVM / Dart SDK**: Use `fvm dart` for `pub get`, analyze, test, and compile — system Dart may be too old for `dart_pre_commit` and the `>=3.11.0` constraint.
 6. **`.pvmrc` only**: Never reintroduce `.php-version` runtime reads; migration is manual (`pvm use` or hand-authored JSON).
 

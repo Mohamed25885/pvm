@@ -5,6 +5,7 @@ import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/services/build_tools.dart';
 import 'package:test/test.dart';
+import '../support/temp_dir.dart';
 
 /// `sh -c 'command -v "$1"' sh <tool>` and `pkg-config --exists <module>`
 /// succeed unless the tool/module is listed as missing.
@@ -43,7 +44,7 @@ class _Pm implements IProcessManager {
 void main() {
   late Directory temp;
   setUp(() async => temp = await Directory.systemTemp.createTemp('pvm_bt_'));
-  tearDown(() async => temp.delete(recursive: true));
+  tearDown(() async => deleteTemp(temp));
 
   Future<MissingToolsException> missingFor(
     String? osRelease, {

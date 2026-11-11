@@ -18,6 +18,7 @@ import 'package:pvm/src/services/release_fetcher.dart';
 
 import '../mocks/mock_console.dart';
 import '../services/fake_process_manager.dart';
+import '../support/temp_dir.dart';
 
 class _FakeFetcher implements IReleaseFetcher {
   final List<PhpRelease> releases;
@@ -59,7 +60,7 @@ void main() {
   });
 
   tearDown(() async {
-    await temp.delete(recursive: true);
+    await deleteTemp(temp);
   });
 
   WindowsInstaller installer(PhpRelease release, http.Client client) =>

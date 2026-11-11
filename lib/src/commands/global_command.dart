@@ -10,6 +10,7 @@ import '../domain/php_version.dart';
 import '../domain/version_diagnostics.dart';
 import '../domain/version_registry.dart';
 import '../interfaces/i_version_activator.dart';
+import '../services/extension_hint.dart';
 
 class GlobalCommand extends Command<int> {
   @override
@@ -86,6 +87,7 @@ class GlobalCommand extends Command<int> {
         'Global version set to: '
         '${await installedLabel(version, sourcePath)}',
       );
+      await printExtensionHints(_console, registry, sourcePath);
       return ExitCode.success;
     } on InvalidVersionFormatException catch (e) {
       _console.printError(e.message);

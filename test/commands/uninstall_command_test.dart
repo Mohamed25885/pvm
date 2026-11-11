@@ -13,6 +13,7 @@ import 'package:pvm/src/domain/install_record.dart';
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
 import '../support/host_paths.dart';
+import '../support/temp_dir.dart';
 
 void main() {
   group('UninstallCommand', () {
@@ -171,7 +172,7 @@ void main() {
       osManager.setDirectoryExistsResult(versions, true);
     });
 
-    tearDown(() => temp.delete(recursive: true));
+    tearDown(() => deleteTemp(temp));
 
     Future<void> slot(String name, {String? recorded}) async {
       final dir = p.join(versions, name);

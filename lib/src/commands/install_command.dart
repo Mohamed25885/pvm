@@ -43,8 +43,8 @@ class InstallCommand extends Command<int> {
     ..addFlag(
       'allow-unverified',
       help:
-          'Allow archived builds that have no published SHA-256 '
-          '(older patch releases).',
+          'Allow a build with no published SHA-256: an archived Windows '
+          'release, or a php.net tarball (--from-source) without one.',
       negatable: false,
     )
     ..addFlag(
@@ -159,7 +159,7 @@ class InstallCommand extends Command<int> {
     } on MissingToolsException catch (e) {
       _console.printError('Missing build tools: ${e.missing.join(', ')}');
       _console.print(e.installCommand);
-      return ExitCode.generalError;
+      return ExitCode.toolMissing;
     } on Exception catch (e) {
       _console.printError('Installation failed: ${describeError(e)}');
       return ExitCode.generalError;

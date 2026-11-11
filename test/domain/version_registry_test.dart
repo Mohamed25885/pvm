@@ -8,6 +8,7 @@ import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/domain/version_registry.dart';
 import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/core/os_manager.dart';
+import '../support/temp_dir.dart';
 
 /// Test double for IOSManager that provides configurable responses.
 class FakeVersionRegistryOSManager implements IOSManager {
@@ -223,7 +224,7 @@ void main() {
         osManager.setDirectoryExists(tmp.path, true);
       });
 
-      tearDown(() => tmp.delete(recursive: true));
+      tearDown(() => deleteTemp(tmp));
 
       test(
         'takes the full patch from the record, else the slot name',

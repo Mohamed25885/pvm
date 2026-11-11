@@ -11,6 +11,7 @@ import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
 import 'package:pvm/src/services/php_executor.dart';
 import '../support/host_paths.dart';
+import '../support/temp_dir.dart';
 
 class TestExecutableResolver implements IExecutableResolver {
   @override
@@ -423,7 +424,7 @@ void main() {
       pm = FakeProcessManager();
       os = FakeOSManager();
     });
-    tearDown(() => tmp.deleteSync(recursive: true));
+    tearDown(() => deleteTempSync(tmp));
 
     PhpExecutor make(PlatformInfo platform) => PhpExecutor(
       processManager: pm,
@@ -487,7 +488,8 @@ void main() {
       );
     });
 
-    test('windows layout: scan dir only, no -c', () async {
+    test('windows layout: no -c and no scan dir (php.exe reads its own '
+        'php.ini)', () async {
       final slot = await slotOf(SlotKind.windowsZip);
 
       await make(
@@ -496,8 +498,8 @@ void main() {
 
       expect(pm.lastSpec!.arguments, ['-v']);
       expect(
-        pm.lastSpec!.environment!['PHP_INI_SCAN_DIR'],
-        p.join(slot, 'conf.d'),
+        pm.lastSpec!.environment?.containsKey('PHP_INI_SCAN_DIR') ?? false,
+        isFalse,
       );
     });
 

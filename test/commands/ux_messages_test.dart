@@ -11,6 +11,7 @@ import 'package:pvm/src/services/php_executor.dart';
 
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
+import '../support/temp_dir.dart';
 
 class _MissingPhpResolver implements IExecutableResolver {
   @override
@@ -37,7 +38,7 @@ void main() {
 
   test('B14: pvm php without a local version matches README', () async {
     final temp = await Directory.systemTemp.createTemp('pvm_php_ux_');
-    addTearDown(() => temp.delete(recursive: true));
+    addTearDown(() => deleteTemp(temp));
     final os = MockOSManager()..mockCurrentDirectory = temp.path;
     final console = MockConsole();
     final executor = PhpExecutor(

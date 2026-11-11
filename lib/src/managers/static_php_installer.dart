@@ -61,7 +61,13 @@ class StaticPhpInstaller implements IInstaller {
     );
     final resolved = release.displayVersion;
 
-    if (await _artifacts.slotHolds(resolved) && !(options?.force ?? false)) {
+    if (await _artifacts.slotHolds(
+          resolved,
+          SlotKind.static,
+          replace: options?.update != null,
+          force: options?.force ?? false,
+        ) &&
+        !(options?.force ?? false)) {
       return InstallResult(resolved, alreadyInstalled: true);
     }
     await _artifacts.install(
@@ -69,6 +75,7 @@ class StaticPhpInstaller implements IInstaller {
       resolved,
       kind: SlotKind.static,
       allowUnverified: options?.allowUnverified ?? false,
+      beforeSwap: options?.update,
     );
     return InstallResult(resolved);
   }
