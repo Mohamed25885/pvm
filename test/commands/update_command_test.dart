@@ -70,6 +70,7 @@ class _Fetcher implements IReleaseFetcher {
 
 class _Source implements IReleaseSource {
   final List<int> tgz;
+  bool published = true; // false: no published SHA-256
   _Source(this.tgz);
 
   @override
@@ -85,10 +86,16 @@ class _Source implements IReleaseSource {
     'https://dl.static-php.dev/v3/php-bin/bulk/'
         'php-${version.slot}.27-cli-linux-x86_64.tar.gz',
     tgz,
+    published: published,
   );
 }
 
-PhpRelease _release(String v, String url, List<int> bytes) {
+PhpRelease _release(
+  String v,
+  String url,
+  List<int> bytes, {
+  bool published = true,
+}) {
   final parsed = PhpVersion.parse(v);
   return PhpRelease(
     versionString: v,
@@ -98,7 +105,7 @@ PhpRelease _release(String v, String url, List<int> bytes) {
     architecture: Architecture.x64,
     buildType: BuildType.nts,
     downloadUrl: url,
-    sha256: crypto.sha256.convert(bytes).toString(),
+    sha256: published ? crypto.sha256.convert(bytes).toString() : '',
     sizeBytes: bytes.length,
     lastModified: DateTime(2026),
   );
@@ -326,11 +333,14 @@ void main() {
       ),
     );
 
+    late _Source source;
+
     setUp(() {
       platform = LinuxPlatformInfo();
+      source = _Source(tgz);
       installer = StaticPhpInstaller(
         versionsPath: os.phpVersionsPath,
-        source: _Source(tgz),
+        source: source,
         // chmod runs only on a Unix host, where it works on the temp file.
         platform: Platform.isWindows ? WindowsPlatformInfo() : platform,
         console: console,
@@ -375,6 +385,30 @@ void main() {
       },
     );
 
+    test('an unverified newest patch needs --allow-unverified', () async {
+      source.published = false;
+      await addSlot(
+        '8.4',
+        record('8.4.26', SlotKind.static, files: const {'bin/php': 'h'}),
+        {
+          'bin/php': [1],
+        },
+      );
+
+      expect(await run(['8.4']), ExitCode.generalError);
+      expect(console.errors, [
+        const UnverifiedReleaseException('8.4.27').toString(),
+      ]);
+      expect(bytes('8.4', 'bin/php'), [1]);
+
+      expect(await run(['8.4', '--allow-unverified']), ExitCode.success);
+      expect(bytes('8.4', 'bin/php'), [3]);
+      expect(
+        (await VersionRegistry.readSlotRecord(slotPath('8.4')))!.verified,
+        isFalse,
+      );
+    });
+
     test('already newest: says so and changes nothing', () async {
       await addSlot('8.4', record('8.4.27', SlotKind.static), {
         'bin/php': [1],
@@ -393,9 +427,18 @@ void main() {
     setUp(() {
       platform = LinuxPlatformInfo();
       builds = [];
+      // Plays SourceBuildInstaller: a fresh make install in staging (empty
+      // php.ini and conf.d, as _createIni leaves them), the hook, the swap.
       sourceInstaller = _Installer((options) async {
-        expect(options?.update, isNotNull);
-        await record('8.4.27', SlotKind.source).writeTo(slotPath('8.4'));
+        final staged = p.join(os.phpVersionsPath, '.staging-8.4-test');
+        File(p.join(staged, 'etc', 'php.ini'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync('');
+        Directory(p.join(staged, 'etc', 'conf.d')).createSync();
+        await record('8.4.27', SlotKind.source).writeTo(staged);
+        await options!.update!(staged);
+        Directory(slotPath('8.4')).deleteSync(recursive: true);
+        Directory(staged).renameSync(slotPath('8.4'));
         return const InstallResult('8.4.27');
       });
       sourceBuilder = () => (
@@ -432,6 +475,34 @@ void main() {
       expect(saved.version, '8.4.27');
       expect(saved.extensions, [_ext('redis', '6.0.0')]);
       expect(console.printed, contains('Updated 8.4 (8.4.26) → 8.4 (8.4.27)'));
+    });
+
+    test('keeps the edited php.ini and custom conf.d inis', () async {
+      final ini = [...'memory_limit=1G\r\n'.codeUnits, 0xE9];
+      final custom = 'opcache.enable=1\n'.codeUnits;
+      final old = 'zend_extension=old\n'.codeUnits;
+      await addSlot(
+        '8.4',
+        record('8.4.26', SlotKind.source, extensions: [_ext('xdebug')]),
+        {
+          'bin/php': [1],
+          'etc/php.ini': ini,
+          'etc/conf.d/90-custom.ini': custom,
+          'etc/conf.d/50-xdebug.ini': old,
+          'etc/conf.d/50-xdebug.ini.disabled': old,
+        },
+      );
+
+      expect(await run(['8.4']), ExitCode.success);
+
+      expect(bytes('8.4', 'etc/php.ini'), ini);
+      expect(bytes('8.4', 'etc/conf.d/90-custom.ini'), custom);
+      final confD = p.join(slotPath('8.4'), 'etc', 'conf.d');
+      expect(File(p.join(confD, '50-xdebug.ini')).existsSync(), isFalse);
+      expect(
+        File(p.join(confD, '50-xdebug.ini.disabled')).existsSync(),
+        isFalse,
+      );
     });
   });
 

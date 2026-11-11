@@ -56,7 +56,15 @@ class UpdateCommand extends Command<int> {
     required this._console,
     required this._sourceBuilder,
   }) : _os = osManager,
-       _pm = processManager;
+       _pm = processManager {
+    argParser.addFlag(
+      'allow-unverified',
+      help:
+          'Allow archived builds that have no published SHA-256 '
+          '(older patch releases).',
+      negatable: false,
+    );
+  }
 
   @override
   Future<int> run() async {
@@ -114,7 +122,7 @@ class UpdateCommand extends Command<int> {
         }
         installer = source;
         // Extensions are rebuilt against the committed slot (below).
-        beforeSwap = (_) async {};
+        beforeSwap = (staged) => _keepIni(slot.path, record, staged);
       case SlotKind.static:
       case SlotKind.windowsZip:
         installer = _installer;
@@ -128,6 +136,7 @@ class UpdateCommand extends Command<int> {
           // Same build as before: an x86 TS slot stays x86 TS.
           architecture: PhpRelease.architectureFromString(record.arch),
           buildType: record.zts ? BuildType.ts : BuildType.nts,
+          allowUnverified: argResults!['allow-unverified'] as bool,
           update: beforeSwap,
         ),
       );
@@ -152,6 +161,9 @@ class UpdateCommand extends Command<int> {
     } on NoMatchingReleaseException catch (e) {
       _console.printError(e.message);
       return ExitCode.versionNotFound;
+    } on UnverifiedReleaseException catch (e) {
+      _console.printError(e.toString());
+      return ExitCode.generalError;
     } on MissingToolsException catch (e) {
       _console.printError('Missing build tools: ${e.missing.join(', ')}');
       _console.print(e.installCommand);
@@ -192,6 +204,38 @@ class UpdateCommand extends Command<int> {
     final php = PhpLayout.forPlatform(_platform).phpExecutable(staged);
     for (final ext in old.extensions) {
       await checkLoads(_pm, php, SlotIni(staged, record, _platform), ext.name);
+    }
+  }
+
+  /// A source build's `etc/php.ini` and its `etc/conf.d` inis move to
+  /// [staged]; the inis of recorded extensions are skipped, as the rebuild
+  /// writes them again. The user's php.ini replaces whatever staging has.
+  Future<void> _keepIni(
+    String oldSlot,
+    InstallRecord old,
+    String staged,
+  ) async {
+    final ini = File(p.join(oldSlot, 'etc', 'php.ini'));
+    if (await ini.exists()) {
+      await Directory(p.join(staged, 'etc')).create(recursive: true);
+      await ini.copy(p.join(staged, 'etc', 'php.ini'));
+    }
+    final confD = Directory(p.join(oldSlot, 'etc', 'conf.d'));
+    if (!await confD.exists()) return;
+    final rebuilt = {
+      for (final e in old.extensions) ...[
+        '50-${e.name}.ini',
+        '50-${e.name}.ini.disabled',
+      ],
+    };
+    final to = Directory(p.join(staged, 'etc', 'conf.d'));
+    await for (final f in confD.list(followLinks: false)) {
+      final name = p.basename(f.path);
+      if (f is! File || rebuilt.contains(name)) continue;
+      final dest = File(p.join(to.path, name));
+      if (await dest.exists()) continue;
+      await to.create(recursive: true);
+      await f.copy(dest.path);
     }
   }
 
