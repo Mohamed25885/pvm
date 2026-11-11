@@ -36,8 +36,13 @@ class PeclWindowsDll {
 
   /// Installs the latest stable [ext]: `php_<ext>.dll` into the slot's
   /// extension dir, its other DLLs next to `php.exe`. The caller records the
-  /// returned entry in the slot record.
-  Future<ExtensionEntry> install(String ext, InstalledSlot slot) async {
+  /// returned entry in the slot record. [confDir]: a linked slot's ini scan
+  /// dir.
+  Future<ExtensionEntry> install(
+    String ext,
+    InstalledSlot slot, {
+    String? confDir,
+  }) async {
     ExtensionArtifact.validateName(ext);
     final x = slot.version.slot;
     final php = p.join(slot.path, 'php.exe');
@@ -110,7 +115,7 @@ class PeclWindowsDll {
       await ExtensionInstallTxn(_pm, php).commit(
         dll,
         record.extensionDir,
-        SlotIni(slot.path, record, _platform),
+        SlotIni(slot.path, record, _platform, confDir: confDir),
         ext,
       );
       added.clear(); // committed: keep them

@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:args/command_runner.dart';
+import 'package:path/path.dart' as p;
 
 import '../core/active_version_resolver.dart';
 import '../core/console.dart';
@@ -22,7 +25,12 @@ import '../services/slot_ini.dart';
 /// One way to install an extension into a slot (`PeclSourceBuilder`,
 /// `PeclWindowsDll`). [dispose] runs after every install, failed or not.
 typedef ExtensionRoute = ({
-  Future<ExtensionEntry> Function(String ext, InstalledSlot slot) install,
+  Future<ExtensionEntry> Function(
+    String ext,
+    InstalledSlot slot, {
+    String? confDir,
+  })
+  install,
   void Function() dispose,
 });
 
@@ -110,6 +118,7 @@ class ExtInstallCommand extends Command<int> {
 
     final windows = _platform.osType == 'windows';
     final ExtensionRoute Function() route;
+    String? confDir;
     switch (record.kind) {
       case SlotKind.static:
         _console.printError(
@@ -146,8 +155,17 @@ class ExtInstallCommand extends Command<int> {
         } else {
           route = _sourceBuilder;
         }
+        // The extension is enabled where the folder's own PHP scans for ini.
+        confDir = await _writableScanDir(folder);
+        if (confDir == null) {
+          _console.printError(
+            "$folder's PHP has no writable ini scan dir; "
+            'install $ext there yourself',
+          );
+          return ExitCode.toolMissing;
+        }
     }
-    return _install(route(), ext, slot, record, label);
+    return _install(route(), ext, slot, record, label, confDir);
   }
 
   Future<int> _install(
@@ -156,9 +174,10 @@ class ExtInstallCommand extends Command<int> {
     InstalledSlot slot,
     InstallRecord record,
     String label,
+    String? confDir,
   ) async {
     try {
-      final entry = await route.install(ext, slot);
+      final entry = await route.install(ext, slot, confDir: confDir);
       await VersionRegistry.writeSlotRecord(
         slot.path,
         record.copyWith(
@@ -192,6 +211,32 @@ class ExtInstallCommand extends Command<int> {
       return ExitCode.generalError;
     } finally {
       route.dispose();
+    }
+  }
+
+  /// The `Scan for additional .ini files in:` dir of [folder]'s PHP, or null
+  /// when it has none or PVM cannot write there.
+  Future<String?> _writableScanDir(String folder) async {
+    try {
+      final r = await _pm.runCaptured(
+        ProcessSpec(
+          executable: PhpLayout.forPlatform(_platform).phpExecutable(folder),
+          arguments: ['--ini'],
+        ),
+      );
+      final dir = RegExp(
+        r'^Scan for additional \.ini files in:\s*(.+?)\s*$',
+        multiLine: true,
+      ).firstMatch(r.stdout)?[1];
+      // shortcut: a multi-path PHP_INI_SCAN_DIR is refused as missing;
+      // split it if users hit that.
+      if (dir == null || dir == '(none)') return null;
+      final probe = File(p.join(dir, '.pvm-write-test'));
+      await probe.writeAsString(''); // throws when missing or read-only
+      await probe.delete();
+      return dir;
+    } on Exception {
+      return null;
     }
   }
 

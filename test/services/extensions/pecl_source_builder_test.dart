@@ -26,6 +26,7 @@ class _Pm implements IProcessManager {
   final captured = <ProcessSpec>[];
   String? prefix; // php-config --prefix output; defaults to [slot]
   Set<String> missingTools = {};
+  bool tarFails = false;
   _Pm(this.slot);
 
   @override
@@ -48,6 +49,8 @@ class _Pm implements IProcessManager {
     final exe = spec.executable;
     if (exe == 'sh') {
       code = missingTools.contains(spec.arguments.last) ? 1 : 0;
+    } else if (exe == 'tar' && tarFails) {
+      code = 2;
     } else if (exe == 'tar') {
       final dest = spec.arguments[spec.arguments.indexOf('-C') + 1];
       final tgz = p.basenameWithoutExtension(spec.arguments[1]);
@@ -259,28 +262,41 @@ void main() {
       ),
     );
 
-    test(
-      'a prefix matching the link target passes the guard and builds',
-      () async {
-        pm.prefix = folder;
-        // The commit step needs a conf.d a linked slot does not have; the
-        // guard and build are what R21 covers.
-        await expectLater(
-          builder().install('xdebug', linked()),
-          throwsA(isNot(isA<SlotBrokenException>())),
-        );
-        expect(pm.interactive.map((s) => s.executable), contains('make'));
-      },
-    );
+    test('a prefix matching the link target builds and enables it in the '
+        'given conf dir', () async {
+      pm.prefix = folder;
+      final scan = p.join(temp.path, 'scan');
+      final entry = await builder().install('xdebug', linked(), confDir: scan);
+      expect(entry.name, 'xdebug');
+      expect(
+        File(p.join(scan, '50-xdebug.ini')).readAsStringSync(),
+        'extension=${p.join(folder, 'ext', 'xdebug.so')}\n',
+      );
+    });
 
-    test('a prefix that differs from the target is still refused', () async {
+    test('a prefix that differs from the target is refused (R25)', () async {
       pm.prefix = '/usr';
       await expectLater(
         builder().install('xdebug', linked()),
-        throwsA(isA<SlotBrokenException>()),
+        throwsA(
+          isA<SlotBrokenException>().having(
+            (e) => e.message,
+            'message',
+            'Slot 8.5 links to $folder, but its php-config reports prefix '
+                '/usr; re-link it with pvm link 8.5 $folder',
+          ),
+        ),
       );
       expect(requested, isEmpty);
     });
+  });
+
+  test('a failed untar is a build failure', () async {
+    pm.tarFails = true;
+    await expectLater(
+      builder().install('xdebug', slot()),
+      throwsA(isA<ExtensionBuildException>()),
+    );
   });
 
   test('grpc also requires c++ and warns about the long build', () async {

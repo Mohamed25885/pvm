@@ -16,11 +16,15 @@ class SlotIni {
   final InstallRecord record;
   final PlatformInfo platform;
 
-  SlotIni(this.slotDir, this.record, this.platform);
+  /// [confDir] overrides where the ini files go: a linked slot's own scan dir.
+  SlotIni(this.slotDir, this.record, this.platform, {this._confDir});
+
+  final String? _confDir;
 
   /// Where the slot's `conf.d` lives. A linked slot is the user's folder, so
-  /// PVM has none there.
+  /// it has one only when given ([SlotIni.new]'s `confDir`).
   String get confDir {
+    if (_confDir != null) return _confDir;
     switch (record.kind) {
       case SlotKind.linked:
         throw StateError('A linked slot has no PVM-owned conf.d');

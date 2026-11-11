@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:args/command_runner.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:pvm/src/commands/ext_command.dart';
 import 'package:pvm/src/core/active_version_resolver.dart';
@@ -14,25 +16,52 @@ import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/domain/version_registry.dart';
 import 'package:pvm/src/services/build_tools.dart';
 import 'package:pvm/src/services/extensions/extension_artifact.dart';
-import 'package:pvm/src/services/extensions/pecl_download.dart';
+import 'package:pvm/src/services/extensions/pecl_source_builder.dart';
 import 'package:test/test.dart';
 
 import '../mocks/mock_console.dart';
 import '../mocks/mock_os_manager.dart';
 
-/// Answers `php -m` with [modules]; records every captured run.
+/// Plays php (`-m`, `--ini`), php-config, sh, tar and make; records runs.
 class _Pm implements IProcessManager {
   String modules = '[PHP Modules]\nCore\n';
+  String scanDir = '(none)'; // `php --ini` scan dir
+  String prefix = ''; // `php-config --prefix`
   final captured = <ProcessSpec>[];
+  final interactive = <ProcessSpec>[];
 
   @override
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
     captured.add(spec);
-    return CapturedProcessResult(stdout: modules, stderr: '', exitCode: 0);
+    final exe = spec.executable;
+    var out = '';
+    if (exe == 'tar') {
+      final dest = spec.arguments[spec.arguments.indexOf('-C') + 1];
+      final tgz = p.basenameWithoutExtension(spec.arguments[1]);
+      Directory(p.join(dest, tgz)).createSync(recursive: true);
+    } else if (p.basename(exe).startsWith('php-config')) {
+      out = '$prefix\n';
+    } else if (spec.arguments.contains('--ini')) {
+      out =
+          'Configuration File (php.ini) Path: /etc\n'
+          'Scan for additional .ini files in: $scanDir\n';
+    } else if (spec.arguments.contains('-m')) {
+      final enabled = File(p.join(scanDir, '50-xdebug.ini')).existsSync();
+      out = '$modules${enabled ? 'Xdebug\n' : ''}';
+    }
+    return CapturedProcessResult(stdout: out, stderr: '', exitCode: 0);
   }
 
   @override
-  Future<int> runInteractive(ProcessSpec spec) async => 0;
+  Future<int> runInteractive(ProcessSpec spec) async {
+    interactive.add(spec);
+    if (spec.executable == 'make') {
+      File(p.join(spec.workingDirectory!, 'modules', 'xdebug.so'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2]);
+    }
+    return 0;
+  }
 
   @override
   Future<String> resolveSystemCommand(String command) async => command;
@@ -57,6 +86,9 @@ void main() {
   late PlatformInfo platform;
   late List<String> calls; // 'source 8.4', 'dll 8.4', 'dispose'
   late Future<ExtensionEntry> Function() routeResult;
+  late String scanDir;
+  String? passedConfDir;
+  ExtensionRoute Function()? realSource;
 
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('pvm_ext_cmd_');
@@ -75,6 +107,11 @@ void main() {
     platform = LinuxPlatformInfo();
     calls = [];
     routeResult = () async => _entry;
+    scanDir = p.join(temp.path, 'scan');
+    Directory(scanDir).createSync();
+    pm.scanDir = scanDir;
+    passedConfDir = null;
+    realSource = null;
   });
 
   tearDown(() async {
@@ -95,6 +132,7 @@ void main() {
     String? phpConfig,
     String? prefix,
     List<ExtensionEntry> extensions = const [],
+    String? extensionDir,
   }) => InstallRecord(
     version: version,
     sourceUrl: '',
@@ -106,7 +144,7 @@ void main() {
     writable: writable,
     phpConfig: phpConfig,
     prefix: prefix,
-    extensionDir: '/x/ext',
+    extensionDir: extensionDir ?? '/x/ext',
     extensions: extensions,
   );
 
@@ -135,8 +173,9 @@ void main() {
       os.symlinkTargets[p.join(link, '.pvm')] = slotPath(x);
 
   ExtensionRoute route(String name) => (
-    install: (String ext, InstalledSlot slot) {
+    install: (String ext, InstalledSlot slot, {String? confDir}) {
       calls.add('$name ${slot.version.slot}');
+      passedConfDir = confDir;
       return routeResult();
     },
     dispose: () => calls.add('dispose'),
@@ -152,7 +191,7 @@ void main() {
             processManager: pm,
             platform: platform,
             console: console,
-            sourceBuilder: () => route('source'),
+            sourceBuilder: realSource ?? () => route('source'),
             windowsDll: () => route('dll'),
           ),
         ),
@@ -254,6 +293,7 @@ void main() {
     );
     expect(await run(['xdebug', '--version=8.4']), ExitCode.success);
     expect(calls, ['source 8.4', 'dispose']);
+    expect(passedConfDir, scanDir);
     expect((await saved('8.4'))!.extensions, [_entry]);
   });
 
@@ -316,6 +356,11 @@ void main() {
     addLinked('8.4', record('8.4.27', SlotKind.linked));
     expect(await run(['xdebug', '--version=8.4']), ExitCode.success);
     expect(calls, ['dll 8.4', 'dispose']);
+    expect(passedConfDir, scanDir);
+    expect(
+      pm.captured.last.executable,
+      p.join(temp.path, 'user-php-8.4', 'php.exe'),
+    );
   });
 
   test('linked on Windows: not writable says install it there', () async {
@@ -329,6 +374,87 @@ void main() {
       '$folder is not writable; install xdebug there yourself',
     ]);
     expect(calls, isEmpty);
+  });
+
+  group('linked ini scan dir (R24)', () {
+    late String folder;
+    late List<Uri> requested;
+
+    setUp(() {
+      folder = p.join(temp.path, 'user-php-8.4');
+      for (final n in ['php', 'php-config', 'phpize']) {
+        File(p.join(folder, 'bin', n)).createSync(recursive: true);
+      }
+      addLinked(
+        '8.4',
+        record(
+          '8.4.27',
+          SlotKind.linked,
+          phpConfig: p.join(folder, 'bin', 'php-config'),
+          prefix: folder,
+          extensionDir: p.join(folder, 'lib', 'ext'),
+        ),
+      );
+      pm.prefix = folder;
+      requested = [];
+      realSource = () {
+        final b = PeclSourceBuilder(
+          platform: platform,
+          console: console,
+          processManager: pm,
+          buildTools: BuildTools(
+            pm,
+            platform,
+            osReleasePath: p.join(temp.path, 'none'),
+            environment: const {},
+          ),
+          jobs: 1,
+          client: MockClient((r) async {
+            requested.add(r.url);
+            return r.url.path.endsWith('stable.txt')
+                ? http.Response('3.5.3\n', 200)
+                : http.Response.bytes(utf8.encode('tgz'), 200);
+          }),
+          retryDelay: Duration.zero,
+        );
+        return (install: b.install, dispose: b.dispose);
+      };
+    });
+
+    test('full install enables it in the folder PHP scan dir', () async {
+      expect(await run(['xdebug', '--version=8.4']), ExitCode.success);
+      final ini = File(p.join(scanDir, '50-xdebug.ini'));
+      expect(
+        ini.readAsStringSync(),
+        'extension=${p.join(folder, 'lib', 'ext', 'xdebug.so')}\n',
+      );
+      expect(
+        File(p.join(folder, 'lib', 'ext', 'xdebug.so')).existsSync(),
+        isTrue,
+      );
+      final entries = (await saved('8.4'))!.extensions;
+      expect(entries.map((e) => '${e.name} ${e.version}'), ['xdebug 3.5.3']);
+      expect(
+        File(p.join(os.phpVersionsPath, '8.4.pvm-link.json')).existsSync(),
+        isTrue,
+      );
+    });
+
+    for (final (name, dir) in [
+      ('(none)', () => '(none)'),
+      ('missing', () => p.join(temp.path, 'gone')),
+    ]) {
+      test('scan dir $name: refused before any build or download', () async {
+        pm.scanDir = dir();
+        expect(await run(['xdebug', '--version=8.4']), ExitCode.toolMissing);
+        expect(console.errors, [
+          "$folder's PHP has no writable ini scan dir; "
+              'install xdebug there yourself',
+        ]);
+        expect(pm.interactive, isEmpty);
+        expect(requested, isEmpty);
+      });
+    }
   });
 
   test('static refuses with the exact message', () async {

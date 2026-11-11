@@ -45,8 +45,13 @@ class PeclSourceBuilder {
        _downloads = PeclDownloads(_platform, _console, client, retryDelay);
 
   /// Builds and installs the latest stable [ext]. The caller records the
-  /// returned entry in the slot record.
-  Future<ExtensionEntry> install(String ext, InstalledSlot slot) async {
+  /// returned entry in the slot record. [confDir]: a linked slot's ini scan
+  /// dir.
+  Future<ExtensionEntry> install(
+    String ext,
+    InstalledSlot slot, {
+    String? confDir,
+  }) async {
     ExtensionArtifact.validateName(ext);
     final x = slot.version.slot;
     final broken = SlotBrokenException(
@@ -77,8 +82,11 @@ class PeclSourceBuilder {
     if (r.exitCode != 0 ||
         !p.equals(p.normalize(prefix), p.normalize(folder))) {
       throw SlotBrokenException(
-        'Slot $x was built for $prefix; reinstall it with '
-        'pvm install $x --from-source --force',
+        record.kind == SlotKind.linked
+            ? 'Slot $x links to $folder, but its php-config reports prefix '
+                  '$prefix; re-link it with pvm link $x $folder'
+            : 'Slot $x was built for $prefix; reinstall it with '
+                  'pvm install $x --from-source --force',
       );
     }
 
@@ -108,7 +116,7 @@ class PeclSourceBuilder {
         ),
       );
       if (untar.exitCode != 0) {
-        throw Exception('tar failed: ${untar.stderr.trim()}');
+        throw ExtensionBuildException('tar failed: ${untar.stderr.trim()}');
       }
       final src = p.join(tmp.path, '$ext-$ver');
 
@@ -135,7 +143,7 @@ class PeclSourceBuilder {
       await ExtensionInstallTxn(_pm, php).commit(
         built,
         record.extensionDir,
-        SlotIni(slot.path, record, _platform),
+        SlotIni(slot.path, record, _platform, confDir: confDir),
         ext,
       );
       return ExtensionEntry(
