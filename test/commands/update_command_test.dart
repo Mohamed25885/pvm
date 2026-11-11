@@ -1,0 +1,482 @@
+import 'dart:io';
+
+import 'package:archive/archive.dart';
+import 'package:args/command_runner.dart';
+import 'package:crypto/crypto.dart' as crypto;
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+import 'package:path/path.dart' as p;
+import 'package:pvm/src/commands/ext_command.dart';
+import 'package:pvm/src/commands/update_command.dart';
+import 'package:pvm/src/core/exit_codes.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/domain/exceptions/extension_build_exception.dart';
+import 'package:pvm/src/domain/install_record.dart';
+import 'package:pvm/src/domain/php_release.dart';
+import 'package:pvm/src/domain/php_version.dart';
+import 'package:pvm/src/domain/version_registry.dart';
+import 'package:pvm/src/interfaces/i_installer.dart';
+import 'package:pvm/src/interfaces/i_release_source.dart';
+import 'package:pvm/src/managers/static_php_installer.dart';
+import 'package:pvm/src/managers/windows_installer.dart';
+import 'package:pvm/src/services/release_fetcher.dart';
+import 'package:test/test.dart';
+
+import '../mocks/mock_console.dart';
+import '../mocks/mock_installer.dart';
+import '../mocks/mock_os_manager.dart';
+
+/// `php -m` lists every `50-<ext>.ini` in PHP_INI_SCAN_DIR except [broken].
+class _Pm implements IProcessManager {
+  final broken = <String>{};
+  final captured = <ProcessSpec>[];
+
+  @override
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
+    captured.add(spec);
+    final scan = Directory(spec.environment?['PHP_INI_SCAN_DIR'] ?? '');
+    final loaded = [
+      if (scan.existsSync())
+        for (final f in scan.listSync())
+          if (RegExp(r'^50-(.+)\.ini$').firstMatch(p.basename(f.path))
+              case final m?)
+            if (!broken.contains(m[1])) m[1]!,
+    ];
+    return CapturedProcessResult(
+      stdout: '[PHP Modules]\nCore\n${loaded.join('\n')}\n',
+      stderr: '',
+      exitCode: 0,
+    );
+  }
+
+  @override
+  Future<int> runInteractive(ProcessSpec spec) async => 0;
+
+  @override
+  Future<String> resolveSystemCommand(String command) async => command;
+}
+
+class _Fetcher implements IReleaseFetcher {
+  final List<PhpRelease> releases;
+  _Fetcher(this.releases);
+
+  @override
+  String get platformName => 'test';
+
+  @override
+  Future<List<PhpRelease>> fetchReleases() async => releases;
+}
+
+class _Source implements IReleaseSource {
+  final List<int> tgz;
+  _Source(this.tgz);
+
+  @override
+  String get name => 'test';
+
+  @override
+  Future<PhpRelease> resolve(
+    PhpVersion version, {
+    required Architecture architecture,
+    required BuildType buildType,
+  }) async => _release(
+    '${version.slot}.27',
+    'https://dl.static-php.dev/v3/php-bin/bulk/'
+        'php-${version.slot}.27-cli-linux-x86_64.tar.gz',
+    tgz,
+  );
+}
+
+PhpRelease _release(String v, String url, List<int> bytes) {
+  final parsed = PhpVersion.parse(v);
+  return PhpRelease(
+    versionString: v,
+    major: parsed.major,
+    minor: parsed.minor,
+    patch: parsed.patch!,
+    architecture: Architecture.x64,
+    buildType: BuildType.nts,
+    downloadUrl: url,
+    sha256: crypto.sha256.convert(bytes).toString(),
+    sizeBytes: bytes.length,
+    lastModified: DateTime(2026),
+  );
+}
+
+List<int> _zip(Map<String, List<int>> files) {
+  final archive = Archive();
+  files.forEach((name, data) => archive.addFile(ArchiveFile.bytes(name, data)));
+  return ZipEncoder().encodeBytes(archive);
+}
+
+/// Records how it was called; [onInstall] plays the installer.
+class _Installer extends MockInstaller {
+  final Future<InstallResult> Function(InstallOptions? options) onInstall;
+  int calls = 0;
+  _Installer(this.onInstall);
+
+  @override
+  Future<InstallResult> install(String version, {InstallOptions? options}) {
+    calls++;
+    return onInstall(options);
+  }
+}
+
+ExtensionEntry _ext(String name, [String version = '3.4.0']) => ExtensionEntry(
+  name: name,
+  version: version,
+  file: '$name.so',
+  sha256: 'abc',
+  verified: false,
+);
+
+void main() {
+  late Directory temp;
+  late MockOSManager os;
+  late MockConsole console;
+  late _Pm pm;
+  late PlatformInfo platform;
+  late IInstaller installer;
+  IInstaller? sourceInstaller;
+  late ExtensionRoute Function() sourceBuilder;
+
+  setUp(() async {
+    temp = await Directory.systemTemp.createTemp('pvm_update_cmd_');
+    os = MockOSManager()
+      ..mockProgramDir = p.join(temp.path, 'pvm')
+      ..mockHomeDir = p.join(temp.path, 'home')
+      ..mockEnvironment = {}
+      ..mockVersions = [];
+    os.setDirectoryExistsResult(os.phpVersionsPath, true);
+    console = MockConsole();
+    pm = _Pm();
+    platform = WindowsPlatformInfo();
+    installer = _Installer((_) => fail('installer must not run'));
+    sourceInstaller = null;
+    sourceBuilder = () => fail('no extension rebuild expected');
+  });
+
+  tearDown(() async {
+    final versions = Directory(os.phpVersionsPath);
+    if (versions.existsSync()) {
+      for (final e in versions.listSync(followLinks: false)) {
+        if (e is Link) e.deleteSync();
+      }
+    }
+    await temp.delete(recursive: true);
+  });
+
+  String slotPath(String x) => p.join(os.phpVersionsPath, x);
+
+  InstallRecord record(
+    String version,
+    SlotKind kind, {
+    Map<String, String> files = const {},
+    List<ExtensionEntry> extensions = const [],
+  }) => InstallRecord(
+    version: version,
+    sourceUrl: '',
+    archiveSha256: '',
+    verified: true,
+    installedAt: DateTime.utc(2026),
+    files: files,
+    kind: kind,
+    extensionDir: p.join(slotPath('8.4'), 'ext'),
+    extensions: extensions,
+  );
+
+  /// `versions/<x>` with [tree] (relative path → bytes) and [rec].
+  Future<void> addSlot(
+    String x,
+    InstallRecord rec, [
+    Map<String, List<int>> tree = const {},
+  ]) async {
+    for (final e in tree.entries) {
+      File(p.join(slotPath(x), e.key))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync(e.value);
+    }
+    Directory(slotPath(x)).createSync(recursive: true);
+    await rec.writeTo(slotPath(x));
+    os.mockVersions.add(x);
+    os.setDirectoryExistsResult(slotPath(x), true);
+  }
+
+  Future<int> run(List<String> args) async {
+    final runner = CommandRunner<int>('pvm', 'test')
+      ..addCommand(
+        UpdateCommand(
+          osManager: os,
+          installer: installer,
+          sourceInstaller: sourceInstaller,
+          processManager: pm,
+          platform: platform,
+          console: console,
+          sourceBuilder: sourceBuilder,
+        ),
+      );
+    try {
+      return await runner.run(['update', ...args]) ?? 0;
+    } on UsageException catch (e) {
+      console.errors.add(e.message);
+      return ExitCode.usageError; // as runPvm maps it
+    }
+  }
+
+  List<int> bytes(String x, String rel) =>
+      File(p.join(slotPath(x), rel)).readAsBytesSync();
+
+  List<String> leftovers() => [
+    for (final e in Directory(os.phpVersionsPath).listSync())
+      if (p.basename(e.path).startsWith('.')) p.basename(e.path),
+  ];
+
+  group('windows-zip', () {
+    final newZip = _zip({
+      'php.exe': [3],
+      'ext/php_curl.dll': [4],
+      'libdep.dll': [7], // the new archive now ships it
+    });
+
+    Future<void> seed() async {
+      installer = WindowsInstaller(
+        versionsPath: os.phpVersionsPath,
+        releaseFetcher: _Fetcher([
+          _release(
+            '8.4.27',
+            'https://windows.php.net/downloads/releases/php-8.4.27.zip',
+            newZip,
+          ),
+        ]),
+        console: console,
+        client: MockClient((_) async => http.Response.bytes(newZip, 200)),
+        retryDelay: Duration.zero,
+      );
+      await addSlot(
+        '8.4',
+        record(
+          '8.4.26',
+          SlotKind.windowsZip,
+          files: const {'php.exe': 'h1', 'ext/php_curl.dll': 'h2'},
+          extensions: [_ext('xdebug')],
+        ),
+        {
+          'php.exe': [1],
+          'ext/php_curl.dll': [2],
+          'ext/php_xdebug.dll': [9],
+          'libdep.dll': [8],
+          'libssh2.dll': [6],
+          'php.ini': [5],
+          'conf.d/50-xdebug.ini': 'zend_extension=php_xdebug.dll\n'.codeUnits,
+        },
+      );
+    }
+
+    test('moves the slot to the newest patch, carrying user files', () async {
+      await seed();
+
+      expect(await run(['8.4']), ExitCode.success);
+
+      expect(console.printed, contains('Updated 8.4 (8.4.26) → 8.4 (8.4.27)'));
+      expect(bytes('8.4', 'php.exe'), [3]);
+      expect(bytes('8.4', 'ext/php_curl.dll'), [4]);
+      expect(bytes('8.4', 'ext/php_xdebug.dll'), [9]);
+      expect(bytes('8.4', 'libssh2.dll'), [6]);
+      expect(bytes('8.4', 'libdep.dll'), [7], reason: 'archive wins');
+      expect(bytes('8.4', 'php.ini'), [5]);
+      expect(
+        File(p.join(slotPath('8.4'), 'conf.d', '50-xdebug.ini')).existsSync(),
+        isTrue,
+      );
+      final saved = (await VersionRegistry.readSlotRecord(slotPath('8.4')))!;
+      expect(saved.version, '8.4.27');
+      expect(saved.kind, SlotKind.windowsZip);
+      expect(saved.extensions, [_ext('xdebug')]);
+      expect(leftovers(), isEmpty);
+
+      // The load check ran on the staged PHP and its conf.d, before the swap.
+      final staging = p.join(os.phpVersionsPath, '.staging-8.4-$pid');
+      final check = pm.captured.single;
+      expect(check.executable, p.join(staging, 'php.exe'));
+      expect(check.environment!['PHP_INI_SCAN_DIR'], p.join(staging, 'conf.d'));
+    });
+
+    test('an extension that no longer loads aborts the update', () async {
+      await seed();
+      pm.broken.add('xdebug');
+
+      expect(await run(['8.4']), ExitCode.buildFailed);
+
+      expect(console.errors.join('\n'), contains('xdebug'));
+      expect(bytes('8.4', 'php.exe'), [1]);
+      expect(bytes('8.4', 'libdep.dll'), [8]);
+      expect(
+        (await VersionRegistry.readSlotRecord(slotPath('8.4')))!.version,
+        '8.4.26',
+      );
+      expect(leftovers(), isEmpty);
+    });
+  });
+
+  group('static', () {
+    final tgz = GZipEncoder().encodeBytes(
+      TarEncoder().encodeBytes(
+        Archive()..addFile(ArchiveFile.bytes('php', [3])),
+      ),
+    );
+
+    setUp(() {
+      platform = LinuxPlatformInfo();
+      installer = StaticPhpInstaller(
+        versionsPath: os.phpVersionsPath,
+        source: _Source(tgz),
+        // chmod runs only on a Unix host, where it works on the temp file.
+        platform: Platform.isWindows ? WindowsPlatformInfo() : platform,
+        console: console,
+        client: MockClient((_) async => http.Response.bytes(tgz, 200)),
+        retryDelay: Duration.zero,
+      );
+    });
+
+    test(
+      'reinstalls the newest patch; extensions and php.ini carry over',
+      () async {
+        await addSlot(
+          '8.4',
+          record(
+            '8.4.26',
+            SlotKind.static,
+            files: const {'bin/php': 'h'},
+            extensions: [_ext('xdebug')],
+          ),
+          {
+            'bin/php': [1],
+            'etc/php.ini': 'memory_limit=1G\n'.codeUnits,
+            'etc/conf.d/50-xdebug.ini': 'zend_extension=xdebug.so\n'.codeUnits,
+          },
+        );
+
+        expect(await run(['8.4']), ExitCode.success);
+
+        expect(
+          console.printed,
+          contains('Updated 8.4 (8.4.26) → 8.4 (8.4.27)'),
+        );
+        expect(bytes('8.4', 'bin/php'), [3]);
+        expect(
+          File(p.join(slotPath('8.4'), 'etc', 'php.ini')).readAsStringSync(),
+          'memory_limit=1G\n',
+        );
+        final saved = (await VersionRegistry.readSlotRecord(slotPath('8.4')))!;
+        expect(saved.version, '8.4.27');
+        expect(saved.extensions, [_ext('xdebug')]);
+        expect(leftovers(), isEmpty);
+      },
+    );
+
+    test('already newest: says so and changes nothing', () async {
+      await addSlot('8.4', record('8.4.27', SlotKind.static), {
+        'bin/php': [1],
+      });
+
+      expect(await run(['8.4']), ExitCode.success);
+
+      expect(console.printed, ['8.4 (8.4.27) is up to date']);
+      expect(bytes('8.4', 'bin/php'), [1]);
+    });
+  });
+
+  group('source', () {
+    late List<String> builds;
+
+    setUp(() {
+      platform = LinuxPlatformInfo();
+      builds = [];
+      sourceInstaller = _Installer((options) async {
+        expect(options?.update, isNotNull);
+        await record('8.4.27', SlotKind.source).writeTo(slotPath('8.4'));
+        return const InstallResult('8.4.27');
+      });
+      sourceBuilder = () => (
+        install: (String ext, InstalledSlot slot, {String? confDir}) async {
+          builds.add('$ext ${slot.version}');
+          if (ext == 'xdebug') throw ExtensionBuildException('make failed');
+          return _ext(ext, '6.0.0');
+        },
+        dispose: () => builds.add('dispose'),
+      );
+    });
+
+    test('rebuilds PHP, then each recorded extension against it', () async {
+      await addSlot(
+        '8.4',
+        record(
+          '8.4.26',
+          SlotKind.source,
+          extensions: [_ext('xdebug'), _ext('redis')],
+        ),
+        {
+          'bin/php': [1],
+        },
+      );
+
+      expect(await run(['8.4']), ExitCode.success);
+
+      expect(builds, ['xdebug 8.4.27', 'dispose', 'redis 8.4.27', 'dispose']);
+      expect(
+        console.warnings,
+        contains('xdebug could not be rebuilt; run: pvm ext install xdebug'),
+      );
+      final saved = (await VersionRegistry.readSlotRecord(slotPath('8.4')))!;
+      expect(saved.version, '8.4.27');
+      expect(saved.extensions, [_ext('redis', '6.0.0')]);
+      expect(console.printed, contains('Updated 8.4 (8.4.26) → 8.4 (8.4.27)'));
+    });
+  });
+
+  test('a linked slot is updated where it lives', () async {
+    platform = LinuxPlatformInfo();
+    final folder = p.join(temp.path, 'user-php');
+    Directory(folder).createSync();
+    Directory(os.phpVersionsPath).createSync(recursive: true);
+    Link(slotPath('8.4')).createSync(folder);
+    await record(
+      '8.4.26',
+      SlotKind.linked,
+    ).writeToFile(p.join(os.phpVersionsPath, '8.4.pvm-link.json'));
+    os.mockVersions.add('8.4');
+
+    expect(await run(['8.4']), ExitCode.generalError);
+
+    expect(console.errors, ['8.4 is linked to $folder; update it there.']);
+  });
+
+  test('a slot in use maps to exit 9 and the exact message', () async {
+    await addSlot('8.2', record('8.2.20', SlotKind.windowsZip), {
+      'php.exe': [1],
+    });
+    installer = _Installer((_) => throw const SlotInUseException('8.2'));
+
+    expect(await run(['8.2']), ExitCode.slotInUse);
+
+    expect(console.errors, [
+      'PHP 8.2 is in use (a running php.exe or web server holds its files). '
+          'Stop it, then run: pvm update 8.2',
+    ]);
+  });
+
+  test('a version that is not installed lists the slots', () async {
+    await addSlot('8.4', record('8.4.26', SlotKind.windowsZip));
+
+    expect(await run(['8.3']), ExitCode.versionNotFound);
+
+    expect(console.errors.single, contains('Installed: 8.4 (8.4.26)'));
+  });
+
+  test('a full patch is a usage error', () async {
+    await addSlot('8.4', record('8.4.26', SlotKind.windowsZip));
+
+    expect(await run(['8.4.27']), ExitCode.usageError);
+  });
+}

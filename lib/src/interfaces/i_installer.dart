@@ -36,11 +36,17 @@ class InstallOptions {
   /// patch releases on windows.php.net). TLS is then the only protection.
   final bool allowUnverified;
 
+  /// `pvm update`: the install may replace another patch of the slot, and
+  /// this runs on the staged slot (record written) just before the swap. A
+  /// throw aborts the update and leaves the old slot as it was.
+  final Future<void> Function(String staged)? update;
+
   const InstallOptions({
     this.architecture,
     this.buildType,
     this.force = false,
     this.allowUnverified = false,
+    this.update,
   });
 }
 
@@ -85,6 +91,18 @@ class SlotFilledException implements Exception {
 
   @override
   String toString() => '$slot is installed ($installed). Run: pvm update $slot';
+}
+
+/// Thrown when the old slot cannot be moved aside for the swap: on Windows,
+/// a running PHP or web server holds its files.
+class SlotInUseException implements Exception {
+  final String slot;
+  const SlotInUseException(this.slot);
+
+  @override
+  String toString() =>
+      'PHP $slot is in use (a running php.exe or web server holds its '
+      'files). Stop it, then run: pvm update $slot';
 }
 
 /// Installer interface for PHP installation across platforms.

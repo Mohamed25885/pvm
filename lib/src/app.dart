@@ -17,6 +17,7 @@ import 'commands/list_remote_command.dart';
 import 'commands/php_command.dart';
 import 'commands/setup_command.dart';
 import 'commands/uninstall_command.dart';
+import 'commands/update_command.dart';
 import 'commands/use_command.dart';
 import 'commands/version_flag.dart';
 import 'console/console_io.dart';
@@ -202,6 +203,18 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
     platformInfo: deps.platform,
   );
 
+  ExtensionRoute sourceBuilder() {
+    final b = PeclSourceBuilder(
+      platform: deps.platform,
+      console: console,
+      processManager: deps.processManager,
+      buildTools: BuildTools(deps.processManager, deps.platform),
+      jobs: Platform.numberOfProcessors,
+      client: http.Client(),
+    );
+    return (install: b.install, dispose: b.dispose);
+  }
+
   return PvmCommandRunner('pvm', 'PHP Version Manager')
     ..addCommand(
       InstallCommand(
@@ -209,6 +222,17 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
         deps.installer,
         deps.platform,
         sourceInstaller: deps.sourceInstaller,
+      ),
+    )
+    ..addCommand(
+      UpdateCommand(
+        osManager: os,
+        installer: deps.installer,
+        sourceInstaller: deps.sourceInstaller,
+        processManager: deps.processManager,
+        platform: deps.platform,
+        console: console,
+        sourceBuilder: sourceBuilder,
       ),
     )
     ..addCommand(ListRemoteCommand(deps.releaseFetcher, console))
@@ -261,17 +285,7 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
           processManager: deps.processManager,
           platform: deps.platform,
           console: console,
-          sourceBuilder: () {
-            final b = PeclSourceBuilder(
-              platform: deps.platform,
-              console: console,
-              processManager: deps.processManager,
-              buildTools: BuildTools(deps.processManager, deps.platform),
-              jobs: Platform.numberOfProcessors,
-              client: http.Client(),
-            );
-            return (install: b.install, dispose: b.dispose);
-          },
+          sourceBuilder: sourceBuilder,
           windowsDll: () {
             final d = PeclWindowsDll(
               platform: deps.platform,

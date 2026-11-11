@@ -123,7 +123,11 @@ class SourceBuildInstaller implements IInstaller {
   }) async {
     final release = await _resolve(PhpVersion.parse(version));
     final resolved = release.versionString;
-    if (await _artifacts.slotHolds(resolved) && !(options?.force ?? false)) {
+    if (await _artifacts.slotHolds(
+          resolved,
+          replace: options?.update != null,
+        ) &&
+        !(options?.force ?? false)) {
       return InstallResult(resolved, alreadyInstalled: true);
     }
     final verified = release.sha256.isNotEmpty;
@@ -198,6 +202,7 @@ class SourceBuildInstaller implements IInstaller {
         kind: SlotKind.source,
         archiveSha256: actualSha,
         verified: verified,
+        beforeSwap: options?.update,
       );
     } finally {
       for (final dir in [staging, buildDir]) {

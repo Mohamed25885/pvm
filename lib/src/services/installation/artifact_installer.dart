@@ -42,6 +42,9 @@ class ArtifactInstaller {
   final http.Client _client;
   final Duration _retryDelay;
 
+  /// Renames a directory (the swap); tests fail it to play a locked slot.
+  final Future<Directory> Function(Directory dir, String to) _rename;
+
   ArtifactInstaller({
     required this.versionsPath,
     required this.layout,
@@ -51,7 +54,9 @@ class ArtifactInstaller {
     this.probe,
     http.Client? client,
     this._retryDelay = const Duration(seconds: 1),
-  }) : _client = client ?? http.Client();
+    Future<Directory> Function(Directory dir, String to)? renameDir,
+  }) : _client = client ?? http.Client(),
+       _rename = renameDir ?? ((dir, to) => dir.rename(to));
 
   /// Whether the slot of [version] (`versions/<X.Y>`) holds a PHP binary.
   Future<bool> isInstalled(String version) => File(
@@ -59,8 +64,9 @@ class ArtifactInstaller {
   ).exists();
 
   /// Whether the slot of [version] already holds exactly [version]. Throws
-  /// [SlotFilledException] when it holds another (recorded) patch.
-  Future<bool> slotHolds(String version) async {
+  /// [SlotFilledException] when it holds another (recorded) patch, unless
+  /// [replace] (`pvm update`), which answers false instead.
+  Future<bool> slotHolds(String version, {bool replace = false}) async {
     if (!await isInstalled(version)) return false;
     final slot = PhpVersion.parse(version).slot;
     String? installed;
@@ -72,6 +78,7 @@ class ArtifactInstaller {
       // Unreadable record: patch unknown, as for a hand-copied slot.
     }
     if (installed != null && installed != version) {
+      if (replace) return false;
       throw SlotFilledException(slot, installed);
     }
     return true;
@@ -87,6 +94,7 @@ class ArtifactInstaller {
     String version, {
     required SlotKind kind,
     required bool allowUnverified,
+    Future<void> Function(String staged)? beforeSwap,
   }) async {
     // [version] becomes a directory name: guard every caller (path traversal).
     final slot = PhpVersion.parse(version).slot;
@@ -134,6 +142,7 @@ class ArtifactInstaller {
         kind: kind,
         archiveSha256: actualSha,
         verified: verified,
+        beforeSwap: beforeSwap,
       );
     } finally {
       await _deleteQuietly(staging);
@@ -156,7 +165,8 @@ class ArtifactInstaller {
 
   /// Check the PHP binary in [tree] (a dir inside `versions/`), probe it,
   /// write `.pvm-install.json` and atomically move [tree] to the slot of
-  /// [version]. The old slot survives any failure.
+  /// [version]. [beforeSwap] runs on [tree] just before the move. The old
+  /// slot survives any failure.
   Future<void> commit(
     String tree,
     PhpRelease release,
@@ -164,6 +174,7 @@ class ArtifactInstaller {
     required SlotKind kind,
     required String archiveSha256,
     required bool verified,
+    Future<void> Function(String staged)? beforeSwap,
   }) async {
     final binary = layout.phpExecutable(tree);
     if (!await File(binary).exists()) {
@@ -219,6 +230,7 @@ class ArtifactInstaller {
       vsVersion: probed?.vsVersion,
     ).writeTo(tree);
 
+    await beforeSwap?.call(tree);
     await _commit(Directory(tree), Directory(target));
   }
 
@@ -247,16 +259,21 @@ class ArtifactInstaller {
   }
 
   /// Atomically replace [target] with [staging]; on failure the previous
-  /// installation (if any) is restored.
+  /// installation (if any) is restored. A slot that cannot be moved aside
+  /// is [SlotInUseException] (Windows: a running PHP holds its files).
   Future<void> _commit(Directory staging, Directory target) async {
     Directory? backup;
     if (await target.exists()) {
-      backup = await target.rename('${target.path}.old-$pid');
+      try {
+        backup = await _rename(target, '${target.path}.old-$pid');
+      } on FileSystemException {
+        throw SlotInUseException(p.basename(target.path));
+      }
     }
     try {
-      await staging.rename(target.path);
+      await _rename(staging, target.path);
     } catch (_) {
-      if (backup != null) await backup.rename(target.path);
+      if (backup != null) await _rename(backup, target.path);
       rethrow;
     }
     if (backup != null) await _deleteQuietly(backup);

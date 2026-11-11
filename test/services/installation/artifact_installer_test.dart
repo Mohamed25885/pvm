@@ -193,6 +193,55 @@ void main() {
       );
     });
 
+    test('a slot that cannot be moved away is SlotInUseException', () async {
+      final php = File(p.join(versions, '8.4', 'bin', 'php'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1]);
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [2]),
+      ]);
+      final locked = ArtifactInstaller(
+        versionsPath: versions,
+        layout: PhpLayout.unix,
+        platform: _host,
+        allowedHosts: const ['example.org'],
+        console: MockConsole(),
+        client: MockClient((_) async => http.Response.bytes(tgz, 200)),
+        retryDelay: Duration.zero,
+        renameDir: (dir, to) async =>
+            p.equals(dir.path, p.dirname(php.parent.path))
+            ? throw const FileSystemException('locked')
+            : dir.rename(to),
+      );
+
+      await expectLater(
+        locked.install(
+          _release(
+            '8.4.27',
+            url: 'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz',
+            sha: crypto.sha256.convert(tgz).toString(),
+          ),
+          '8.4.27',
+          kind: SlotKind.static,
+          allowUnverified: false,
+        ),
+        throwsA(
+          isA<SlotInUseException>()
+              .having((e) => e.slot, 'slot', '8.4')
+              .having(
+                (e) => '$e',
+                'message',
+                'PHP 8.4 is in use (a running php.exe or web server holds '
+                    'its files). Stop it, then run: pvm update 8.4',
+              ),
+        ),
+      );
+      expect(php.readAsBytesSync(), [1]);
+      expect(Directory(versions).listSync().map((e) => p.basename(e.path)), [
+        '8.4',
+      ]);
+    });
+
     test('records the slot kind it was given', () async {
       await installTarGz(
         _tarGz([
