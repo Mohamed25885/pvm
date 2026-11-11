@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import '../core/os_manager.dart';
@@ -5,6 +7,9 @@ import '../core/path_env.dart';
 import '../core/platform_info.dart';
 import '../core/process_manager.dart';
 import '../core/executable_resolver.dart';
+import '../core/php_layout.dart';
+import '../domain/version_registry.dart';
+import 'slot_ini.dart';
 
 class PhpExecutor {
   final IProcessManager _processManager;
@@ -38,14 +43,40 @@ class PhpExecutor {
         phpExecutable ??
         await _executableResolver.resolvePhpExecutable(rootPath);
 
+    final ini = await _slotIni(phpExe);
     final spec = ProcessSpec(
       executable: phpExe,
-      arguments: args,
+      arguments: [...?ini?.args, ...args],
       workingDirectory: rootPath,
-      environment: _envWithPhp(phpExe, environment),
+      environment: {..._envWithPhp(phpExe, environment), ...?ini?.env},
     );
 
     return await _processManager.runInteractive(spec);
+  }
+
+  /// The slot ini for [phpExe]'s slot; null for unrecorded or linked slots.
+  Future<({List<String> args, Map<String, String> env})?> _slotIni(
+    String phpExe,
+  ) async {
+    try {
+      final layout = PhpLayout.forPlatform(_platform);
+      var slot = layout.binSubdirectory.isEmpty
+          ? p.dirname(phpExe)
+          : p.dirname(p.dirname(phpExe));
+      var record = await VersionRegistry.readSlotRecord(slot);
+      // `.pvm` links to `versions/<X.Y>`: follow that one level only, so a
+      // linked slot is still read through the registry, never its target.
+      if (record == null &&
+          p.basename(slot) == '.pvm' &&
+          FileSystemEntity.isLinkSync(slot)) {
+        slot = p.join(p.dirname(slot), Link(slot).targetSync());
+        record = await VersionRegistry.readSlotRecord(slot);
+      }
+      if (record == null) return null;
+      return SlotIni(slot, record, _platform).childInvocation();
+    } catch (_) {
+      return null; // unreadable record: run PHP as before
+    }
   }
 
   /// Child processes (Composer scripts, `artisan` spawning `php`, …) must see
@@ -75,11 +106,12 @@ class PhpExecutor {
         phpExecutable ??
         await _executableResolver.resolvePhpExecutable(rootPath);
 
+    final ini = await _slotIni(phpExe);
     final spec = ProcessSpec(
       executable: phpExe,
-      arguments: [scriptPath, ...args],
+      arguments: [...?ini?.args, scriptPath, ...args],
       workingDirectory: rootPath,
-      environment: _envWithPhp(phpExe, environment),
+      environment: {..._envWithPhp(phpExe, environment), ...?ini?.env},
     );
 
     return await _processManager.runInteractive(spec);

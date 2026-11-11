@@ -1,9 +1,11 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 import 'package:pvm/src/core/os_manager.dart';
+import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/core/process_manager.dart';
 import 'package:pvm/src/core/executable_resolver.dart';
@@ -407,4 +409,174 @@ void main() {
       });
     });
   });
+
+  group('PhpExecutor slot ini', () {
+    late Directory tmp;
+    late String versions;
+    late FakeProcessManager pm;
+    late FakeOSManager os;
+
+    setUp(() {
+      tmp = Directory.systemTemp.createTempSync('pvm-exec-ini');
+      versions = p.join(tmp.path, 'versions');
+      Directory(versions).createSync();
+      pm = FakeProcessManager();
+      os = FakeOSManager();
+    });
+    tearDown(() => tmp.deleteSync(recursive: true));
+
+    PhpExecutor make(PlatformInfo platform) => PhpExecutor(
+      processManager: pm,
+      osManager: os,
+      executableResolver: TestExecutableResolver(),
+      platformInfo: platform,
+    );
+
+    InstallRecord record(SlotKind kind) => InstallRecord(
+      version: '8.3.1',
+      sourceUrl: 'u',
+      archiveSha256: 'a',
+      verified: true,
+      installedAt: DateTime.utc(2026),
+      files: const {},
+      kind: kind,
+    );
+
+    Future<String> slotOf(SlotKind kind) async {
+      final slot = p.join(versions, '8.3');
+      Directory(slot).createSync();
+      await record(kind).writeTo(slot);
+      return slot;
+    }
+
+    test('static slot: -c before user args, scan dir on child only', () async {
+      final slot = await slotOf(SlotKind.static);
+      final given = {'FOO': 'bar'};
+
+      await make(LinuxPlatformInfo()).runPhp(
+        ['-v'],
+        phpExecutable: p.join(slot, 'bin', 'php'),
+        environment: given,
+      );
+
+      final spec = pm.lastSpec!;
+      expect(spec.arguments, ['-c', p.join(slot, 'etc', 'php.ini'), '-v']);
+      expect(
+        spec.environment!['PHP_INI_SCAN_DIR'],
+        p.join(slot, 'etc', 'conf.d'),
+      );
+      expect(given, {'FOO': 'bar'});
+    });
+
+    test('runScript gets the same args and env', () async {
+      final slot = await slotOf(SlotKind.static);
+
+      await make(
+        LinuxPlatformInfo(),
+      ).runScript('a.php', ['x'], phpExecutable: p.join(slot, 'bin', 'php'));
+
+      expect(pm.lastSpec!.arguments, [
+        '-c',
+        p.join(slot, 'etc', 'php.ini'),
+        'a.php',
+        'x',
+      ]);
+      expect(
+        pm.lastSpec!.environment!['PHP_INI_SCAN_DIR'],
+        p.join(slot, 'etc', 'conf.d'),
+      );
+    });
+
+    test('windows layout: scan dir only, no -c', () async {
+      final slot = await slotOf(SlotKind.windowsZip);
+
+      await make(
+        WindowsPlatformInfo(),
+      ).runPhp(['-v'], phpExecutable: p.join(slot, 'php.exe'));
+
+      expect(pm.lastSpec!.arguments, ['-v']);
+      expect(
+        pm.lastSpec!.environment!['PHP_INI_SCAN_DIR'],
+        p.join(slot, 'conf.d'),
+      );
+    });
+
+    test('source environment map is not mutated', () async {
+      final slot = await slotOf(SlotKind.static);
+      final src = _MapOS({'KEEP': '1'});
+      final snapshot = Map.of(src.map);
+
+      await PhpExecutor(
+        processManager: pm,
+        osManager: src,
+        executableResolver: TestExecutableResolver(),
+        platformInfo: LinuxPlatformInfo(),
+      ).runPhp(['-v'], phpExecutable: p.join(slot, 'bin', 'php'));
+
+      expect(src.map, snapshot);
+      expect(pm.lastSpec!.environment!['PHP_INI_SCAN_DIR'], isNotNull);
+    });
+
+    test('no record: unchanged', () async {
+      await make(
+        LinuxPlatformInfo(),
+      ).runPhp(['-v'], phpExecutable: p.join(versions, '9.9', 'bin', 'php'));
+      expect(pm.lastSpec!.arguments, ['-v']);
+      expect(pm.lastSpec!.environment!.containsKey('PHP_INI_SCAN_DIR'), false);
+    });
+
+    test('linked slot gets no ini, even with a decoy in the target', () async {
+      final target = Directory(p.join(tmp.path, 'mine'))..createSync();
+      await record(SlotKind.static).writeTo(target.path); // decoy
+      final slot = p.join(versions, '8.3');
+      Link(slot).createSync(target.path);
+      File(
+        p.join(versions, '8.3.pvm-link.json'),
+      ).writeAsStringSync(jsonEncode(record(SlotKind.linked).toJson()));
+
+      await make(
+        LinuxPlatformInfo(),
+      ).runPhp(['-v'], phpExecutable: p.join(slot, 'bin', 'php'));
+
+      expect(pm.lastSpec!.arguments, ['-v']);
+      expect(pm.lastSpec!.environment!.containsKey('PHP_INI_SCAN_DIR'), false);
+    });
+
+    test('.pvm link to a slot resolves one level to its record', () async {
+      final slot = await slotOf(SlotKind.static);
+      final project = Directory(p.join(tmp.path, 'proj'))..createSync();
+      Link(p.join(project.path, '.pvm')).createSync(slot);
+
+      await make(LinuxPlatformInfo()).runPhp([
+        '-v',
+      ], phpExecutable: p.join(project.path, '.pvm', 'bin', 'php'));
+
+      expect(pm.lastSpec!.arguments.first, '-c');
+    });
+
+    test('.pvm link to a linked slot gets no ini', () async {
+      final target = Directory(p.join(tmp.path, 'mine'))..createSync();
+      await record(SlotKind.static).writeTo(target.path); // decoy
+      final slot = p.join(versions, '8.3');
+      Link(slot).createSync(target.path);
+      File(
+        p.join(versions, '8.3.pvm-link.json'),
+      ).writeAsStringSync(jsonEncode(record(SlotKind.linked).toJson()));
+      final project = Directory(p.join(tmp.path, 'proj'))..createSync();
+      Link(p.join(project.path, '.pvm')).createSync(slot);
+
+      await make(LinuxPlatformInfo()).runPhp([
+        '-v',
+      ], phpExecutable: p.join(project.path, '.pvm', 'bin', 'php'));
+
+      expect(pm.lastSpec!.arguments, ['-v']);
+    });
+  });
+}
+
+class _MapOS extends FakeOSManager {
+  final Map<String, String> map;
+  _MapOS(this.map);
+  @override
+  Map<String, String> get currentEnvironment => map;
 }

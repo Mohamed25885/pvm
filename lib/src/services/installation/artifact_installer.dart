@@ -11,6 +11,7 @@ import '../../core/php_layout.dart';
 import '../../core/platform_info.dart';
 import '../../domain/exceptions/probe_exception.dart';
 import '../../domain/install_record.dart';
+import '../../domain/version_registry.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
@@ -64,7 +65,7 @@ class ArtifactInstaller {
     final slot = PhpVersion.parse(version).slot;
     String? installed;
     try {
-      installed = (await InstallRecord.readFrom(
+      installed = (await VersionRegistry.readSlotRecord(
         p.join(versionsPath, slot),
       ))?.version;
     } catch (_) {
@@ -196,6 +197,10 @@ class ArtifactInstaller {
         ? await _canWrite(p.join(tree, p.relative(extensionDir, from: target)))
         : probed?.writable ?? true;
 
+    // Hash before adding the user-editable ini, so editing it is not "modified".
+    final files = await InstallRecord.hashTree(tree);
+    await _createIni(tree, kind);
+
     await InstallRecord(
       version: version,
       sourceUrl: release.downloadUrl,
@@ -203,7 +208,7 @@ class ArtifactInstaller {
       verified: verified,
       kind: kind,
       installedAt: DateTime.now().toUtc(),
-      files: await InstallRecord.hashTree(tree),
+      files: files,
       zts: probed?.zts ?? release.buildType == BuildType.ts,
       arch: probed?.arch ?? release.architecture.name,
       apiNo: probed?.apiNo ?? '',
@@ -215,6 +220,22 @@ class ArtifactInstaller {
     ).writeTo(tree);
 
     await _commit(Directory(tree), Directory(target));
+  }
+
+  /// Empty per-slot ini and `conf.d` (see SlotIni). Linked slots are the
+  /// user's folder; the Windows zip keeps its own `php.ini` handling.
+  Future<void> _createIni(String tree, SlotKind kind) async {
+    switch (kind) {
+      case SlotKind.static:
+      case SlotKind.source:
+        await Directory(p.join(tree, 'etc', 'conf.d')).create(recursive: true);
+        final ini = File(p.join(tree, 'etc', 'php.ini'));
+        if (!await ini.exists()) await ini.writeAsString('');
+      case SlotKind.windowsZip:
+        await Directory(p.join(tree, 'conf.d')).create(recursive: true);
+      case SlotKind.linked:
+        break;
+    }
   }
 
   Future<String> sha256Of(File file) async =>

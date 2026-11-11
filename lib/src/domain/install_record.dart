@@ -205,19 +205,36 @@ class InstallRecord {
   @override
   int get hashCode => jsonEncode(toJson()).hashCode;
 
-  Future<void> writeTo(String versionDir) => File(
-    p.join(versionDir, fileName),
-  ).writeAsString(const JsonEncoder.withIndent('  ').convert(toJson()));
+  Future<void> writeTo(String versionDir) =>
+      writeToFile(p.join(versionDir, fileName));
+
+  /// Writes the record to [path], creating its parent directory.
+  Future<void> writeToFile(String path) async {
+    final file = File(path);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(
+      const JsonEncoder.withIndent('  ').convert(toJson()),
+    );
+  }
 
   /// Returns `null` when no record exists (e.g. versions installed before
   /// this feature, or copied in by hand).
-  static Future<InstallRecord?> readFrom(String versionDir) async {
-    final file = File(p.join(versionDir, fileName));
+  static Future<InstallRecord?> readFrom(String versionDir) => readFromFile(
+    p.join(versionDir, fileName),
+    defaultExtensionDir: p.join(versionDir, 'ext'),
+  );
+
+  /// Like [readFrom] for a record at an explicit [path].
+  static Future<InstallRecord?> readFromFile(
+    String path, {
+    String defaultExtensionDir = '',
+  }) async {
+    final file = File(path);
     if (!await file.exists()) return null;
     final json = jsonDecode(await file.readAsString());
     return InstallRecord.fromJson(
       json as Map<String, dynamic>,
-      defaultExtensionDir: p.join(versionDir, 'ext'),
+      defaultExtensionDir: defaultExtensionDir,
     );
   }
 

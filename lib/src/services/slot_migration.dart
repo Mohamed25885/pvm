@@ -53,7 +53,7 @@ class SlotMigration {
       }
       InstallRecord? record;
       try {
-        record = await InstallRecord.readFrom(dir.path);
+        record = await VersionRegistry.readSlotRecord(dir.path);
       } catch (_) {
         record = null;
       }

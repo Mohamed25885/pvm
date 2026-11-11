@@ -180,7 +180,14 @@ class UninstallCommand extends Command<int> {
     }
 
     try {
-      await _osManager.deleteDirectory(versionDir);
+      if (await _osManager.isSymLink(versionDir)) {
+        // Linked slot: drop the link and its record, never the user's folder.
+        await _osManager.deleteSymLink(versionDir);
+        final record = File(registry.linkRecordPath(p.basename(versionDir)));
+        if (await record.exists()) await record.delete();
+      } else {
+        await _osManager.deleteDirectory(versionDir);
+      }
     } on FileSystemException catch (e) {
       _console.printError(
         'Could not delete directory: ${e.message}\n'
