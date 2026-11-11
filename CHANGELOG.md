@@ -2,9 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.1.0...HEAD)
+## [Unreleased](https://github.com/Mohamed25885/pvm/compare/v2.2.0...HEAD)
+
+## [2.2.0](https://github.com/Mohamed25885/pvm/compare/v2.1.0...v2.2.0) - 2026-11-11
 
 ### Added
+- **Linux binaries.** Releases include `pvm-linux-x64` and `pvm-linux-arm64` next to `pvm.exe`; `fvm dart run tool/build.dart` builds them with a `SHA256SUMS` file.
 - **PHP on Linux/macOS.** `pvm install 8.4` downloads a checksum-verified static-php build. `pvm install 8.4 --from-source` builds PHP from php.net, verified against php.net's checksum, and prints the exact package-manager command when build tools are missing. PVM never runs `sudo`.
 - **`pvm link <X.Y> <folder>`** adopts a PHP installed elsewhere (Plesk, Homebrew, your own build) as a version.
 - **`pvm ext install <name>`** builds a PECL extension for the version (Linux/macOS), or downloads the matching PECL DLL (Windows). PVM checks that PHP loads the extension and undoes everything if it doesn't. Static builds refuse extensions and point to `--from-source`.
