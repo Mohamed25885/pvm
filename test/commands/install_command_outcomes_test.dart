@@ -3,11 +3,18 @@ import 'package:test/test.dart';
 
 import 'package:pvm/src/commands/install_command.dart';
 import 'package:pvm/src/core/exit_codes.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/domain/php_release.dart';
 import 'package:pvm/src/interfaces/i_installer.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
 
 import '../mocks/mock_console.dart';
 import '../mocks/mock_installer.dart';
+
+class _ArmLinux extends LinuxPlatformInfo {
+  @override
+  String get hostArch => 'aarch64';
+}
 
 class _ScriptedInstaller extends MockInstaller {
   final Future<InstallResult> Function(String, InstallOptions?) onInstall;
@@ -27,10 +34,13 @@ class _ScriptedInstaller extends MockInstaller {
 Future<int> _run(
   MockConsole console,
   IInstaller installer,
-  List<String> args,
-) async {
+  List<String> args, {
+  PlatformInfo? platform,
+}) async {
   final runner = CommandRunner<int>('pvm', 'test')
-    ..addCommand(InstallCommand(console, installer));
+    ..addCommand(
+      InstallCommand(console, installer, platform ?? WindowsPlatformInfo()),
+    );
   return await runner.run(['install', ...args]) ?? -1;
 }
 
@@ -127,5 +137,50 @@ void main() {
 
       expect(installer.requested, '8.3');
     });
+  });
+
+  test('a filled slot prints the update hint and fails', () async {
+    final installer = _ScriptedInstaller(
+      (v, _) async => throw const SlotFilledException('8.2', '8.2.28'),
+    );
+
+    final code = await _run(console, installer, ['8.2.29']);
+
+    expect(code, ExitCode.generalError);
+    expect(console.errors, ['8.2 is installed (8.2.28). Run: pvm update 8.2']);
+  });
+
+  group('on Linux/macOS', () {
+    for (final flag in ['--ts', '--nts']) {
+      test('$flag is a usage error naming Windows', () async {
+        final installer = _ScriptedInstaller((v, _) async => InstallResult(v));
+
+        final code = await _run(console, installer, [
+          '8.4',
+          flag,
+        ], platform: _ArmLinux());
+
+        expect(code, ExitCode.usageError);
+        expect(console.errors.join(), contains('Windows-only'));
+        expect(installer.requested, isNull);
+      });
+    }
+
+    test('--arch defaults to the host architecture', () async {
+      final installer = _ScriptedInstaller((v, _) async => InstallResult(v));
+
+      await _run(console, installer, ['8.4'], platform: _ArmLinux());
+
+      expect(installer.options?.architecture, Architecture.arm64);
+    });
+  });
+
+  test('on Windows --arch still defaults to x64', () async {
+    final installer = _ScriptedInstaller((v, _) async => InstallResult(v));
+
+    await _run(console, installer, ['8.4', '--ts']);
+
+    expect(installer.options?.architecture, Architecture.x64);
+    expect(installer.options?.buildType, BuildType.ts);
   });
 }

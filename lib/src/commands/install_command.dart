@@ -3,6 +3,7 @@ import 'package:args/command_runner.dart';
 
 import '../core/console.dart';
 import '../core/exit_codes.dart';
+import '../core/platform_info.dart';
 import '../domain/exceptions.dart';
 import '../domain/php_release.dart';
 import '../domain/php_version.dart';
@@ -17,11 +18,26 @@ class InstallCommand extends Command<int> {
   @override
   final String description = 'Download and install a PHP version';
 
+  // Windows builds come TS or NTS; static-php builds (Linux/macOS) are NTS.
+  late final bool _windows = _platform.osType == 'windows';
+
   @override
-  final ArgParser argParser = ArgParser(allowTrailingOptions: true)
-    ..addOption('arch', help: 'Architecture (x64 or x86)', defaultsTo: 'x64')
-    ..addFlag('ts', help: 'Thread Safe (default: NTS)', negatable: false)
-    ..addFlag('nts', help: 'Non-Thread Safe', negatable: false)
+  late final ArgParser argParser = ArgParser(allowTrailingOptions: true)
+    ..addOption(
+      'arch',
+      help: 'Architecture (x64, x86, arm64; x86 Windows only)',
+      defaultsTo: _windows
+          ? 'x64'
+          : PhpRelease.architectureFromString(_platform.hostArch)?.name ??
+                'x64',
+    )
+    ..addFlag(
+      'ts',
+      help: 'Thread Safe (default: NTS)',
+      negatable: false,
+      hide: !_windows,
+    )
+    ..addFlag('nts', help: 'Non-Thread Safe', negatable: false, hide: !_windows)
     ..addFlag('force', help: 'Force reinstall', negatable: false)
     ..addFlag(
       'allow-unverified',
@@ -33,8 +49,9 @@ class InstallCommand extends Command<int> {
 
   final Console _console;
   final IInstaller _installer;
+  final PlatformInfo _platform;
 
-  InstallCommand(this._console, this._installer);
+  InstallCommand(this._console, this._installer, this._platform);
 
   @override
   Future<int> run() async {
@@ -67,6 +84,12 @@ class InstallCommand extends Command<int> {
 
     final useTs = argResults?['ts'] == true;
     final useNts = argResults?['nts'] == true;
+    if (!_windows && (useTs || useNts)) {
+      _console.printError(
+        '--ts/--nts are Windows-only; static-php builds are NTS.',
+      );
+      return ExitCode.usageError;
+    }
     if (useTs && useNts) {
       _console.printError('Cannot specify both --ts and --nts');
       return ExitCode.usageError;
@@ -100,6 +123,9 @@ class InstallCommand extends Command<int> {
       _console.printError(e.message);
       _console.print('Run "pvm list-remote" to see available versions.');
       return ExitCode.versionNotFound;
+    } on SlotFilledException catch (e) {
+      _console.printError(e.toString());
+      return ExitCode.generalError;
     } on UnverifiedReleaseException catch (e) {
       _console.printError(e.toString());
       return ExitCode.generalError;

@@ -9,10 +9,12 @@ import '../../core/console.dart';
 import '../../core/constants.dart';
 import '../../core/php_layout.dart';
 import '../../core/platform_info.dart';
+import '../../domain/exceptions/probe_exception.dart';
 import '../../domain/install_record.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
+import '../folder_probe.dart';
 import '../https_get.dart';
 
 /// The transactional install pipeline shared by every release source
@@ -20,7 +22,7 @@ import '../https_get.dart';
 ///
 /// download to a private temp dir → verify SHA-256 → extract into
 /// `versions/.staging-<X.Y>-<pid>` → check the PHP binary ([PhpLayout]) →
-/// write `.pvm-install.json` → atomically rename to the slot `versions/<X.Y>`.
+/// probe it ([FolderProbe], when given) → write `.pvm-install.json` → atomically rename to the slot `versions/<X.Y>`.
 /// The record keeps the full patch.
 ///
 /// Any failure leaves the versions directory exactly as it was.
@@ -31,6 +33,10 @@ class ArtifactInstaller {
   /// Decides whether unpacked binaries need `chmod` (not on Windows).
   final PlatformInfo platform;
   final List<String> allowedHosts;
+
+  /// Fills the record from the staged `php` itself. A failed probe aborts a
+  /// [SlotKind.static] install; other kinds warn and keep release metadata.
+  final FolderProbe? probe;
   final Console _console;
   final http.Client _client;
   final Duration _retryDelay;
@@ -41,6 +47,7 @@ class ArtifactInstaller {
     required this.platform,
     required this.allowedHosts,
     required this._console,
+    this.probe,
     http.Client? client,
     this._retryDelay = const Duration(seconds: 1),
   }) : _client = client ?? http.Client();
@@ -49,6 +56,25 @@ class ArtifactInstaller {
   Future<bool> isInstalled(String version) => File(
     layout.phpExecutable(p.join(versionsPath, PhpVersion.parse(version).slot)),
   ).exists();
+
+  /// Whether the slot of [version] already holds exactly [version]. Throws
+  /// [SlotFilledException] when it holds another (recorded) patch.
+  Future<bool> slotHolds(String version) async {
+    if (!await isInstalled(version)) return false;
+    final slot = PhpVersion.parse(version).slot;
+    String? installed;
+    try {
+      installed = (await InstallRecord.readFrom(
+        p.join(versionsPath, slot),
+      ))?.version;
+    } catch (_) {
+      // Unreadable record: patch unknown, as for a hand-copied slot.
+    }
+    if (installed != null && installed != version) {
+      throw SlotFilledException(slot, installed);
+    }
+    return true;
+  }
 
   /// Install [release] into its slot `versions/<X.Y>`, replacing any existing
   /// tree.
@@ -116,6 +142,21 @@ class ArtifactInstaller {
         );
       }
 
+      final target = p.join(versionsPath, slot);
+      ProbeResult? probed;
+      try {
+        probed = await probe?.probe(staging.path);
+      } on ProbeException catch (e) {
+        if (kind == SlotKind.static) rethrow;
+        _console.printWarning('Could not probe PHP $version: ${e.message}');
+      }
+      // Probe paths point into staging; the record must name the slot.
+      String? moved(String? path) =>
+          path != null &&
+              (p.isWithin(staging.path, path) || p.equals(staging.path, path))
+          ? p.normalize(p.join(target, p.relative(path, from: staging.path)))
+          : path;
+
       await InstallRecord(
         version: version,
         sourceUrl: release.downloadUrl,
@@ -124,9 +165,17 @@ class ArtifactInstaller {
         kind: kind,
         installedAt: DateTime.now().toUtc(),
         files: await InstallRecord.hashTree(staging.path),
+        zts: probed?.zts ?? release.buildType == BuildType.ts,
+        arch: probed?.arch ?? release.architecture.name,
+        apiNo: probed?.apiNo ?? '',
+        phpConfig: moved(probed?.phpConfig),
+        prefix: moved(probed?.prefix),
+        extensionDir: moved(probed?.extensionDir) ?? '',
+        writable: probed?.writable ?? true,
+        vsVersion: probed?.vsVersion,
       ).writeTo(staging.path);
 
-      await _commit(staging, Directory(p.join(versionsPath, slot)));
+      await _commit(staging, Directory(target));
     } finally {
       await _deleteQuietly(staging);
       await _deleteQuietly(tempDir);

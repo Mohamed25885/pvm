@@ -90,7 +90,11 @@ void main() {
     test('command parses version argument', () {
       final console = MockConsole();
 
-      final cmd = InstallCommand(console, MockInstaller());
+      final cmd = InstallCommand(
+        console,
+        MockInstaller(),
+        WindowsPlatformInfo(),
+      );
 
       final result = cmd.argParser.parse(['8.3']);
       expect(result.rest.first, '8.3');
