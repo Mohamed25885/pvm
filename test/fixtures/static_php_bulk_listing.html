@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StaticPHP Resource Download - /v3/php-bin/bulk/</title>
+    <style>
+        body { font-family: 'Courier New', monospace; margin: 20px; background-color: #f5f5f5; }
+        .container { background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { border-bottom: 2px solid #333; padding-bottom: 10px; margin-bottom: 20px; }
+        .page-title { font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px; text-align: center; }
+        .current-path { font-size: 18px; font-weight: bold; color: #333; }
+        .file-list { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .file-list th { background-color: #f8f9fa; padding: 12px 8px; text-align: left; border-bottom: 2px solid #dee2e6; font-weight: bold; color: #495057; }
+        .file-list td { padding: 8px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+        .file-list tr:hover { background-color: #f8f9fa; }
+        .file-list a { color: #0066cc; text-decoration: none; }
+        .file-list a:hover { text-decoration: underline; }
+        .file-list .parent-dir { background-color: #e9ecef; font-weight: bold; }
+        .file-list .parent-dir a { color: #495057; }
+        .file-list .directory { color: #28a745; }
+        .file-list .file { color: #0066cc; }
+        .notice { margin-bottom: 16px; padding: 10px 14px; background-color: #fff3cd; border: 1px solid #ffc107; border-radius: 4px; color: #856404; font-size: 13px; }
+        .footer { margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }
+        .format-links { margin-bottom: 15px; }
+        .format-links a { margin-right: 15px; padding: 5px 10px; background-color: #0066cc; color: white; text-decoration: none; border-radius: 4px; }
+        .format-links a:hover { background-color: #0052a3; }
+        .format-links a.active { background-color: #004080; }
+        .col-filename { width: 40%; } .col-modified { width: 30%; } .col-size { width: 15%; } .col-count { width: 15%; }
+        .related-links { margin-top: 10px; }
+        .links-label { font-weight: bold; margin-right: 10px; }
+        .separator { margin: 0 5px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="page-title">StaticPHP Resource Download</div>
+        <div class="current-path">Current Path: /v3/php-bin/bulk/</div>
+    </div>
+    <div class="format-links">
+        <a href="?format=json">JSON Format</a>
+    </div>
+        <table class="file-list">
+        <thead>
+            <tr>
+                <th class="col-filename">Filename</th>
+                <th class="col-modified">Last Modified</th>
+                <th class="col-size">Size</th>
+                <th class="col-count">Download Count</th>
+            </tr>
+        </thead>
+        <tbody>
+                        <tr class="parent-dir">
+                <td class="col-filename">
+                    <a href="/v3/php-bin/">..</a>                </td>
+                <td class="col-modified">-</td>
+                <td class="col-size">-</td>
+                <td class="col-count"></td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/README.txt" class="file">README.txt</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:44</td>
+                <td class="col-size">1.1K</td>
+                <td class="col-count">277</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.3.33-cli-linux-x86_64.tar.gz" class="file">php-8.3.33-cli-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-08-10 04:40:45</td>
+                <td class="col-size">29.8M</td>
+                <td class="col-count">157</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.3.36-cli-linux-aarch64.tar.gz" class="file">php-8.3.36-cli-linux-aarch64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 09:32:21</td>
+                <td class="col-size">30.2M</td>
+                <td class="col-count">10</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.3.36-cli-linux-aarch64.tar.gz.sha256" class="file">php-8.3.36-cli-linux-aarch64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 09:32:17</td>
+                <td class="col-size">102B</td>
+                <td class="col-count">8</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.3.36-cli-linux-x86_64.tar.gz" class="file">php-8.3.36-cli-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 08:58:20</td>
+                <td class="col-size">30M</td>
+                <td class="col-count">47</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.3.36-cli-linux-x86_64.tar.gz.sha256" class="file">php-8.3.36-cli-linux-x86_64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 08:58:17</td>
+                <td class="col-size">101B</td>
+                <td class="col-count">16</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.23-cli-linux-x86_64.tar.gz" class="file">php-8.4.23-cli-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-07-31 06:55:33</td>
+                <td class="col-size">30.5M</td>
+                <td class="col-count">30</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.24-cli-linux-x86_64.tar.gz" class="file">php-8.4.24-cli-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-08-10 04:30:46</td>
+                <td class="col-size">30.5M</td>
+                <td class="col-count">106</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-linux-aarch64.tar.gz" class="file">php-8.4.27-cli-linux-aarch64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 09:09:40</td>
+                <td class="col-size">30.8M</td>
+                <td class="col-count">23</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-linux-aarch64.tar.gz.sha256" class="file">php-8.4.27-cli-linux-aarch64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 09:09:30</td>
+                <td class="col-size">102B</td>
+                <td class="col-count">15</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-linux-x86_64.tar.gz" class="file">php-8.4.27-cli-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:48</td>
+                <td class="col-size">30.8M</td>
+                <td class="col-count">86</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-linux-x86_64.tar.gz.sha256" class="file">php-8.4.27-cli-linux-x86_64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:45</td>
+                <td class="col-size">101B</td>
+                <td class="col-count">39</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-macos-aarch64.tar.gz" class="file">php-8.4.27-cli-macos-aarch64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 11:21:32</td>
+                <td class="col-size">35.3M</td>
+                <td class="col-count">81</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-macos-aarch64.tar.gz.sha256" class="file">php-8.4.27-cli-macos-aarch64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 11:21:28</td>
+                <td class="col-size">102B</td>
+                <td class="col-count">41</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-macos-x86_64.tar.gz" class="file">php-8.4.27-cli-macos-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 09:49:32</td>
+                <td class="col-size">35.9M</td>
+                <td class="col-count">28</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-cli-macos-x86_64.tar.gz.sha256" class="file">php-8.4.27-cli-macos-x86_64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 09:49:26</td>
+                <td class="col-size">101B</td>
+                <td class="col-count">16</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-fpm-linux-x86_64.tar.gz" class="file">php-8.4.27-fpm-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:48</td>
+                <td class="col-size">30.8M</td>
+                <td class="col-count">8</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-fpm-linux-x86_64.tar.gz.sha256" class="file">php-8.4.27-fpm-linux-x86_64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:45</td>
+                <td class="col-size">101B</td>
+                <td class="col-count">8</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-micro-linux-x86_64.tar.gz" class="file">php-8.4.27-micro-linux-x86_64.tar.gz</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:48</td>
+                <td class="col-size">30.7M</td>
+                <td class="col-count">36</td>
+            </tr>
+                        <tr>
+                <td class="col-filename">
+                    <a href="/v3/php-bin/bulk/php-8.4.27-micro-linux-x86_64.tar.gz.sha256" class="file">php-8.4.27-micro-linux-x86_64.tar.gz.sha256</a>                </td>
+                <td class="col-modified">2026-11-10 08:35:45</td>
+                <td class="col-size">103B</td>
+                <td class="col-count">35</td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="footer">
+        <div class="related-links">
+            <span class="links-label">Related Links:</span>
+            <a href="https://static-php.dev" target="_blank">static-php.dev</a>
+            <span class="separator">•</span>
+            <a href="https://github.com/crazywhalecc/static-php-cli" target="_blank">GitHub</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+    

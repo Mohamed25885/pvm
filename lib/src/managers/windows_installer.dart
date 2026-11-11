@@ -4,6 +4,8 @@ import 'package:http/http.dart' as http;
 
 import '../core/console.dart';
 import '../core/php_layout.dart';
+import '../core/platform_info.dart';
+import '../domain/install_record.dart';
 import '../domain/php_release.dart';
 import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
@@ -34,6 +36,7 @@ class WindowsInstaller implements IInstaller {
        _artifacts = ArtifactInstaller(
          versionsPath: versionsPath,
          layout: PhpLayout.windows,
+         platform: WindowsPlatformInfo(),
          allowedHosts: allowedDomains,
          console: console,
          client: client,
@@ -77,6 +80,7 @@ class WindowsInstaller implements IInstaller {
       await _artifacts.install(
         release,
         resolved,
+        kind: SlotKind.windowsZip,
         allowUnverified: options?.allowUnverified ?? false,
       );
     } on Exception catch (e) {

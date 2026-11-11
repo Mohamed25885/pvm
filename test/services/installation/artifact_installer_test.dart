@@ -6,6 +6,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:pvm/src/core/php_layout.dart';
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/domain/php_release.dart';
 import 'package:pvm/src/domain/php_version.dart';
 import 'package:pvm/src/interfaces/i_installer.dart';
@@ -21,6 +23,17 @@ List<int> _zip(Map<String, List<int>> files) {
   files.forEach((name, data) => archive.addFile(ArchiveFile.bytes(name, data)));
   return ZipEncoder().encodeBytes(archive);
 }
+
+List<int> _tarGz(List<ArchiveFile> entries) {
+  final archive = Archive();
+  entries.forEach(archive.addFile);
+  return GZipEncoder().encodeBytes(TarEncoder().encodeBytes(archive));
+}
+
+// Tests may check the host; lib/ may not (no_host_platform_checks_test).
+final PlatformInfo _host = Platform.isWindows
+    ? WindowsPlatformInfo()
+    : LinuxPlatformInfo();
 
 PhpRelease _release(
   String version, {
@@ -67,15 +80,35 @@ void main() {
       await temp.delete(recursive: true);
     });
 
-    ArtifactInstaller installer(PhpLayout layout, List<int> zip) =>
-        ArtifactInstaller(
-          versionsPath: versions,
-          layout: layout,
-          allowedHosts: const ['example.org'],
-          console: MockConsole(),
-          client: MockClient((_) async => http.Response.bytes(zip, 200)),
-          retryDelay: Duration.zero,
-        );
+    ArtifactInstaller installer(
+      PhpLayout layout,
+      List<int> zip, {
+      http.Client? client,
+      List<String> hosts = const ['example.org'],
+    }) => ArtifactInstaller(
+      versionsPath: versions,
+      layout: layout,
+      platform: _host,
+      allowedHosts: hosts,
+      console: MockConsole(),
+      client: client ?? MockClient((_) async => http.Response.bytes(zip, 200)),
+      retryDelay: Duration.zero,
+    );
+
+    Future<void> installTarGz(
+      List<int> tgz, {
+      String version = '8.4.27',
+      http.Client? client,
+    }) => installer(PhpLayout.unix, tgz, client: client).install(
+      _release(
+        version,
+        url: 'https://example.org/php-$version-cli-linux-x86_64.tar.gz',
+        sha: crypto.sha256.convert(tgz).toString(),
+      ),
+      version,
+      kind: SlotKind.static,
+      allowUnverified: false,
+    );
 
     test('installs a Unix-layout build (bin/php) atomically', () async {
       final zip = _zip({
@@ -88,6 +121,7 @@ void main() {
       await unix.install(
         _release('8.3.14', sha: sha),
         '8.3.14',
+        kind: SlotKind.windowsZip,
         allowUnverified: false,
       );
 
@@ -111,6 +145,7 @@ void main() {
         installer(PhpLayout.unix, zip).install(
           _release('8.3.14', sha: sha),
           '8.3.14',
+          kind: SlotKind.windowsZip,
           allowUnverified: false,
         ),
         throwsA(predicate((e) => '$e'.contains(p.join('bin', 'php')))),
@@ -124,10 +159,12 @@ void main() {
       });
 
       await expectLater(
-        installer(
-          PhpLayout.windows,
-          zip,
-        ).install(_release('8.3.1'), '8.3.1', allowUnverified: false),
+        installer(PhpLayout.windows, zip).install(
+          _release('8.3.1'),
+          '8.3.1',
+          kind: SlotKind.windowsZip,
+          allowUnverified: false,
+        ),
         throwsA(isA<UnverifiedReleaseException>()),
       );
       expect(Directory(versions).existsSync(), isFalse);
@@ -147,10 +184,177 @@ void main() {
             sha: sha,
           ),
           '8.3.1',
+          kind: SlotKind.windowsZip,
           allowUnverified: false,
         ),
         throwsA(isA<DownloadException>()),
       );
+    });
+
+    test('records the slot kind it was given', () async {
+      await installTarGz(
+        _tarGz([
+          ArchiveFile.bytes('php', [1]),
+        ]),
+      );
+
+      final record = await InstallRecord.readFrom(p.join(versions, '8.4'));
+      expect(record!.kind, SlotKind.static);
+      expect(record.version, '8.4.27');
+    });
+
+    test('a tar.gz with a lone php yields <slot>/bin/php, mode 0755', () async {
+      await installTarGz(
+        _tarGz([
+          ArchiveFile.bytes('php', [7, 7]),
+        ]),
+      );
+
+      final php = File(p.join(versions, '8.4', 'bin', 'php'));
+      expect(php.readAsBytesSync(), [7, 7]);
+      if (!Platform.isWindows) {
+        expect(php.statSync().mode & 0x1ff, 0x1ed);
+      }
+    });
+
+    test('a tar.gz with a tree is extracted as-is', () async {
+      await installTarGz(
+        _tarGz([
+          ArchiveFile.bytes('bin/php', [1]),
+          ArchiveFile.bytes('lib/x.ini', [2]),
+        ]),
+      );
+
+      expect(File(p.join(versions, '8.4', 'lib', 'x.ini')).readAsBytesSync(), [
+        2,
+      ]);
+    });
+
+    for (final entry in [
+      ArchiveFile.bytes('../evil', [1]),
+      ArchiveFile.bytes('bin/../../evil', [1]),
+      ArchiveFile.bytes('/abs/evil', [1]),
+      ArchiveFile.symlink('bin/php', '/usr/bin/php'),
+    ]) {
+      test('rejects the tar entry ${entry.name} '
+          '(symlink: ${entry.isSymbolicLink})', () async {
+        await expectLater(
+          installTarGz(
+            _tarGz([
+              ArchiveFile.bytes('lib/ok', [1]),
+              entry,
+            ]),
+          ),
+          throwsA(predicate((e) => '$e'.contains('Unsafe archive entry'))),
+        );
+        expect(Directory(versions).listSync(), isEmpty);
+        expect(File(p.join(temp.path, 'evil')).existsSync(), isFalse);
+      });
+    }
+
+    test('rejects a tar hard link entry', () async {
+      final link = ArchiveFile.symlink('bin/php', 'lib/ok')..isHardLink = true;
+      await expectLater(
+        installTarGz(
+          _tarGz([
+            ArchiveFile.bytes('lib/ok', [1]),
+            link,
+          ]),
+        ),
+        throwsA(predicate((e) => '$e'.contains('Unsafe archive entry'))),
+      );
+      expect(Directory(versions).listSync(), isEmpty);
+    });
+
+    test('rejects an archive URL that is neither zip nor tar.gz', () async {
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [1]),
+      ]);
+      await expectLater(
+        installer(PhpLayout.unix, tgz).install(
+          _release(
+            '8.4.27',
+            url: 'https://example.org/php.tar.xz',
+            sha: crypto.sha256.convert(tgz).toString(),
+          ),
+          '8.4.27',
+          kind: SlotKind.static,
+          allowUnverified: false,
+        ),
+        throwsA(predicate((e) => '$e'.contains('Unsupported archive'))),
+      );
+      expect(Directory(versions).existsSync(), isFalse);
+    });
+
+    test('a stream that fails halfway leaves the old slot intact', () async {
+      final old = Directory(p.join(versions, '8.4', 'bin'))
+        ..createSync(recursive: true);
+      File(p.join(old.path, 'php')).writeAsBytesSync([1, 2, 3]);
+      File(p.join(versions, '8.4', 'keep.txt')).writeAsStringSync('old');
+      final before = await InstallRecord.hashTree(p.join(versions, '8.4'));
+
+      final tgz = _tarGz([ArchiveFile.bytes('php', List.filled(4096, 9))]);
+      final dropping = MockClient.streaming((_, _) async {
+        Stream<List<int>> body() async* {
+          yield tgz.sublist(0, tgz.length ~/ 2);
+          throw const SocketException('connection reset');
+        }
+
+        return http.StreamedResponse(body(), 200, contentLength: tgz.length);
+      });
+
+      await expectLater(
+        installTarGz(tgz, client: dropping),
+        throwsA(isA<SocketException>()),
+      );
+
+      expect(await InstallRecord.hashTree(p.join(versions, '8.4')), before);
+      expect(Directory(versions).listSync().map((e) => p.basename(e.path)), [
+        '8.4',
+      ]);
+    });
+
+    test('removes stale .staging-<slot>-* dirs before installing', () async {
+      final stale = Directory(p.join(versions, '.staging-8.4-99999'))
+        ..createSync(recursive: true);
+      File(p.join(stale.path, 'junk')).writeAsStringSync('x');
+      final other = Directory(p.join(versions, '.staging-8.3-99999'))
+        ..createSync(recursive: true);
+
+      await installTarGz(
+        _tarGz([
+          ArchiveFile.bytes('php', [1]),
+        ]),
+      );
+
+      expect(stale.existsSync(), isFalse);
+      expect(other.existsSync(), isTrue);
+    });
+
+    test('accepts dl.static-php.dev when it is an allowed host', () async {
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [1]),
+      ]);
+      final static = installer(
+        PhpLayout.unix,
+        tgz,
+        hosts: const ['dl.static-php.dev'],
+      );
+
+      await static.install(
+        _release(
+          '8.4.27',
+          url:
+              'https://dl.static-php.dev/v3/php-bin/bulk/'
+              'php-8.4.27-cli-linux-x86_64.tar.gz',
+          sha: crypto.sha256.convert(tgz).toString(),
+        ),
+        '8.4.27',
+        kind: SlotKind.static,
+        allowUnverified: false,
+      );
+
+      expect(await static.isInstalled('8.4.27'), isTrue);
     });
   });
 

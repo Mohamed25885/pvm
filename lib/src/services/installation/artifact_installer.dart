@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import '../../core/console.dart';
 import '../../core/constants.dart';
 import '../../core/php_layout.dart';
+import '../../core/platform_info.dart';
 import '../../domain/install_record.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
@@ -25,6 +26,9 @@ import '../../interfaces/i_installer.dart';
 class ArtifactInstaller {
   final String versionsPath;
   final PhpLayout layout;
+
+  /// Decides whether unpacked binaries need `chmod` (not on Windows).
+  final PlatformInfo platform;
   final List<String> allowedHosts;
   final Console _console;
   final http.Client _client;
@@ -33,6 +37,7 @@ class ArtifactInstaller {
   ArtifactInstaller({
     required this.versionsPath,
     required this.layout,
+    required this.platform,
     required this.allowedHosts,
     required this._console,
     http.Client? client,
@@ -52,6 +57,7 @@ class ArtifactInstaller {
   Future<void> install(
     PhpRelease release,
     String version, {
+    required SlotKind kind,
     required bool allowUnverified,
   }) async {
     // [version] becomes a directory name: guard every caller (path traversal).
@@ -60,8 +66,23 @@ class ArtifactInstaller {
     if (!verified && !allowUnverified) {
       throw UnverifiedReleaseException(version);
     }
+    final urlPath = Uri.parse(release.downloadUrl).path.toLowerCase();
+    final Future<void> Function(String, String) extract;
+    if (urlPath.endsWith('.zip')) {
+      extract = extractZip;
+    } else if (urlPath.endsWith('.tar.gz') || urlPath.endsWith('.tgz')) {
+      extract = extractTarGz;
+    } else {
+      throw Exception('Unsupported archive type: ${release.downloadUrl}');
+    }
 
     await Directory(versionsPath).create(recursive: true);
+    // Leftovers of a killed install of this slot (any pid).
+    await for (final e in Directory(versionsPath).list()) {
+      if (e is Directory && p.basename(e.path).startsWith('.staging-$slot-')) {
+        await _deleteQuietly(e);
+      }
+    }
     final tempDir = await Directory.systemTemp.createTemp('pvm-download-');
     final staging = Directory(p.join(versionsPath, '.staging-$slot-$pid'));
     try {
@@ -84,7 +105,7 @@ class ArtifactInstaller {
       _console.print('Extracting...');
       if (await staging.exists()) await staging.delete(recursive: true);
       await staging.create(recursive: true);
-      await extractZip(archive.path, staging.path);
+      await extract(archive.path, staging.path);
 
       final binary = layout.phpExecutable(staging.path);
       if (!await File(binary).exists()) {
@@ -99,6 +120,7 @@ class ArtifactInstaller {
         sourceUrl: release.downloadUrl,
         archiveSha256: actualSha,
         verified: verified,
+        kind: kind,
         installedAt: DateTime.now().toUtc(),
         files: await InstallRecord.hashTree(staging.path),
       ).writeTo(staging.path);
@@ -144,9 +166,36 @@ class ArtifactInstaller {
 
   /// Extracts [zipPath] into [destPath], aborting on any entry that would
   /// land outside [destPath] (zip-slip) or that is a symbolic link.
-  Future<void> extractZip(String zipPath, String destPath) async {
-    final bytes = await File(zipPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+  Future<void> extractZip(String zipPath, String destPath) async => _extract(
+    ZipDecoder().decodeBytes(await File(zipPath).readAsBytes()),
+    destPath,
+  );
+
+  /// Extracts the `.tar.gz` at [tgzPath] into [destPath] with the same guards
+  /// as [extractZip] (hard links are rejected too). A lone top-level `php`
+  /// (static-php builds) is placed at `bin/php` and made executable.
+  Future<void> extractTarGz(String tgzPath, String destPath) async {
+    final archive = TarDecoder().decodeBytes(
+      GZipDecoder().decodeBytes(await File(tgzPath).readAsBytes()),
+    );
+    final entries = archive.files.where((f) => f.name.isNotEmpty).toList();
+    if (entries.length == 1 &&
+        entries.single.isFile &&
+        !entries.single.isSymbolicLink &&
+        p.posix.normalize(entries.single.name) == 'php') {
+      final php = File(layout.phpExecutable(destPath));
+      await php.parent.create(recursive: true);
+      await php.writeAsBytes(entries.single.content);
+      if (platform.osType != 'windows') {
+        final r = await Process.run('chmod', ['0755', php.path]);
+        if (r.exitCode != 0) throw Exception('chmod failed: ${r.stderr}');
+      }
+      return;
+    }
+    await _extract(archive, destPath);
+  }
+
+  Future<void> _extract(Archive archive, String destPath) async {
     final dest = p.normalize(p.absolute(destPath));
 
     for (final file in archive.files) {
@@ -155,7 +204,8 @@ class ArtifactInstaller {
       if (p.isAbsolute(name) ||
           p.posix.isAbsolute(name) ||
           name.contains(':') ||
-          file.isSymbolicLink) {
+          file.isSymbolicLink ||
+          file.isHardLink) {
         throw Exception('Unsafe archive entry rejected: ${file.name}');
       }
       final outPath = p.normalize(p.join(dest, name));
@@ -191,7 +241,8 @@ class ArtifactInstaller {
       IOSink? sink;
       try {
         var downloadedBytes = 0;
-        final request = http.Request('GET', Uri.parse(release.downloadUrl));
+        final request = http.Request('GET', Uri.parse(release.downloadUrl))
+          ..headers['User-Agent'] = PvmConstants.userAgent;
         final response = await _client
             .send(request)
             .timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
