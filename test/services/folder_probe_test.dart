@@ -21,6 +21,13 @@ String _json(String build, String ext) => jsonEncode({
   'build': build,
 });
 
+/// Fails the way IoProcessManager does when the binary cannot be started.
+class _UnstartablePm extends FakeProcessManager {
+  @override
+  Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async =>
+      throw Exception('Failed to start process "${spec.executable}"');
+}
+
 void main() {
   late Directory tmp;
   late FakeProcessManager pm;
@@ -99,6 +106,14 @@ void main() {
   test('throws ProbeException when php is missing', () {
     expect(
       FolderProbe(pm, LinuxPlatformInfo()).probe(tmp.path),
+      throwsA(isA<ProbeException>()),
+    );
+  });
+
+  test('throws ProbeException when php cannot be started (R12)', () {
+    touch('bin/php');
+    expect(
+      FolderProbe(_UnstartablePm(), LinuxPlatformInfo()).probe(tmp.path),
       throwsA(isA<ProbeException>()),
     );
   });

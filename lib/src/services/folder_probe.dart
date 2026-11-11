@@ -57,9 +57,15 @@ class FolderProbe {
     if (!File(php).existsSync()) {
       throw ProbeException('No php binary found in $folder (expected $php)');
     }
-    final run = await _pm.runCaptured(
-      ProcessSpec(executable: php, arguments: ['-n', '-r', _script]),
-    );
+    final CapturedProcessResult run;
+    try {
+      run = await _pm.runCaptured(
+        ProcessSpec(executable: php, arguments: ['-n', '-r', _script]),
+      );
+    } on Exception catch (e) {
+      // A php that cannot even start is a probe failure, so R12 can warn.
+      throw ProbeException('Could not run php in $folder: $e');
+    }
     if (run.exitCode != 0) {
       throw ProbeException(
         'php in $folder exited with ${run.exitCode}: ${run.stderr.trim()}',
