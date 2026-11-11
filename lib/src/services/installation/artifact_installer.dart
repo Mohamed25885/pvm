@@ -186,6 +186,16 @@ class ArtifactInstaller {
         ? p.normalize(p.join(target, p.relative(path, from: tree)))
         : path;
 
+    final extensionDir = moved(probed?.extensionDir) ?? '';
+    // A compiled extension dir inside the slot does not exist there yet (or
+    // is the old slot's): test the staged copy that becomes it.
+    final inSlot =
+        extensionDir.isNotEmpty &&
+        (p.isWithin(target, extensionDir) || p.equals(target, extensionDir));
+    final writable = inSlot
+        ? await _canWrite(p.join(tree, p.relative(extensionDir, from: target)))
+        : probed?.writable ?? true;
+
     await InstallRecord(
       version: version,
       sourceUrl: release.downloadUrl,
@@ -199,8 +209,8 @@ class ArtifactInstaller {
       apiNo: probed?.apiNo ?? '',
       phpConfig: moved(probed?.phpConfig),
       prefix: moved(probed?.prefix),
-      extensionDir: moved(probed?.extensionDir) ?? '',
-      writable: probed?.writable ?? true,
+      extensionDir: extensionDir,
+      writable: writable,
       vsVersion: probed?.vsVersion,
     ).writeTo(tree);
 
@@ -229,6 +239,19 @@ class ArtifactInstaller {
       rethrow;
     }
     if (backup != null) await _deleteQuietly(backup);
+  }
+
+  /// Creates [dir] if needed (PVM owns the slot) and tries a write in it.
+  Future<bool> _canWrite(String dir) async {
+    try {
+      await Directory(dir).create(recursive: true);
+      final f = File(p.join(dir, '.pvm-write-test'));
+      await f.writeAsString('');
+      await f.delete();
+      return true;
+    } on FileSystemException {
+      return false;
+    }
   }
 
   Future<void> _deleteQuietly(Directory dir) async {

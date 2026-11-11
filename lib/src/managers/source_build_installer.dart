@@ -165,15 +165,26 @@ class SourceBuildInstaller implements IInstaller {
       final src = p.join(buildDir.path, 'php-$resolved');
 
       _console.print('Building PHP $resolved from source (about 5 minutes)...');
+      final env = await _tools.buildEnvironment();
       // Output streams to the terminal (inherited stdio).
-      await _step(p.join(src, 'configure'), [
-        '--prefix=$prefix',
-        '--with-config-file-path=${p.join(prefix, 'etc')}',
-        '--with-config-file-scan-dir=${p.join(prefix, 'etc', 'conf.d')}',
-        ...sourceConfigureFlags,
-      ], src);
-      await _step('make', ['-j$jobs'], src);
-      await _step('make', ['install', 'INSTALL_ROOT=${staging.path}'], src);
+      await _step(
+        p.join(src, 'configure'),
+        [
+          '--prefix=$prefix',
+          '--with-config-file-path=${p.join(prefix, 'etc')}',
+          '--with-config-file-scan-dir=${p.join(prefix, 'etc', 'conf.d')}',
+          ...sourceConfigureFlags,
+        ],
+        src,
+        env,
+      );
+      await _step('make', ['-j$jobs'], src, env);
+      await _step(
+        'make',
+        ['install', 'INSTALL_ROOT=${staging.path}'],
+        src,
+        env,
+      );
 
       // make install writes <INSTALL_ROOT><prefix>/...
       final tree = p.join(
@@ -198,9 +209,19 @@ class SourceBuildInstaller implements IInstaller {
     return InstallResult(resolved);
   }
 
-  Future<void> _step(String exe, List<String> args, String cwd) async {
+  Future<void> _step(
+    String exe,
+    List<String> args,
+    String cwd,
+    Map<String, String>? env,
+  ) async {
     final code = await _pm.runInteractive(
-      ProcessSpec(executable: exe, arguments: args, workingDirectory: cwd),
+      ProcessSpec(
+        executable: exe,
+        arguments: args,
+        workingDirectory: cwd,
+        environment: env,
+      ),
     );
     if (code != 0) {
       throw Exception('${p.basename(exe)} ${args.first} failed (exit $code)');

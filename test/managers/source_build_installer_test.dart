@@ -55,6 +55,14 @@ class _Pm implements IProcessManager {
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
     captured.add(spec);
     var out = '';
+    if (spec.executable == 'brew') {
+      final ok = spec.arguments.last == 'openssl@3';
+      return CapturedProcessResult(
+        stdout: ok ? '/opt/homebrew/opt/openssl@3' : '',
+        stderr: '',
+        exitCode: ok ? 0 : 1,
+      );
+    }
     if (spec.executable.endsWith('php')) {
       out = jsonEncode({
         'v': '8.4.27',
@@ -94,7 +102,12 @@ void main() {
 
   String staging() => p.join(versions, '.staging-8.4-$pid');
 
-  SourceBuildInstaller installer({String? sha = 'ok', String patch = '27'}) {
+  SourceBuildInstaller installer({
+    String? sha = 'ok',
+    String patch = '27',
+    PlatformInfo? platform,
+  }) {
+    final os = platform ?? LinuxPlatformInfo();
     final v = '8.4.$patch';
     final json = jsonEncode({
       'version': v,
@@ -108,15 +121,16 @@ void main() {
     });
     return SourceBuildInstaller(
       versionsPath: versions,
-      platform: LinuxPlatformInfo(),
+      platform: os,
       console: console,
       processManager: pm,
       buildTools: BuildTools(
         pm,
-        LinuxPlatformInfo(),
+        os,
         osReleasePath: p.join(temp.path, 'none'),
+        environment: const {},
       ),
-      probe: FolderProbe(pm, LinuxPlatformInfo()),
+      probe: FolderProbe(pm, os),
       jobs: 4,
       client: MockClient((r) async {
         requested.add(r.url);
@@ -196,9 +210,38 @@ void main() {
     expect(record.archiveSha256, _sha);
     expect(record.phpConfig, p.join(prefix, 'bin', 'php-config'));
     expect(record.prefix, prefix);
+    expect(record.writable, isTrue);
+    expect(configure.environment, isNull); // Linux: inherited as is
     expect(File(p.join(prefix, 'bin', 'php')).readAsStringSync(), 'php');
     expect(Directory(staging()).existsSync(), isFalse);
     expect(Directory(buildDir).existsSync(), isFalse);
+  });
+
+  test('a --force reinstall records writable from the new tree', () async {
+    await seedSlot('8.4.27');
+    await installer().install(
+      '8.4',
+      options: const InstallOptions(force: true),
+    );
+    final record = (await InstallRecord.readFrom(prefix))!;
+    expect(record.kind, SlotKind.source);
+    expect(record.writable, isTrue);
+    expect(File(p.join(prefix, 'bin', 'php')).readAsStringSync(), 'php');
+  });
+
+  test('macOS: keg-only brew prefixes reach pkg-config, configure and make '
+      'through the child env only', () async {
+    await installer(platform: MacOSPlatformInfo()).install('8.4');
+
+    const dir = '/opt/homebrew/opt/openssl@3/lib/pkgconfig';
+    final pkgConfig = pm.captured.firstWhere(
+      (s) => s.executable == 'pkg-config',
+    );
+    expect(pkgConfig.environment?['PKG_CONFIG_PATH'], dir);
+    for (final spec in pm.interactive) {
+      expect(spec.environment?['PKG_CONFIG_PATH'], dir);
+    }
+    expect(Platform.environment['PKG_CONFIG_PATH'] ?? '', isNot(contains(dir)));
   });
 
   test('an exact patch asks php.net for that version', () async {

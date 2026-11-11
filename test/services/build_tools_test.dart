@@ -11,12 +11,21 @@ import 'package:test/test.dart';
 class _Pm implements IProcessManager {
   final Set<String> missing;
   final specs = <ProcessSpec>[];
-  _Pm([this.missing = const {}]);
+  final Map<String, String> brew;
+  _Pm([this.missing = const {}, this.brew = const {}]);
 
   @override
   Future<CapturedProcessResult> runCaptured(ProcessSpec spec) async {
     specs.add(spec);
     final name = spec.arguments.last;
+    if (spec.executable == 'brew') {
+      final prefix = brew[name];
+      return CapturedProcessResult(
+        stdout: prefix ?? '',
+        stderr: '',
+        exitCode: prefix == null ? 1 : 0,
+      );
+    }
     return CapturedProcessResult(
       stdout: '',
       stderr: '',
@@ -141,6 +150,48 @@ void main() {
       ),
     );
     expect(e.installCommand, endsWith('Then run the same pvm command again.'));
+  });
+
+  test('macOS: brew prefixes of keg-only formulae go into PKG_CONFIG_PATH '
+      'ahead of the existing value', () async {
+    final pm = _Pm(const {}, {
+      'openssl@3': '/opt/homebrew/opt/openssl@3',
+      'icu4c': '/opt/homebrew/opt/icu4c',
+    });
+    final tools = BuildTools(
+      pm,
+      MacOSPlatformInfo(),
+      environment: const {'PKG_CONFIG_PATH': '/mine'},
+    );
+    await tools.require(['make'], devPackages: ['openssl']);
+
+    final pkgConfig = pm.specs.lastWhere((s) => s.executable == 'pkg-config');
+    expect(pkgConfig.environment, {
+      'PKG_CONFIG_PATH':
+          '/opt/homebrew/opt/openssl@3/lib/pkgconfig:'
+          '/opt/homebrew/opt/icu4c/lib/pkgconfig:/mine',
+    });
+    expect(
+      pm.specs.where((s) => s.executable == 'brew').map((s) => s.arguments),
+      [
+        ['--prefix', 'openssl@3'],
+        ['--prefix', 'icu4c'],
+        ['--prefix', 'libxml2'],
+        ['--prefix', 'libpq'],
+      ],
+    );
+  });
+
+  test('macOS without brew: no extra environment', () async {
+    final tools = BuildTools(_Pm(), MacOSPlatformInfo(), environment: const {});
+    expect(await tools.buildEnvironment(), isNull);
+  });
+
+  test('Linux never asks brew', () async {
+    final pm = _Pm();
+    final tools = BuildTools(pm, LinuxPlatformInfo(), environment: const {});
+    expect(await tools.buildEnvironment(), isNull);
+    expect(pm.specs, isEmpty);
   });
 
   test('unknown distro lists the missing names only', () async {

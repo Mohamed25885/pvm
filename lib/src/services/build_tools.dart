@@ -23,11 +23,52 @@ class BuildTools {
   final PlatformInfo _platform;
   final String osReleasePath;
 
+  /// The parent environment, read for an existing `PKG_CONFIG_PATH`.
+  final Map<String, String> _environment;
+
   BuildTools(
     this._pm,
     this._platform, {
     this.osReleasePath = '/etc/os-release',
-  });
+    Map<String, String>? environment,
+  }) : _environment = environment ?? Platform.environment;
+
+  /// Keg-only Homebrew formulae whose `.pc` files are off pkg-config's path.
+  static const _kegOnly = ['openssl@3', 'icu4c', 'libxml2', 'libpq'];
+
+  Map<String, String>? _buildEnv;
+  bool _buildEnvDone = false;
+
+  /// Child-process environment for pkg-config, configure and make: on macOS,
+  /// `PKG_CONFIG_PATH` with each installed keg-only formula's
+  /// `<prefix>/lib/pkgconfig` prepended. Null when nothing is added.
+  Future<Map<String, String>?> buildEnvironment() async {
+    if (_buildEnvDone) return _buildEnv;
+    _buildEnvDone = true;
+    if (_platform.osType != 'macos') return null;
+    final dirs = <String>[];
+    for (final formula in _kegOnly) {
+      try {
+        final r = await _pm.runCaptured(
+          ProcessSpec(executable: 'brew', arguments: ['--prefix', formula]),
+        );
+        final prefix = r.stdout.trim();
+        if (r.exitCode == 0 && prefix.isNotEmpty) {
+          dirs.add('$prefix/lib/pkgconfig');
+        }
+      } on Exception {
+        // No brew: nothing to add.
+      }
+    }
+    if (dirs.isEmpty) return null;
+    final existing = _environment['PKG_CONFIG_PATH'];
+    return _buildEnv = {
+      'PKG_CONFIG_PATH': [
+        ...dirs,
+        if (existing != null && existing.isNotEmpty) existing,
+      ].join(':'),
+    };
+  }
 
   static const _again = 'Then run the same pvm command again.';
 
@@ -87,12 +128,15 @@ class BuildTools {
       for (final t in tools)
         if (!await _ok('sh', ['-c', 'command -v "\$1"', 'sh', t])) t,
     ];
+    final env = await buildEnvironment();
     final havePkgConfig =
         devPackages.isEmpty ||
         await _ok('sh', ['-c', 'command -v "\$1"', 'sh', 'pkg-config']);
     final missingDev = [
       for (final m in devPackages)
-        if (!havePkgConfig || !await _ok('pkg-config', ['--exists', m])) m,
+        if (!havePkgConfig ||
+            !await _ok('pkg-config', ['--exists', m], env: env))
+          m,
     ];
     final missing = [...missingTools, ...missingDev];
     if (missing.isEmpty) return;
@@ -107,10 +151,14 @@ class BuildTools {
     throw MissingToolsException(missing, '$command\n$_again');
   }
 
-  Future<bool> _ok(String exe, List<String> args) async {
+  Future<bool> _ok(
+    String exe,
+    List<String> args, {
+    Map<String, String>? env,
+  }) async {
     try {
       final r = await _pm.runCaptured(
-        ProcessSpec(executable: exe, arguments: args),
+        ProcessSpec(executable: exe, arguments: args, environment: env),
       );
       return r.exitCode == 0;
     } on Exception {
