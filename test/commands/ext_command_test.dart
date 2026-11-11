@@ -461,7 +461,7 @@ void main() {
     addSlot('8.4', record('8.4.27', SlotKind.static));
     expect(await run(['xdebug', '--version=8.4']), ExitCode.generalError);
     expect(console.errors, [
-      "xdebug isn't in this build. Run: pvm install 8.4 --from-source, "
+      "xdebug isn't in this build. Run: pvm install 8.4 --from-source --force, "
           'or pvm link 8.4 <folder>',
     ]);
     expect(calls, isEmpty);

@@ -65,21 +65,25 @@ class ArtifactInstaller {
 
   /// Whether the slot of [version] already holds exactly [version]. Throws
   /// [SlotFilledException] when it holds another (recorded) patch, unless
-  /// [replace] (`pvm update`), which answers false instead.
-  Future<bool> slotHolds(String version, {bool replace = false}) async {
+  /// [replace] (`pvm update`) or [force] with a slot of another kind than
+  /// [kind] (a kind change is a replacement, R30), which answer false.
+  Future<bool> slotHolds(
+    String version,
+    SlotKind kind, {
+    bool replace = false,
+    bool force = false,
+  }) async {
     if (!await isInstalled(version)) return false;
     final slot = PhpVersion.parse(version).slot;
-    String? installed;
+    InstallRecord? record;
     try {
-      installed = (await VersionRegistry.readSlotRecord(
-        p.join(versionsPath, slot),
-      ))?.version;
+      record = await VersionRegistry.readSlotRecord(p.join(versionsPath, slot));
     } catch (_) {
       // Unreadable record: patch unknown, as for a hand-copied slot.
     }
-    if (installed != null && installed != version) {
-      if (replace) return false;
-      throw SlotFilledException(slot, installed);
+    if (record != null && record.version != version) {
+      if (replace || (force && record.kind != kind)) return false;
+      throw SlotFilledException(slot, record.version);
     }
     return true;
   }

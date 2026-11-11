@@ -122,8 +122,8 @@ class ExtInstallCommand extends Command<int> {
     switch (record.kind) {
       case SlotKind.static:
         _console.printError(
-          "$ext isn't in this build. Run: pvm install $x --from-source, "
-          'or pvm link $x <folder>',
+          "$ext isn't in this build. Run: pvm install $x --from-source "
+          '--force, or pvm link $x <folder>',
         );
         return ExitCode.generalError;
       case SlotKind.windowsZip:

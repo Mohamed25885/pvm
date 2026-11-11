@@ -125,7 +125,9 @@ class SourceBuildInstaller implements IInstaller {
     final resolved = release.versionString;
     if (await _artifacts.slotHolds(
           resolved,
+          SlotKind.source,
           replace: options?.update != null,
+          force: options?.force ?? false,
         ) &&
         !(options?.force ?? false)) {
       return InstallResult(resolved, alreadyInstalled: true);

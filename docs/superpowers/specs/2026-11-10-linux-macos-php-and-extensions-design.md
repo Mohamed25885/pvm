@@ -121,7 +121,7 @@ Within a minor version the extension ABI is stable, so a Windows DLL carries ove
 | `windows-zip` | Fetch the DLL zip matching ABI, NTS/TS and VS version: first the extension's PIE/GitHub release asset, then the PECL DLL listing. A 404 means "not built for this PHP", and PVM says so. Dependency DLLs go next to `php.exe` |
 | `source`, or `linked` + writable + has `php-config` | Fetch the PECL tarball, then run the slot's `phpize`, `./configure --with-php-config=<slot php-config>` and `make` in staging. If `pie` is on PATH and the extension is a PIE package, PVM may use `pie install --with-php-config=…` instead |
 | `linked`, not writable (Plesk, Remi, cPanel, ondrej) | Print that system's own command (e.g. `sudo apt install php8.4-xdebug`, `/opt/plesk/php/8.4/bin/pecl install xdebug`) and stop (E2) |
-| `static` | Refuse: `xdebug isn't in this build. Run: pvm install 8.4 --from-source, or pvm link 8.4 <folder>`. Exit non-zero (E1) |
+| `static` | Refuse: `xdebug isn't in this build. Run: pvm install 8.4 --from-source --force, or pvm link 8.4 <folder>`. Exit non-zero (E1) |
 
 4. **Before building.** PVM checks for cc/clang, make, autoconf, pkg-config and the extension's known system libraries (E2). For grpc it adds a C++ compiler and warns that the build takes a long time.
 5. **Prefix guard.** If `php-config --prefix` no longer matches the slot, because `PVM_HOME` moved, PVM refuses and asks the user to reinstall that slot. Otherwise `phpize` would write into the old path.

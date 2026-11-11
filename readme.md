@@ -141,7 +141,7 @@ pvm ext install xdebug           # into the active version; --version=8.3 for an
 pvm install 8.4 --from-source    # Linux/macOS: build from the php.net tarball
 ```
 
-- `update` keeps files and ini edits you added to the slot. `install --force` only reinstalls the same patch; a newer one is `update`.
+- `update` keeps files and ini edits you added to the slot. `install --force` reinstalls the same patch, or replaces a slot of another kind (a static slot with `--from-source`) at any patch; a newer patch of the same kind is `update`.
 - `link` records the folder and never edits it, except that `ext install` into a linked, writable folder writes into the folder PHP's own ini scan dir.
 - `ext install` needs a folder with `php-config`: a linked or `--from-source` slot on Linux/macOS, or any Windows slot (PECL DLL). A static prebuilt refuses it and names those two routes. PECL downloads publish no checksum, so the extension is recorded as unverified with its SHA-256; running the command is the request.
 - Extensions are per version. `pvm use`, `global` and `current` print a hint when another version has one the chosen version lacks, for example `xdebug is installed for 8.2 but not 8.3. Run: pvm ext install xdebug`.
