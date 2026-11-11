@@ -1,4 +1,4 @@
-enum Architecture { x64, x86 }
+enum Architecture { x64, x86, arm64 }
 
 enum BuildType { ts, nts }
 
@@ -44,6 +44,9 @@ class PhpRelease {
     }
     if (lower == 'x86' || lower == 'i386' || lower == 'i686') {
       return Architecture.x86;
+    }
+    if (lower == 'arm64' || lower == 'aarch64') {
+      return Architecture.arm64;
     }
     return null;
   }

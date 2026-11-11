@@ -21,7 +21,6 @@ void main() {
     });
 
     test('architectureFromString returns null for unknown', () {
-      expect(PhpRelease.architectureFromString('arm64'), isNull);
       expect(PhpRelease.architectureFromString(''), isNull);
       expect(PhpRelease.architectureFromString('invalid'), isNull);
     });

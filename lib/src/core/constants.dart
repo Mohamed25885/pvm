@@ -1,5 +1,11 @@
+import '../version.dart';
+
 /// Application-wide constants for PVM.
 class PvmConstants {
+  /// Sent on every PVM download and listing request.
+  static const userAgent =
+      'pvm/$packageVersion (+https://github.com/Mohamed25885/pvm)';
+
   // Directory and file names
   static const pvmDirName = '.pvm';
   static const pvmrcFileName = '.pvmrc';
@@ -28,6 +34,7 @@ class PvmUrls {
       'https://downloads.php.net/~windows/releases/archives/';
   static const windowsArchivesDownloadBase =
       'https://downloads.php.net/~windows/releases/archives/';
+  static const staticPhpBulk = 'https://dl.static-php.dev/v3/php-bin/bulk/';
 }
 
 class PvmTimeouts {

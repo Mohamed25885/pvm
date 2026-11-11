@@ -7,12 +7,17 @@ import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
+import 'package:pvm/src/core/platform_info.dart';
+import 'package:pvm/src/core/process_manager.dart';
+import 'package:pvm/src/domain/install_record.dart';
 import 'package:pvm/src/domain/php_release.dart';
 import 'package:pvm/src/interfaces/i_installer.dart';
 import 'package:pvm/src/managers/windows_installer.dart';
+import 'package:pvm/src/services/folder_probe.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
 
 import '../mocks/mock_console.dart';
+import '../services/fake_process_manager.dart';
 
 class _FakeFetcher implements IReleaseFetcher {
   final List<PhpRelease> releases;
@@ -249,5 +254,57 @@ void main() {
       final file = await download('https://windows.php.net/downloads/php.zip');
       expect(file.existsSync(), isTrue);
     });
+  });
+
+  test('a different patch in the slot is SlotFilledException', () async {
+    await File(p.join(versions, '8.3', 'php.exe')).create(recursive: true);
+    await InstallRecord(
+      version: '8.3.0',
+      sourceUrl: '',
+      archiveSha256: '',
+      verified: true,
+      installedAt: DateTime(2026),
+      files: const {},
+    ).writeTo(p.join(versions, '8.3'));
+    final zip = _zip({
+      'php.exe': [1],
+    });
+
+    await expectLater(
+      installer(_release(zip), serving(zip)).install('8.3'),
+      throwsA(
+        isA<SlotFilledException>().having(
+          (e) => e.toString(),
+          'message',
+          '8.3 is installed (8.3.0). Run: pvm update 8.3',
+        ),
+      ),
+    );
+  });
+
+  test('a failing probe warns once and keeps release metadata', () async {
+    final pm = FakeProcessManager();
+    pm.capturedResults[p.join(versions, '.staging-8.3-$pid', 'php.exe')] =
+        const CapturedProcessResult(stdout: '', stderr: 'bad', exitCode: 1);
+    final console = MockConsole();
+    final zip = _zip({
+      'php.exe': [1],
+    });
+
+    await WindowsInstaller(
+      versionsPath: versions,
+      releaseFetcher: _FakeFetcher([_release(zip)]),
+      console: console,
+      client: serving(zip),
+      retryDelay: Duration.zero,
+      probe: FolderProbe(pm, WindowsPlatformInfo()),
+    ).install('8.3');
+
+    expect(pm.capturedSpecs, hasLength(1));
+    expect(console.warnings, hasLength(1));
+    final record = (await InstallRecord.readFrom(p.join(versions, '8.3')))!;
+    expect(record.version, '8.3.1');
+    expect(record.zts, isFalse);
+    expect(record.arch, 'x64');
   });
 }

@@ -4,10 +4,13 @@ import 'package:http/http.dart' as http;
 
 import '../core/console.dart';
 import '../core/php_layout.dart';
+import '../core/platform_info.dart';
+import '../domain/install_record.dart';
 import '../domain/php_release.dart';
 import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
 import '../interfaces/i_release_source.dart';
+import '../services/folder_probe.dart';
 import '../services/installation/artifact_installer.dart';
 import '../services/release_fetcher.dart';
 import '../services/windows_archive_index.dart';
@@ -26,6 +29,7 @@ class WindowsInstaller implements IInstaller {
     http.Client? client,
     Duration retryDelay = const Duration(seconds: 1),
     WindowsArchiveIndex? archiveIndex,
+    FolderProbe? probe,
   }) : _source = WindowsReleaseSource(
          fetcher: releaseFetcher,
          archiveIndex: archiveIndex,
@@ -34,8 +38,10 @@ class WindowsInstaller implements IInstaller {
        _artifacts = ArtifactInstaller(
          versionsPath: versionsPath,
          layout: PhpLayout.windows,
+         platform: WindowsPlatformInfo(),
          allowedHosts: allowedDomains,
          console: console,
+         probe: probe,
          client: client,
          retryDelay: retryDelay,
        );
@@ -68,7 +74,7 @@ class WindowsInstaller implements IInstaller {
     );
     final resolved = release.displayVersion;
 
-    if (!(options?.force ?? false) && await isInstalled(resolved)) {
+    if (await _artifacts.slotHolds(resolved) && !(options?.force ?? false)) {
       return InstallResult(resolved, alreadyInstalled: true);
     }
 
@@ -77,6 +83,7 @@ class WindowsInstaller implements IInstaller {
       await _artifacts.install(
         release,
         resolved,
+        kind: SlotKind.windowsZip,
         allowUnverified: options?.allowUnverified ?? false,
       );
     } on Exception catch (e) {

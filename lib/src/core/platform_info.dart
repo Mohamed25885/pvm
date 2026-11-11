@@ -1,3 +1,5 @@
+import 'dart:ffi';
+
 import 'package:pvm/src/core/platform_detector.dart';
 
 abstract class PlatformInfo {
@@ -6,6 +8,20 @@ abstract class PlatformInfo {
   String get executableExtension;
   String get homeDirectoryKey;
   List<String> get composerCandidates;
+  String get hostArch;
+}
+
+/// Arch names used in static-php URLs (`x86_64` / `aarch64`).
+String hostArchFor(Abi abi) {
+  if (abi == Abi.linuxX64 || abi == Abi.macosX64 || abi == Abi.windowsX64) {
+    return 'x86_64';
+  }
+  if (abi == Abi.linuxArm64 ||
+      abi == Abi.macosArm64 ||
+      abi == Abi.windowsArm64) {
+    return 'aarch64';
+  }
+  return abi.toString();
 }
 
 class WindowsPlatformInfo implements PlatformInfo {
@@ -27,6 +43,9 @@ class WindowsPlatformInfo implements PlatformInfo {
     'composer.cmd',
     'composer.phar',
   ];
+
+  @override
+  String get hostArch => hostArchFor(Abi.current());
 }
 
 class LinuxPlatformInfo implements PlatformInfo {
@@ -44,6 +63,9 @@ class LinuxPlatformInfo implements PlatformInfo {
 
   @override
   List<String> get composerCandidates => ['composer', 'composer.phar'];
+
+  @override
+  String get hostArch => hostArchFor(Abi.current());
 }
 
 class MacOSPlatformInfo implements PlatformInfo {
@@ -61,6 +83,9 @@ class MacOSPlatformInfo implements PlatformInfo {
 
   @override
   List<String> get composerCandidates => ['composer', 'composer.phar'];
+
+  @override
+  String get hostArch => hostArchFor(Abi.current());
 }
 
 PlatformInfo createPlatformInfo() {

@@ -1,11 +1,10 @@
 import 'package:test/test.dart';
 
+import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/php_release.dart';
 import 'package:pvm/src/services/release_fetcher.dart';
 import 'package:pvm/src/services/release_fetcher_factory.dart';
 import 'package:pvm/src/services/windows_release_fetcher.dart';
-import 'package:pvm/src/services/linux_release_fetcher.dart';
-import 'package:pvm/src/services/macos_release_fetcher.dart';
 
 void main() {
   group('WindowsReleaseFetcher', () {
@@ -31,34 +30,15 @@ void main() {
     });
   });
 
-  group('LinuxReleaseFetcher', () {
-    test('platformName returns Linux', () {
-      final fetcher = LinuxReleaseFetcher();
-      expect(fetcher.platformName, 'Linux');
-    });
-
-    test('fetchReleases throws ReleaseFetcherException', () async {
-      final fetcher = LinuxReleaseFetcher();
-      expect(
-        () => fetcher.fetchReleases(),
-        throwsA(isA<ReleaseFetcherException>()),
-      );
-    });
-  });
-
-  group('MacosReleaseFetcher', () {
-    test('platformName returns macOS', () {
-      final fetcher = MacosReleaseFetcher();
-      expect(fetcher.platformName, 'macOS');
-    });
-
-    test('fetchReleases throws ReleaseFetcherException', () async {
-      final fetcher = MacosReleaseFetcher();
-      expect(
-        () => fetcher.fetchReleases(),
-        throwsA(isA<ReleaseFetcherException>()),
-      );
-    });
+  group('Linux/macOS release fetcher', () {
+    for (final platform in [LinuxPlatformInfo(), MacOSPlatformInfo()]) {
+      test('${platform.osType}: list-remote is not offered yet', () {
+        expect(
+          () => createReleaseFetcher(platform).fetchReleases(),
+          throwsA(isA<ReleaseFetcherException>()),
+        );
+      });
+    }
   });
 
   group('createReleaseFetcher', () {

@@ -1,9 +1,8 @@
 import 'package:pvm/src/app.dart';
 import 'package:pvm/src/core/exit_codes.dart';
 import 'package:pvm/src/core/platform_info.dart';
-import 'package:pvm/src/managers/linux_installer.dart';
-import 'package:pvm/src/managers/macos_installer.dart';
 import 'package:pvm/src/managers/noop_environment_configurator.dart';
+import 'package:pvm/src/managers/static_php_installer.dart';
 import 'package:pvm/src/managers/windows_environment_configurator.dart';
 import 'package:pvm/src/managers/windows_installer.dart';
 import 'package:test/test.dart';
@@ -54,9 +53,9 @@ void main() {
         windows.environmentConfigurator,
         isA<WindowsEnvironmentConfigurator>(),
       );
-      expect(linux.installer, isA<LinuxInstaller>());
+      expect(linux.installer, isA<StaticPhpInstaller>());
       expect(linux.environmentConfigurator, isA<NoopEnvironmentConfigurator>());
-      expect(macos.installer, isA<MacOSInstaller>());
+      expect(macos.installer, isA<StaticPhpInstaller>());
     });
 
     test('runPvm --version prints the version and exits 0', () async {

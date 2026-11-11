@@ -77,9 +77,7 @@ class ListRemoteCommand extends Command<int> {
         final versionReleases = grouped[version]!;
         _console.print('  $version');
         for (final release in versionReleases) {
-          final archStr = release.architecture == Architecture.x64
-              ? 'x64'
-              : 'x86';
+          final archStr = release.architecture.name;
           final typeStr = release.buildType == BuildType.ts ? 'ts' : 'nts';
           _console.print(
             '    - ${archStr}_$typeStr (${release.sizeFormatted})',

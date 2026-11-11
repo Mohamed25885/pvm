@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:args/args.dart';
 import 'package:args/command_runner.dart';
+import 'package:http/http.dart' as http;
 
 import 'commands/composer_command.dart';
 import 'commands/current_command.dart';
@@ -38,15 +39,18 @@ import 'interfaces/i_environment_configurator.dart';
 import 'interfaces/i_installer.dart';
 import 'interfaces/i_version_activator.dart';
 import 'managers/link_version_activator.dart';
-import 'managers/linux_installer.dart';
-import 'managers/macos_installer.dart';
+import 'managers/source_build_installer.dart';
+import 'managers/static_php_installer.dart';
 import 'managers/windows_installer.dart';
 import 'process/io_process_manager.dart';
+import 'services/build_tools.dart';
+import 'services/folder_probe.dart';
 import 'services/php_executor.dart';
 import 'services/privilege_escalation_service.dart';
 import 'services/release_fetcher.dart';
 import 'services/release_fetcher_factory.dart';
 import 'services/slot_migration.dart';
+import 'services/static_php_release_source.dart';
 import 'services/windows_archive_index.dart';
 import 'version.dart';
 
@@ -67,6 +71,9 @@ class PvmDependencies {
   final IProcessManager processManager;
   final IReleaseFetcher releaseFetcher;
   final IInstaller installer;
+
+  /// `install --from-source`; null on Windows.
+  final IInstaller? sourceInstaller;
   final IVersionActivator versionActivator;
   final IEnvironmentConfigurator environmentConfigurator;
 
@@ -77,6 +84,7 @@ class PvmDependencies {
     required this.processManager,
     required this.releaseFetcher,
     required this.installer,
+    this.sourceInstaller,
     required this.versionActivator,
     required this.environmentConfigurator,
   });
@@ -90,6 +98,7 @@ class PvmDependencies {
     IProcessManager? processManager,
     IReleaseFetcher? releaseFetcher,
     IInstaller? installer,
+    IInstaller? sourceInstaller,
     IVersionActivator? versionActivator,
     IEnvironmentConfigurator? environmentConfigurator,
   }) {
@@ -113,6 +122,20 @@ class PvmDependencies {
       releaseFetcher: fetcher,
       installer:
           installer ?? _createInstaller(host, os, processes, fetcher, io),
+      sourceInstaller:
+          sourceInstaller ??
+          (host.osType == 'windows'
+              ? null
+              : SourceBuildInstaller(
+                  versionsPath: os.phpVersionsPath,
+                  platform: host,
+                  console: io,
+                  processManager: processes,
+                  buildTools: BuildTools(processes, host),
+                  jobs: Platform.numberOfProcessors,
+                  client: http.Client(),
+                  probe: FolderProbe(processes, host),
+                )),
       versionActivator:
           versionActivator ??
           LinkVersionActivator(
@@ -133,25 +156,25 @@ class PvmDependencies {
     Console console,
   ) {
     final versionsPath = os.phpVersionsPath;
-    switch (platform.osType) {
-      case 'windows':
-        return WindowsInstaller(
-          versionsPath: versionsPath,
-          releaseFetcher: fetcher,
-          console: console,
-          archiveIndex: WindowsArchiveIndex(),
-        );
-      case 'macos':
-        return MacOSInstaller(
-          versionsPath: versionsPath,
-          processManager: processes,
-        );
-      default:
-        return LinuxInstaller(
-          versionsPath: versionsPath,
-          processManager: processes,
-        );
+    final probe = FolderProbe(processes, platform);
+    if (platform.osType == 'windows') {
+      return WindowsInstaller(
+        versionsPath: versionsPath,
+        releaseFetcher: fetcher,
+        console: console,
+        archiveIndex: WindowsArchiveIndex(),
+        probe: probe,
+      );
     }
+    final client = http.Client();
+    return StaticPhpInstaller(
+      versionsPath: versionsPath,
+      source: StaticPhpReleaseSource(client: client, os: platform.osType),
+      platform: platform,
+      console: console,
+      probe: probe,
+      client: client,
+    );
   }
 }
 
@@ -176,7 +199,14 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
   );
 
   return PvmCommandRunner('pvm', 'PHP Version Manager')
-    ..addCommand(InstallCommand(console, deps.installer))
+    ..addCommand(
+      InstallCommand(
+        console,
+        deps.installer,
+        deps.platform,
+        sourceInstaller: deps.sourceInstaller,
+      ),
+    )
     ..addCommand(ListRemoteCommand(deps.releaseFetcher, console))
     ..addCommand(
       UseCommand(

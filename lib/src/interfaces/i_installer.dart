@@ -73,10 +73,20 @@ class UnverifiedReleaseException implements Exception {
       'Re-run with --allow-unverified to install it anyway (TLS-only protection).';
 }
 
+/// Thrown when the slot `versions/<X.Y>` already holds another patch: a slot
+/// keeps one patch, and `pvm update` is how it changes.
+class SlotFilledException implements Exception {
+  final String slot;
+  final String installed;
+  const SlotFilledException(this.slot, this.installed);
+
+  @override
+  String toString() => '$slot is installed ($installed). Run: pvm update $slot';
+}
+
 /// Installer interface for PHP installation across platforms.
 ///
-/// Windows: Downloads ZIP and extracts to versions directory.
-/// Linux/Mac: Uses package manager (apt/brew).
+/// Windows: windows.php.net ZIPs. Linux/macOS: static-php.dev builds.
 abstract class IInstaller {
   /// The base directory where PHP versions are installed.
   String get versionsPath;
@@ -89,7 +99,7 @@ abstract class IInstaller {
   Future<bool> isInstalled(String version);
 
   /// Get the installation type description.
-  /// Returns: "ZIP extraction" or "package manager"
+  /// Returns: "ZIP extraction" or "static-php build"
   String get installationType;
 
   /// Download a release to destination directory

@@ -8,24 +8,35 @@ import 'package:path/path.dart' as p;
 import '../../core/console.dart';
 import '../../core/constants.dart';
 import '../../core/php_layout.dart';
+import '../../core/platform_info.dart';
+import '../../domain/exceptions/probe_exception.dart';
 import '../../domain/install_record.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
+import '../folder_probe.dart';
+import '../https_get.dart';
 
 /// The transactional install pipeline shared by every release source
 /// (roadmap 2.6):
 ///
 /// download to a private temp dir → verify SHA-256 → extract into
 /// `versions/.staging-<X.Y>-<pid>` → check the PHP binary ([PhpLayout]) →
-/// write `.pvm-install.json` → atomically rename to the slot `versions/<X.Y>`.
+/// probe it ([FolderProbe], when given) → write `.pvm-install.json` → atomically rename to the slot `versions/<X.Y>`.
 /// The record keeps the full patch.
 ///
 /// Any failure leaves the versions directory exactly as it was.
 class ArtifactInstaller {
   final String versionsPath;
   final PhpLayout layout;
+
+  /// Decides whether unpacked binaries need `chmod` (not on Windows).
+  final PlatformInfo platform;
   final List<String> allowedHosts;
+
+  /// Fills the record from the staged `php` itself. A failed probe aborts a
+  /// [SlotKind.static] install; other kinds warn and keep release metadata.
+  final FolderProbe? probe;
   final Console _console;
   final http.Client _client;
   final Duration _retryDelay;
@@ -33,8 +44,10 @@ class ArtifactInstaller {
   ArtifactInstaller({
     required this.versionsPath,
     required this.layout,
+    required this.platform,
     required this.allowedHosts,
     required this._console,
+    this.probe,
     http.Client? client,
     this._retryDelay = const Duration(seconds: 1),
   }) : _client = client ?? http.Client();
@@ -44,6 +57,25 @@ class ArtifactInstaller {
     layout.phpExecutable(p.join(versionsPath, PhpVersion.parse(version).slot)),
   ).exists();
 
+  /// Whether the slot of [version] already holds exactly [version]. Throws
+  /// [SlotFilledException] when it holds another (recorded) patch.
+  Future<bool> slotHolds(String version) async {
+    if (!await isInstalled(version)) return false;
+    final slot = PhpVersion.parse(version).slot;
+    String? installed;
+    try {
+      installed = (await InstallRecord.readFrom(
+        p.join(versionsPath, slot),
+      ))?.version;
+    } catch (_) {
+      // Unreadable record: patch unknown, as for a hand-copied slot.
+    }
+    if (installed != null && installed != version) {
+      throw SlotFilledException(slot, installed);
+    }
+    return true;
+  }
+
   /// Install [release] into its slot `versions/<X.Y>`, replacing any existing
   /// tree.
   ///
@@ -52,6 +84,7 @@ class ArtifactInstaller {
   Future<void> install(
     PhpRelease release,
     String version, {
+    required SlotKind kind,
     required bool allowUnverified,
   }) async {
     // [version] becomes a directory name: guard every caller (path traversal).
@@ -60,10 +93,18 @@ class ArtifactInstaller {
     if (!verified && !allowUnverified) {
       throw UnverifiedReleaseException(version);
     }
+    final urlPath = Uri.parse(release.downloadUrl).path.toLowerCase();
+    final Future<void> Function(String, String) extract;
+    if (urlPath.endsWith('.zip')) {
+      extract = extractZip;
+    } else if (urlPath.endsWith('.tar.gz') || urlPath.endsWith('.tgz')) {
+      extract = extractTarGz;
+    } else {
+      throw Exception('Unsupported archive type: ${release.downloadUrl}');
+    }
 
-    await Directory(versionsPath).create(recursive: true);
+    final staging = await stagingFor(slot);
     final tempDir = await Directory.systemTemp.createTemp('pvm-download-');
-    final staging = Directory(p.join(versionsPath, '.staging-$slot-$pid'));
     try {
       _console.print('Downloading PHP $version...');
       final archive = await download(release, tempDir.path);
@@ -82,32 +123,98 @@ class ArtifactInstaller {
       }
 
       _console.print('Extracting...');
-      if (await staging.exists()) await staging.delete(recursive: true);
       await staging.create(recursive: true);
-      await extractZip(archive.path, staging.path);
+      await extract(archive.path, staging.path);
 
-      final binary = layout.phpExecutable(staging.path);
-      if (!await File(binary).exists()) {
-        throw Exception(
-          'Archive does not contain '
-          '${p.relative(binary, from: staging.path)}',
-        );
-      }
-
-      await InstallRecord(
-        version: version,
-        sourceUrl: release.downloadUrl,
+      await commit(
+        staging.path,
+        release,
+        version,
+        kind: kind,
         archiveSha256: actualSha,
         verified: verified,
-        installedAt: DateTime.now().toUtc(),
-        files: await InstallRecord.hashTree(staging.path),
-      ).writeTo(staging.path);
-
-      await _commit(staging, Directory(p.join(versionsPath, slot)));
+      );
     } finally {
       await _deleteQuietly(staging);
       await _deleteQuietly(tempDir);
     }
+  }
+
+  /// The empty staging dir `versions/.staging-<slot>-<pid>` (not created),
+  /// after removing leftovers of killed installs of [slot] (any pid). The
+  /// caller deletes it when done.
+  Future<Directory> stagingFor(String slot) async {
+    await Directory(versionsPath).create(recursive: true);
+    await for (final e in Directory(versionsPath).list()) {
+      if (e is Directory && p.basename(e.path).startsWith('.staging-$slot-')) {
+        await _deleteQuietly(e);
+      }
+    }
+    return Directory(p.join(versionsPath, '.staging-$slot-$pid'));
+  }
+
+  /// Check the PHP binary in [tree] (a dir inside `versions/`), probe it,
+  /// write `.pvm-install.json` and atomically move [tree] to the slot of
+  /// [version]. The old slot survives any failure.
+  Future<void> commit(
+    String tree,
+    PhpRelease release,
+    String version, {
+    required SlotKind kind,
+    required String archiveSha256,
+    required bool verified,
+  }) async {
+    final binary = layout.phpExecutable(tree);
+    if (!await File(binary).exists()) {
+      throw Exception(
+        'Archive does not contain ${p.relative(binary, from: tree)}',
+      );
+    }
+
+    final target = p.join(versionsPath, PhpVersion.parse(version).slot);
+    ProbeResult? probed;
+    try {
+      probed = await probe?.probe(tree);
+    } on ProbeException catch (e) {
+      // A static or source slot is only useful with what the probe reports.
+      if (kind == SlotKind.static || kind == SlotKind.source) rethrow;
+      _console.printWarning('Could not probe PHP $version: ${e.message}');
+    }
+    // Probe paths point into staging; the record must name the slot.
+    String? moved(String? path) =>
+        path != null && (p.isWithin(tree, path) || p.equals(tree, path))
+        ? p.normalize(p.join(target, p.relative(path, from: tree)))
+        : path;
+
+    final extensionDir = moved(probed?.extensionDir) ?? '';
+    // A compiled extension dir inside the slot does not exist there yet (or
+    // is the old slot's): test the staged copy that becomes it.
+    final inSlot =
+        extensionDir.isNotEmpty &&
+        (p.isWithin(target, extensionDir) || p.equals(target, extensionDir));
+    final writable = inSlot
+        ? await _canWrite(p.join(tree, p.relative(extensionDir, from: target)))
+        : probed?.writable ?? true;
+
+    await InstallRecord(
+      version: version,
+      sourceUrl: release.downloadUrl,
+      archiveSha256: archiveSha256,
+      verified: verified,
+      kind: kind,
+      installedAt: DateTime.now().toUtc(),
+      files: await InstallRecord.hashTree(tree),
+      zts: probed?.zts ?? release.buildType == BuildType.ts,
+      arch: probed?.arch ?? release.architecture.name,
+      apiNo: probed?.apiNo ?? '',
+      phpConfig: moved(probed?.phpConfig),
+      prefix: moved(probed?.prefix),
+      extensionDir: extensionDir,
+      writable: writable,
+      vsVersion: probed?.vsVersion,
+    ).writeTo(tree);
+
+    await _commit(Directory(tree), Directory(target));
   }
 
   Future<String> sha256Of(File file) async =>
@@ -134,6 +241,19 @@ class ArtifactInstaller {
     if (backup != null) await _deleteQuietly(backup);
   }
 
+  /// Creates [dir] if needed (PVM owns the slot) and tries a write in it.
+  Future<bool> _canWrite(String dir) async {
+    try {
+      await Directory(dir).create(recursive: true);
+      final f = File(p.join(dir, '.pvm-write-test'));
+      await f.writeAsString('');
+      await f.delete();
+      return true;
+    } on FileSystemException {
+      return false;
+    }
+  }
+
   Future<void> _deleteQuietly(Directory dir) async {
     try {
       if (await dir.exists()) await dir.delete(recursive: true);
@@ -144,9 +264,36 @@ class ArtifactInstaller {
 
   /// Extracts [zipPath] into [destPath], aborting on any entry that would
   /// land outside [destPath] (zip-slip) or that is a symbolic link.
-  Future<void> extractZip(String zipPath, String destPath) async {
-    final bytes = await File(zipPath).readAsBytes();
-    final archive = ZipDecoder().decodeBytes(bytes);
+  Future<void> extractZip(String zipPath, String destPath) async => _extract(
+    ZipDecoder().decodeBytes(await File(zipPath).readAsBytes()),
+    destPath,
+  );
+
+  /// Extracts the `.tar.gz` at [tgzPath] into [destPath] with the same guards
+  /// as [extractZip] (hard links are rejected too). A lone top-level `php`
+  /// (static-php builds) is placed at `bin/php` and made executable.
+  Future<void> extractTarGz(String tgzPath, String destPath) async {
+    final archive = TarDecoder().decodeBytes(
+      GZipDecoder().decodeBytes(await File(tgzPath).readAsBytes()),
+    );
+    final entries = archive.files.where((f) => f.name.isNotEmpty).toList();
+    if (entries.length == 1 &&
+        entries.single.isFile &&
+        !entries.single.isSymbolicLink &&
+        p.posix.normalize(entries.single.name) == 'php') {
+      final php = File(layout.phpExecutable(destPath));
+      await php.parent.create(recursive: true);
+      await php.writeAsBytes(entries.single.content);
+      if (platform.osType != 'windows') {
+        final r = await Process.run('chmod', ['0755', php.path]);
+        if (r.exitCode != 0) throw Exception('chmod failed: ${r.stderr}');
+      }
+      return;
+    }
+    await _extract(archive, destPath);
+  }
+
+  Future<void> _extract(Archive archive, String destPath) async {
     final dest = p.normalize(p.absolute(destPath));
 
     for (final file in archive.files) {
@@ -155,7 +302,8 @@ class ArtifactInstaller {
       if (p.isAbsolute(name) ||
           p.posix.isAbsolute(name) ||
           name.contains(':') ||
-          file.isSymbolicLink) {
+          file.isSymbolicLink ||
+          file.isHardLink) {
         throw Exception('Unsafe archive entry rejected: ${file.name}');
       }
       final outPath = p.normalize(p.join(dest, name));
@@ -191,10 +339,10 @@ class ArtifactInstaller {
       IOSink? sink;
       try {
         var downloadedBytes = 0;
-        final request = http.Request('GET', Uri.parse(release.downloadUrl));
-        final response = await _client
-            .send(request)
-            .timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
+        final response = await httpsGet(
+          _client,
+          Uri.parse(release.downloadUrl),
+        ).timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
 
         if (response.statusCode != 200) {
           throw DownloadException(
