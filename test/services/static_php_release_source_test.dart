@@ -149,6 +149,66 @@ void main() {
       expect(release.displayVersion, '8.4.10');
     });
 
+    test('follows https redirects for listing and sidecar (R11)', () async {
+      final seen = <http.Request>[];
+      final s = StaticPhpReleaseSource(
+        os: 'linux',
+        client: MockClient((req) async {
+          seen.add(req);
+          if (req.url.path != '/down') {
+            return http.Response(
+              '',
+              302,
+              headers: {'location': '/down?path=${req.url.path}'},
+            );
+          }
+          final path = req.url.queryParameters['path']!;
+          if (path.endsWith('.sha256')) return http.Response('$_sha  x\n', 200);
+          return http.Response(
+            listing,
+            200,
+            headers: {'content-type': 'text/html; charset=UTF-8'},
+          );
+        }),
+      );
+
+      final release = await resolve(s, '8.4');
+
+      expect(release.sha256, _sha);
+      expect(seen, hasLength(4));
+      expect(seen.map((r) => r.followRedirects), everyElement(isFalse));
+      expect(
+        seen.map((r) => r.headers['User-Agent']),
+        everyElement(
+          'pvm/$packageVersion (+https://github.com/Mohamed25885/pvm)',
+        ),
+      );
+    });
+
+    test('a redirect to http:// is a ReleaseFetcherException (R11)', () {
+      final s = StaticPhpReleaseSource(
+        os: 'linux',
+        client: MockClient(
+          (_) async => http.Response(
+            '',
+            302,
+            headers: {'location': 'http://dl.static-php.dev/x'},
+          ),
+        ),
+      );
+
+      expect(
+        resolve(s, '8.4'),
+        throwsA(
+          isA<ReleaseFetcherException>().having(
+            (e) => e.message,
+            'message',
+            contains('non-https'),
+          ),
+        ),
+      );
+    });
+
     test('an unreachable listing is a ReleaseFetcherException', () {
       final s = StaticPhpReleaseSource(
         os: 'linux',

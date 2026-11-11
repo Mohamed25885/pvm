@@ -13,6 +13,7 @@ import '../../domain/install_record.dart';
 import '../../domain/php_release.dart';
 import '../../domain/php_version.dart';
 import '../../interfaces/i_installer.dart';
+import '../https_get.dart';
 
 /// The transactional install pipeline shared by every release source
 /// (roadmap 2.6):
@@ -241,11 +242,10 @@ class ArtifactInstaller {
       IOSink? sink;
       try {
         var downloadedBytes = 0;
-        final request = http.Request('GET', Uri.parse(release.downloadUrl))
-          ..headers['User-Agent'] = PvmConstants.userAgent;
-        final response = await _client
-            .send(request)
-            .timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
+        final response = await httpsGet(
+          _client,
+          Uri.parse(release.downloadUrl),
+        ).timeout(Duration(seconds: PvmTimeouts.downloadTimeoutSeconds));
 
         if (response.statusCode != 200) {
           throw DownloadException(

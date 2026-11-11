@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:path/path.dart' as p;
+import 'package:pvm/src/core/constants.dart';
 import 'package:pvm/src/core/php_layout.dart';
 import 'package:pvm/src/core/platform_info.dart';
 import 'package:pvm/src/domain/install_record.dart';
@@ -329,6 +330,92 @@ void main() {
 
       expect(stale.existsSync(), isFalse);
       expect(other.existsSync(), isTrue);
+    });
+
+    group('redirects (R11)', () {
+      final tgz = _tarGz([
+        ArchiveFile.bytes('php', [1]),
+      ]);
+      late List<http.Request> seen;
+
+      const start = 'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz';
+
+      // Each hop's Location comes from the previous URL (keyed by URL, so the
+      // download's retries replay the same chain); the last URL serves tgz.
+      http.Client redirecting(List<String> hops) {
+        seen = [];
+        final next = <String, String>{};
+        var from = Uri.parse(start);
+        for (final hop in hops) {
+          next['$from'] = hop;
+          from = from.resolve(hop);
+        }
+        return MockClient((req) async {
+          seen.add(req);
+          final location = next['${req.url}'];
+          if (location != null) {
+            return http.Response('', 302, headers: {'location': location});
+          }
+          return http.Response.bytes(tgz, 200);
+        });
+      }
+
+      test('follows an https chain (relative, then absolute), UA on every '
+          'hop', () async {
+        await installTarGz(
+          tgz,
+          client: redirecting(['/down?path=x', 'https://cdn.example.net/php']),
+        );
+
+        expect(seen.map((r) => r.url.toString()), [
+          'https://example.org/php-8.4.27-cli-linux-x86_64.tar.gz',
+          'https://example.org/down?path=x',
+          'https://cdn.example.net/php',
+        ]);
+        for (final r in seen) {
+          expect(r.followRedirects, isFalse);
+          expect(r.headers['User-Agent'], PvmConstants.userAgent);
+        }
+        expect(
+          File(p.join(versions, '8.4', 'bin', 'php')).existsSync(),
+          isTrue,
+        );
+      });
+
+      test('a hop to http:// is refused and nothing is installed', () async {
+        await expectLater(
+          installTarGz(
+            tgz,
+            client: redirecting(['/down', 'http://cdn.example.net/php']),
+          ),
+          throwsA(
+            isA<DownloadException>().having(
+              (e) => e.message,
+              'message',
+              contains('non-https'),
+            ),
+          ),
+        );
+        expect(seen.map((r) => r.url.scheme), everyElement('https'));
+        expect(Directory(versions).listSync(), isEmpty);
+      });
+
+      test('more than 5 redirects are refused', () async {
+        await expectLater(
+          installTarGz(
+            tgz,
+            client: redirecting(List.generate(6, (i) => '/hop$i')),
+          ),
+          throwsA(
+            isA<DownloadException>().having(
+              (e) => e.message,
+              'message',
+              contains('Too many redirects'),
+            ),
+          ),
+        );
+        expect(Directory(versions).listSync(), isEmpty);
+      });
     });
 
     test('accepts dl.static-php.dev when it is an allowed host', () async {

@@ -5,6 +5,7 @@ import '../domain/php_release.dart';
 import '../domain/php_version.dart';
 import '../interfaces/i_installer.dart';
 import '../interfaces/i_release_source.dart';
+import 'https_get.dart';
 import 'release_fetcher.dart';
 
 /// static-php.dev `bulk` CLI builds for Linux/macOS (single static `php`
@@ -18,8 +19,6 @@ class StaticPhpReleaseSource implements IReleaseSource {
   final String os;
 
   StaticPhpReleaseSource({required this._client, required this.os});
-
-  static const _headers = {'User-Agent': PvmConstants.userAgent};
 
   static final _entry = RegExp(
     r'href="(?:/v3/php-bin/bulk/)?'
@@ -99,9 +98,10 @@ class StaticPhpReleaseSource implements IReleaseSource {
   Future<String> _get(String url) async {
     final http.Response response;
     try {
-      response = await _client
-          .get(Uri.parse(url), headers: _headers)
-          .timeout(const Duration(seconds: 60));
+      // url is always under PvmUrls.staticPhpBulk; later hops must be https.
+      response = await http.Response.fromStream(
+        await httpsGet(_client, Uri.parse(url)),
+      ).timeout(const Duration(seconds: 60));
     } catch (e) {
       throw ReleaseFetcherException('Could not reach $url: $e');
     }
