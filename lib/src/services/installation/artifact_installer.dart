@@ -103,15 +103,8 @@ class ArtifactInstaller {
       throw Exception('Unsupported archive type: ${release.downloadUrl}');
     }
 
-    await Directory(versionsPath).create(recursive: true);
-    // Leftovers of a killed install of this slot (any pid).
-    await for (final e in Directory(versionsPath).list()) {
-      if (e is Directory && p.basename(e.path).startsWith('.staging-$slot-')) {
-        await _deleteQuietly(e);
-      }
-    }
+    final staging = await stagingFor(slot);
     final tempDir = await Directory.systemTemp.createTemp('pvm-download-');
-    final staging = Directory(p.join(versionsPath, '.staging-$slot-$pid'));
     try {
       _console.print('Downloading PHP $version...');
       final archive = await download(release, tempDir.path);
@@ -130,56 +123,88 @@ class ArtifactInstaller {
       }
 
       _console.print('Extracting...');
-      if (await staging.exists()) await staging.delete(recursive: true);
       await staging.create(recursive: true);
       await extract(archive.path, staging.path);
 
-      final binary = layout.phpExecutable(staging.path);
-      if (!await File(binary).exists()) {
-        throw Exception(
-          'Archive does not contain '
-          '${p.relative(binary, from: staging.path)}',
-        );
-      }
-
-      final target = p.join(versionsPath, slot);
-      ProbeResult? probed;
-      try {
-        probed = await probe?.probe(staging.path);
-      } on ProbeException catch (e) {
-        if (kind == SlotKind.static) rethrow;
-        _console.printWarning('Could not probe PHP $version: ${e.message}');
-      }
-      // Probe paths point into staging; the record must name the slot.
-      String? moved(String? path) =>
-          path != null &&
-              (p.isWithin(staging.path, path) || p.equals(staging.path, path))
-          ? p.normalize(p.join(target, p.relative(path, from: staging.path)))
-          : path;
-
-      await InstallRecord(
-        version: version,
-        sourceUrl: release.downloadUrl,
+      await commit(
+        staging.path,
+        release,
+        version,
+        kind: kind,
         archiveSha256: actualSha,
         verified: verified,
-        kind: kind,
-        installedAt: DateTime.now().toUtc(),
-        files: await InstallRecord.hashTree(staging.path),
-        zts: probed?.zts ?? release.buildType == BuildType.ts,
-        arch: probed?.arch ?? release.architecture.name,
-        apiNo: probed?.apiNo ?? '',
-        phpConfig: moved(probed?.phpConfig),
-        prefix: moved(probed?.prefix),
-        extensionDir: moved(probed?.extensionDir) ?? '',
-        writable: probed?.writable ?? true,
-        vsVersion: probed?.vsVersion,
-      ).writeTo(staging.path);
-
-      await _commit(staging, Directory(target));
+      );
     } finally {
       await _deleteQuietly(staging);
       await _deleteQuietly(tempDir);
     }
+  }
+
+  /// The empty staging dir `versions/.staging-<slot>-<pid>` (not created),
+  /// after removing leftovers of killed installs of [slot] (any pid). The
+  /// caller deletes it when done.
+  Future<Directory> stagingFor(String slot) async {
+    await Directory(versionsPath).create(recursive: true);
+    await for (final e in Directory(versionsPath).list()) {
+      if (e is Directory && p.basename(e.path).startsWith('.staging-$slot-')) {
+        await _deleteQuietly(e);
+      }
+    }
+    return Directory(p.join(versionsPath, '.staging-$slot-$pid'));
+  }
+
+  /// Check the PHP binary in [tree] (a dir inside `versions/`), probe it,
+  /// write `.pvm-install.json` and atomically move [tree] to the slot of
+  /// [version]. The old slot survives any failure.
+  Future<void> commit(
+    String tree,
+    PhpRelease release,
+    String version, {
+    required SlotKind kind,
+    required String archiveSha256,
+    required bool verified,
+  }) async {
+    final binary = layout.phpExecutable(tree);
+    if (!await File(binary).exists()) {
+      throw Exception(
+        'Archive does not contain ${p.relative(binary, from: tree)}',
+      );
+    }
+
+    final target = p.join(versionsPath, PhpVersion.parse(version).slot);
+    ProbeResult? probed;
+    try {
+      probed = await probe?.probe(tree);
+    } on ProbeException catch (e) {
+      // A static or source slot is only useful with what the probe reports.
+      if (kind == SlotKind.static || kind == SlotKind.source) rethrow;
+      _console.printWarning('Could not probe PHP $version: ${e.message}');
+    }
+    // Probe paths point into staging; the record must name the slot.
+    String? moved(String? path) =>
+        path != null && (p.isWithin(tree, path) || p.equals(tree, path))
+        ? p.normalize(p.join(target, p.relative(path, from: tree)))
+        : path;
+
+    await InstallRecord(
+      version: version,
+      sourceUrl: release.downloadUrl,
+      archiveSha256: archiveSha256,
+      verified: verified,
+      kind: kind,
+      installedAt: DateTime.now().toUtc(),
+      files: await InstallRecord.hashTree(tree),
+      zts: probed?.zts ?? release.buildType == BuildType.ts,
+      arch: probed?.arch ?? release.architecture.name,
+      apiNo: probed?.apiNo ?? '',
+      phpConfig: moved(probed?.phpConfig),
+      prefix: moved(probed?.prefix),
+      extensionDir: moved(probed?.extensionDir) ?? '',
+      writable: probed?.writable ?? true,
+      vsVersion: probed?.vsVersion,
+    ).writeTo(tree);
+
+    await _commit(Directory(tree), Directory(target));
   }
 
   Future<String> sha256Of(File file) async =>
