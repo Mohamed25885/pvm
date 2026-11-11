@@ -68,16 +68,16 @@ Exit criteria: tag `v2.1.0`; README/AGENTS.md drift fixed (D11).
 Exit criteria: zero `if (PlatformDetector.isX)` outside factories; full suite green on all three OSes.
 
 ### Phase 3: Linux & macOS PHP sources
-- Status: Pending
+- Status: Done on `feat/phase-3-static-php` (3.1-3.5; 3.6 pending). Decisions and consequences: [ADR 0001](../../docs/adr/0001-php-sources-and-trust.md).
 - Decision: **PVM-managed builds in `versions/`**, never system package managers (no `sudo`, no apt/brew side effects).
 
 | # | Task | Notes |
 |---|------|-------|
-| 3.1 | `StaticPhpReleaseSource`: prebuilt CLI binaries from the static-php-cli project (linux x86_64/aarch64, macOS x86_64/arm64) | Verify hashes; if upstream publishes none, pin hashes in a PVM-maintained manifest signed in CI |
-| 3.2 | Optional `SourceBuildInstaller` (`pvm install 8.3 --from-source`): download php.net tarball, **GPG-verify** against php.net release keys, `./configure --prefix=versions/<v>` | Needs build deps; doctor lists missing ones |
-| 3.3 | `pvm link <version> <path>`: adopt an existing PHP (apt `ondrej/php`, Homebrew `php@8.3`, MAMP, Laragon, XAMPP on Windows) as a named version | Covers users who already have PHP |
-| 3.4 | Remove `LinuxInstaller`, `MacOSInstaller`, `PackageManagerInstaller`, throwing release fetchers | Fixes S6 |
-| 3.5 | Extensions & ini: per-version `php.ini` scaffold, `pvm ext list` (read-only first) | Static builds have a fixed extension set — document it |
+| 3.1 | `StaticPhpReleaseSource`: prebuilt CLI binaries from the static-php-cli project (linux x86_64/aarch64, macOS x86_64/arm64) | Done. Verified against the published `.sha256`; with none, refuse unless `--allow-unverified` and record the actual hash (Q1, replaces "pin hashes") |
+| 3.2 | Done. `pvm install 8.3 --from-source`: download the php.net tarball, check it against the SHA-256 php.net publishes, `./configure --prefix=versions/<X.Y>` | Needs build tools; a missing one is named with the platform command to install it (E2). GPG verification was not built |
+| 3.3 | Done. `pvm link <version> <path>`: adopt an existing PHP (apt `ondrej/php`, Homebrew `php@8.3`, MAMP, Laragon, XAMPP on Windows) as a named version | Covers users who already have PHP |
+| 3.4 | Done. Remove `LinuxInstaller`, `MacOSInstaller`, `PackageManagerInstaller`, throwing release fetchers | Fixes S6 |
+| 3.5 | Done. Extensions & ini: per-slot `etc/php.ini` and `conf.d`, `pvm ext install`, `pvm update X.Y` | Static builds have a fixed extension set; they refuse `ext install` (E1) |
 | 3.6 | Windows: add arm64 builds when php.net publishes them; `--arch` default from host | |
 
 ### Phase 4: Shell integration & auto-switching
