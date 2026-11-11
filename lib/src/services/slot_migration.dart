@@ -16,7 +16,7 @@ class MigrationResult {
   /// Minors left alone because two folders claim them, e.g. `8.2`.
   final List<String> conflicts;
 
-  /// One line per conflict, for the user.
+  /// One line per conflict or failed rename, for the user.
   final List<String> messages;
 
   const MigrationResult(this.renamed, this.conflicts, this.messages);
@@ -30,7 +30,15 @@ class SlotMigration {
   final String _versionsPath;
   final String _homeDirectory;
 
-  SlotMigration(this._os, this._versionsPath, this._homeDirectory);
+  /// Renames a folder; tests fail it to play a slot a running PHP holds.
+  final Future<Directory> Function(Directory dir, String to) _rename;
+
+  SlotMigration(
+    this._os,
+    this._versionsPath,
+    this._homeDirectory, {
+    Future<Directory> Function(Directory dir, String to)? renameDir,
+  }) : _rename = renameDir ?? ((dir, to) => dir.rename(to));
 
   Future<MigrationResult> run() async {
     final renamed = <String>[];
@@ -83,7 +91,16 @@ class SlotMigration {
 
       final from = p.join(_versionsPath, legacy.single.toString());
       final to = p.join(_versionsPath, slot);
-      await Directory(from).rename(to);
+      try {
+        await _rename(Directory(from), to);
+      } on FileSystemException {
+        // Windows: a running PHP holds the folder. The next command retries.
+        messages.add(
+          'Could not rename versions/${legacy.single} to versions/$slot '
+          '(stop any PHP running from it, then run any pvm command)',
+        );
+        continue;
+      }
       renamed.add(legacy.single.toString());
 
       final target = await _os.readSymLinkTarget(globalLink);
