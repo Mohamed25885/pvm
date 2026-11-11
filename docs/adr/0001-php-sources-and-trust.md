@@ -18,17 +18,18 @@ PVM was Windows-only and installed from windows.php.net. Linux and macOS need a 
 - **Q7 Missing patch.** Asking for an unbuilt patch errors and lists the available ones; `8.3` picks the newest.
 - **V1 Slots.** One slot per minor, `versions/<X.Y>`. `pvm update X.Y` moves to the newest patch.
 - **V2 Display.** `8.5 (8.5.22)`.
-- **E1 Extensions need a full folder** (one with `php-config`). A static slot refuses them and names the two routes to one: `pvm install X.Y --from-source` or `pvm link`. Building from source is opt-in.
+- **E1 Extensions need a full folder** (one with `php-config`). A static slot refuses them and names the two routes to one: `pvm install X.Y --from-source --force` or `pvm link`. Building from source is opt-in.
 - **E2 Missing tool.** PVM prints the exact platform command, asks the user to run it and re-run, and exits non-zero.
 - **E3 No auto-rebuild across minors.** Extensions are per version; switching to a version without one only prints a hint (`xdebug is installed for 8.2 but not 8.3. Run: pvm ext install xdebug`).
 - **E4 Extension downloads publish no checksum.** They install without `--allow-unverified`; the file's SHA-256 is recorded and the extension is marked unverified. Running `pvm ext install` is the explicit request.
 
 ## Consequences
 
-- Only the newest static-php patch of a minor is installable, because only it has a published `.sha256`. Older patches need `--allow-unverified`.
+- Only the newest static-php patch of a minor is installable, because only it has a published `.sha256`; older ones are never offered. `--allow-unverified` covers archived Windows releases and php.net tarballs without a checksum.
 - Every redirect hop of a download must be https.
-- `install --force` reinstalls the same patch only. A newer patch is `pvm update X.Y`.
+- `install --force` reinstalls the same patch, or replaces a slot of another kind at any patch (a kind change is a replacement, R30). A newer patch of the same kind is `pvm update X.Y`.
 - `pvm ext install` into a linked, writable folder writes into the folder PHP's own scan dir, not a PVM `conf.d`.
 - On Windows, a slot's extensions are enabled in a PVM-managed block of its own `php.ini`, so php.exe loads them however it is started.
 - On Windows, a failing probe warns instead of blocking the install.
 - A source build needs a compiler toolchain; the error message names what is missing.
+- Known limitation: `PHP_INI_SCAN_DIR` set on a PVM-started static PHP is inherited by that PHP's own children (a script's `exec('php ...')`, Composer's subprocesses), which then read the slot's `conf.d` too. The user's shell never sees it.

@@ -43,9 +43,9 @@ A command-line tool for managing multiple PHP versions on Windows, Linux and mac
 - No admin rights or Developer Mode needed: links are directory junctions (see [Requirements](#requirements))
 - PowerShell or CMD
 
-**Linux and macOS** (x64 and arm64): `pvm install` downloads a static-php prebuilt (the `bulk` extension set), or `pvm install 8.4 --from-source` builds the php.net tarball (needs a compiler toolchain; PVM names what is missing). `pvm link` adopts a PHP you already have. Shell setup (`pvm setup`) and shims are not done yet: add `~/.pvm` to your PATH yourself.
+**Linux and macOS** (x64 and arm64): `pvm install` downloads a static-php prebuilt (the `bulk` extension set), or `pvm install 8.4 --from-source` builds the php.net tarball (needs a compiler toolchain; PVM names what is missing). `pvm link` adopts a PHP you already have. Shell setup (`pvm setup`) and shims are not done yet: add `~/.pvm/bin` to your PATH yourself (`~/.pvm` links to the global version's folder, whose `php` is in `bin/`).
 
-**One folder per minor.** `versions/8.5` holds one 8.5.x patch and is shown as `8.5 (8.5.22)`. `pvm update 8.5` moves it to the newest patch. Only the newest static-php patch of a minor is installable, because only it publishes a checksum; older ones need `--allow-unverified`.
+**One folder per minor.** `versions/8.5` holds one 8.5.x patch and is shown as `8.5 (8.5.22)`. `pvm update 8.5` moves it to the newest patch. From static-php, only the newest patch of each minor is available, because only it has a published checksum. `--allow-unverified` applies to archived Windows releases and to `--from-source` php.net tarballs without a checksum.
 
 ---
 
@@ -136,7 +136,7 @@ pvm use stable     # ERROR: Invalid version format. Expected: x.y or x.y.z
 
 ```
 pvm update 8.4                   # move slot 8.4 to the newest patch (--allow-unverified if it has no checksum)
-pvm link 8.4 /usr/lib/php/8.4    # adopt an existing PHP as slot 8.4
+pvm link 8.4 /opt/plesk/php/8.4 # adopt an existing PHP (its bin/php) as slot 8.4
 pvm ext install xdebug           # into the active version; --version=8.3 for another
 pvm install 8.4 --from-source    # Linux/macOS: build from the php.net tarball
 ```

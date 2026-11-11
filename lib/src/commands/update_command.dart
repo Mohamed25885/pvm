@@ -61,8 +61,8 @@ class UpdateCommand extends Command<int> {
     argParser.addFlag(
       'allow-unverified',
       help:
-          'Allow archived builds that have no published SHA-256 '
-          '(older patch releases).',
+          'Allow a build with no published SHA-256: an archived Windows '
+          'release, or a php.net tarball (--from-source) without one.',
       negatable: false,
     );
   }
