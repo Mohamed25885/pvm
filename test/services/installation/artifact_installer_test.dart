@@ -127,7 +127,11 @@ void main() {
       );
 
       expect(await unix.isInstalled('8.3.14'), isTrue);
-      expect(Directory(p.join(versions, '8.3', 'conf.d')).existsSync(), isTrue);
+      // Windows extensions go in php.ini's managed block, not a conf.d.
+      expect(
+        Directory(p.join(versions, '8.3', 'conf.d')).existsSync(),
+        isFalse,
+      );
       expect(
         File(p.join(versions, '8.3', '.pvm-install.json')).existsSync(),
         isTrue,

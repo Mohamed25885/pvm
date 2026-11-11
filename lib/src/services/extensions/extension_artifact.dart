@@ -117,19 +117,9 @@ class ExtensionInstallTxn {
     final backup = File('${target.path}.pvm-backup');
     final hadOld = await target.exists();
     if (hadOld) await target.copy(backup.path);
-    // Snapshot the live ini (enabled or disabled) so a failed reinstall
-    // leaves the old build registered as it was.
-    final confDir = ini.confDir;
-    String? savedName;
-    String? savedContent;
-    for (final n in ['50-$ext.ini', '50-$ext.ini.disabled']) {
-      final f = File(p.join(confDir, n));
-      if (await f.exists()) {
-        savedName = n;
-        savedContent = await f.readAsString();
-        break;
-      }
-    }
+    // Snapshot the live ini (enabled or disabled; Windows: php.ini) so a
+    // failed reinstall leaves the old build registered as it was.
+    final restoreIni = await ini.snapshot(ext);
     try {
       await built.copy(target.path);
       final zend = await exportsZendExtension(target);
@@ -151,9 +141,7 @@ class ExtensionInstallTxn {
         await ini.remove(ext);
       } catch (_) {}
       try {
-        if (savedName != null) {
-          await File(p.join(confDir, savedName)).writeAsString(savedContent!);
-        }
+        await restoreIni();
       } catch (_) {}
       try {
         if (hadOld) {

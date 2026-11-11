@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
@@ -41,12 +42,20 @@ class _Pm implements IProcessManager {
       return CapturedProcessResult(stdout: probe!, stderr: '', exitCode: 0);
     }
     final scan = Directory(spec.environment?['PHP_INI_SCAN_DIR'] ?? '');
+    // Windows: php.exe reads the php.ini beside it (its managed block).
+    final phpIni = File(p.join(p.dirname(spec.executable), 'php.ini'));
     final loaded = [
       if (scan.existsSync())
         for (final f in scan.listSync())
           if (RegExp(r'^50-(.+)\.ini$').firstMatch(p.basename(f.path))
               case final m?)
             if (!broken.contains(m[1])) m[1]!,
+      if (spec.environment?['PHP_INI_SCAN_DIR'] == null && phpIni.existsSync())
+        for (final m in RegExp(
+          r'^(?:zend_)?extension=.*php_(\w+)\.dll$',
+          multiLine: true,
+        ).allMatches(phpIni.readAsStringSync(encoding: latin1)))
+          if (!broken.contains(m[1])) m[1]!,
     ];
     return CapturedProcessResult(
       stdout: '[PHP Modules]\nCore\n${loaded.join('\n')}\n',
@@ -282,6 +291,14 @@ void main() {
       'libdep.dll': [7], // the new archive now ships it
     });
 
+    final phpIni = [
+      ...'memory_limit=1G\r\n'.codeUnits,
+      0xE9,
+      ...'\n${SlotIni.blockBegin}\nzend_extension=php_xdebug.dll\n'
+              '${SlotIni.blockEnd}\n'
+          .codeUnits,
+    ];
+
     Future<void> seed() async {
       installer = WindowsInstaller(
         versionsPath: os.phpVersionsPath,
@@ -310,8 +327,7 @@ void main() {
           'ext/php_xdebug.dll': [9],
           'libdep.dll': [8],
           'libssh2.dll': [6],
-          'php.ini': [5],
-          'conf.d/50-xdebug.ini': 'zend_extension=php_xdebug.dll\n'.codeUnits,
+          'php.ini': phpIni,
         },
       );
     }
@@ -327,22 +343,19 @@ void main() {
       expect(bytes('8.4', 'ext/php_xdebug.dll'), [9]);
       expect(bytes('8.4', 'libssh2.dll'), [6]);
       expect(bytes('8.4', 'libdep.dll'), [7], reason: 'archive wins');
-      expect(bytes('8.4', 'php.ini'), [5]);
-      expect(
-        File(p.join(slotPath('8.4'), 'conf.d', '50-xdebug.ini')).existsSync(),
-        isTrue,
-      );
+      // The php.ini, its extension block included, carries over unchanged.
+      expect(bytes('8.4', 'php.ini'), phpIni);
       final saved = (await VersionRegistry.readSlotRecord(slotPath('8.4')))!;
       expect(saved.version, '8.4.27');
       expect(saved.kind, SlotKind.windowsZip);
       expect(saved.extensions, [_ext('xdebug')]);
       expect(leftovers(), isEmpty);
 
-      // The load check ran on the staged PHP and its conf.d, before the swap.
+      // The load check ran on the staged PHP and its php.ini, before the swap.
       final staging = p.join(os.phpVersionsPath, '.staging-8.4-$pid');
       final check = pm.captured.single;
       expect(check.executable, p.join(staging, 'php.exe'));
-      expect(check.environment!['PHP_INI_SCAN_DIR'], p.join(staging, 'conf.d'));
+      expect(check.environment?['PHP_INI_SCAN_DIR'], isNull);
     });
 
     test('an extension that no longer loads aborts the update', () async {

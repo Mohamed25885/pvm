@@ -29,5 +29,6 @@ PVM was Windows-only and installed from windows.php.net. Linux and macOS need a 
 - Every redirect hop of a download must be https.
 - `install --force` reinstalls the same patch only. A newer patch is `pvm update X.Y`.
 - `pvm ext install` into a linked, writable folder writes into the folder PHP's own scan dir, not a PVM `conf.d`.
+- On Windows, a slot's extensions are enabled in a PVM-managed block of its own `php.ini`, so php.exe loads them however it is started.
 - On Windows, a failing probe warns instead of blocking the install.
 - A source build needs a compiler toolchain; the error message names what is missing.

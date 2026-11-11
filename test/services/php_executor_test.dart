@@ -487,7 +487,8 @@ void main() {
       );
     });
 
-    test('windows layout: scan dir only, no -c', () async {
+    test('windows layout: no -c and no scan dir (php.exe reads its own '
+        'php.ini)', () async {
       final slot = await slotOf(SlotKind.windowsZip);
 
       await make(
@@ -496,8 +497,8 @@ void main() {
 
       expect(pm.lastSpec!.arguments, ['-v']);
       expect(
-        pm.lastSpec!.environment!['PHP_INI_SCAN_DIR'],
-        p.join(slot, 'conf.d'),
+        pm.lastSpec!.environment?.containsKey('PHP_INI_SCAN_DIR') ?? false,
+        isFalse,
       );
     });
 

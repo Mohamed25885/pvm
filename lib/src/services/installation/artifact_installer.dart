@@ -239,7 +239,7 @@ class ArtifactInstaller {
   }
 
   /// Empty per-slot ini and `conf.d` (see SlotIni). Linked slots are the
-  /// user's folder; the Windows zip keeps its own `php.ini` handling.
+  /// user's folder; a Windows zip slot's extensions go in its `php.ini`.
   Future<void> _createIni(String tree, SlotKind kind) async {
     switch (kind) {
       case SlotKind.static:
@@ -248,7 +248,6 @@ class ArtifactInstaller {
         final ini = File(p.join(tree, 'etc', 'php.ini'));
         if (!await ini.exists()) await ini.writeAsString('');
       case SlotKind.windowsZip:
-        await Directory(p.join(tree, 'conf.d')).create(recursive: true);
       case SlotKind.linked:
         break;
     }

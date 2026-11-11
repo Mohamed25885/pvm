@@ -176,6 +176,34 @@ void main() {
       );
     });
 
+    test('windows: a failed install restores php.ini byte-identical', () async {
+      final slot = p.join(tmp.path, 'win');
+      final win = SlotIni(
+        slot,
+        InstallRecord(
+          version: '8.3.1',
+          sourceUrl: 'u',
+          archiveSha256: 'a',
+          verified: true,
+          installedAt: DateTime.utc(2026),
+          files: const {},
+          extensionDir: extDir,
+        ),
+        WindowsPlatformInfo(),
+      );
+      final phpIni = File(p.join(slot, 'php.ini'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([...'a=1\r\n'.codeUnits, 0xE9]);
+      await expectLater(
+        ExtensionInstallTxn(
+          php('core\n'),
+          'php',
+        ).commit(built, extDir, win, 'xdebug'),
+        throwsA(isA<ExtensionLoadException>()),
+      );
+      expect(phpIni.readAsBytesSync(), [...'a=1\r\n'.codeUnits, 0xE9]);
+    });
+
     test('failed reinstall restores a disabled ini as .disabled', () async {
       Directory(ini.confDir).createSync(recursive: true);
       final off = File(p.join(ini.confDir, '$iniName.disabled'))
