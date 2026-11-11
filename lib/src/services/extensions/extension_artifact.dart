@@ -25,8 +25,22 @@ class ExtensionArtifact {
 
 /// True when [binary] exports `zend_extension_entry` (a Zend extension).
 /// Streams the file; a match may span chunk boundaries.
-Future<bool> exportsZendExtension(File binary) =>
-    streamHasZendMarker(binary.openRead());
+Future<bool> exportsZendExtension(File binary) async {
+  // Closed explicitly: an early match must not leave the file open (Windows
+  // then refuses to delete or move it).
+  final f = await binary.open();
+  try {
+    return await streamHasZendMarker(() async* {
+      while (true) {
+        final chunk = await f.read(1 << 16);
+        if (chunk.isEmpty) return;
+        yield chunk;
+      }
+    }());
+  } finally {
+    await f.close();
+  }
+}
 
 /// Chunk-wise search used by [exportsZendExtension].
 Future<bool> streamHasZendMarker(Stream<List<int>> chunks) async {
