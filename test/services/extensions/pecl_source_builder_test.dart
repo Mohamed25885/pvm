@@ -228,6 +228,61 @@ void main() {
     expect(requested, isEmpty);
   });
 
+  group('linked slot (R21)', () {
+    late String folder;
+    late String link;
+
+    setUp(() {
+      folder = p.join(temp.path, 'user-php');
+      for (final n in ['php', 'php-config', 'phpize']) {
+        File(p.join(folder, 'bin', n)).createSync(recursive: true);
+      }
+      link = p.join(temp.path, 'versions', '8.5');
+      Link(link).createSync(folder);
+    });
+    tearDown(() => Link(link).deleteSync());
+
+    InstalledSlot linked() => InstalledSlot(
+      PhpVersion.parse('8.5.1'),
+      link,
+      InstallRecord(
+        version: '8.5.1',
+        sourceUrl: '',
+        archiveSha256: '',
+        verified: true,
+        installedAt: DateTime.utc(2026),
+        files: const {},
+        kind: SlotKind.linked,
+        phpConfig: p.join(folder, 'bin', 'php-config'),
+        prefix: folder,
+        extensionDir: p.join(folder, 'ext'),
+      ),
+    );
+
+    test(
+      'a prefix matching the link target passes the guard and builds',
+      () async {
+        pm.prefix = folder;
+        // The commit step needs a conf.d a linked slot does not have; the
+        // guard and build are what R21 covers.
+        await expectLater(
+          builder().install('xdebug', linked()),
+          throwsA(isNot(isA<SlotBrokenException>())),
+        );
+        expect(pm.interactive.map((s) => s.executable), contains('make'));
+      },
+    );
+
+    test('a prefix that differs from the target is still refused', () async {
+      pm.prefix = '/usr';
+      await expectLater(
+        builder().install('xdebug', linked()),
+        throwsA(isA<SlotBrokenException>()),
+      );
+      expect(requested, isEmpty);
+    });
+  });
+
   test('grpc also requires c++ and warns about the long build', () async {
     await builder().install('grpc', slot());
     expect(checkedTools(), ['cc', 'make', 'autoconf', 'pkg-config', 'c++']);

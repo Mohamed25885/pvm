@@ -92,19 +92,28 @@ class VersionRegistry {
   /// The record of the slot at [slotPath]: the `<slot>.pvm-link.json` beside
   /// a linked slot, else `.pvm-install.json` inside it. The one place that
   /// decides, so nothing reads inside a user's linked folder.
-  static Future<InstallRecord?> readSlotRecord(String slotPath) {
-    final isLink =
-        FileSystemEntity.typeSync(slotPath, followLinks: false) ==
-        FileSystemEntityType.link;
-    return isLink
-        ? InstallRecord.readFromFile(
-            p.join(
-              p.dirname(slotPath),
-              '${p.basename(slotPath)}.pvm-link.json',
-            ),
-          )
-        : InstallRecord.readFrom(slotPath);
-  }
+  static Future<InstallRecord?> readSlotRecord(String slotPath) =>
+      _isLink(slotPath)
+      ? InstallRecord.readFromFile(_linkRecordFile(slotPath))
+      : InstallRecord.readFrom(slotPath);
+
+  /// Writes [record] where [readSlotRecord] reads it.
+  static Future<void> writeSlotRecord(String slotPath, InstallRecord record) =>
+      _isLink(slotPath)
+      ? record.writeToFile(_linkRecordFile(slotPath))
+      : record.writeTo(slotPath);
+
+  /// The folder a slot's PHP lives in: a linked slot's target, else the slot.
+  static String slotFolder(String slotPath) => _isLink(slotPath)
+      ? p.normalize(p.join(p.dirname(slotPath), Link(slotPath).targetSync()))
+      : slotPath;
+
+  static bool _isLink(String slotPath) =>
+      FileSystemEntity.typeSync(slotPath, followLinks: false) ==
+      FileSystemEntityType.link;
+
+  static String _linkRecordFile(String slotPath) =>
+      p.join(p.dirname(slotPath), '${p.basename(slotPath)}.pvm-link.json');
 
   /// Where a linked slot's record lives: `versions/<slot>.pvm-link.json`.
   String linkRecordPath(String slot) =>

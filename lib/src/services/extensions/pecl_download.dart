@@ -11,6 +11,7 @@ import '../../domain/php_release.dart';
 import '../../interfaces/i_installer.dart';
 import '../installation/artifact_installer.dart';
 
+export '../../domain/exceptions/extension_build_exception.dart';
 export '../../domain/exceptions/extension_unavailable_exception.dart';
 export '../../domain/exceptions/slot_broken_exception.dart';
 

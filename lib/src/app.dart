@@ -8,6 +8,7 @@ import 'commands/composer_command.dart';
 import 'commands/current_command.dart';
 import 'commands/doctor_command.dart';
 import 'commands/exec_command.dart';
+import 'commands/ext_command.dart';
 import 'commands/global_command.dart';
 import 'commands/install_command.dart';
 import 'commands/link_command.dart';
@@ -45,6 +46,8 @@ import 'managers/static_php_installer.dart';
 import 'managers/windows_installer.dart';
 import 'process/io_process_manager.dart';
 import 'services/build_tools.dart';
+import 'services/extensions/pecl_source_builder.dart';
+import 'services/extensions/pecl_windows_dll.dart';
 import 'services/folder_probe.dart';
 import 'services/php_executor.dart';
 import 'services/privilege_escalation_service.dart';
@@ -248,6 +251,37 @@ PvmCommandRunner buildRunner(PvmDependencies deps) {
         composerLocator: composerLocator,
         resolver: resolver,
         console: console,
+      ),
+    )
+    ..addCommand(
+      ExtCommand(
+        ExtInstallCommand(
+          osManager: os,
+          resolver: resolver,
+          processManager: deps.processManager,
+          platform: deps.platform,
+          console: console,
+          sourceBuilder: () {
+            final b = PeclSourceBuilder(
+              platform: deps.platform,
+              console: console,
+              processManager: deps.processManager,
+              buildTools: BuildTools(deps.processManager, deps.platform),
+              jobs: Platform.numberOfProcessors,
+              client: http.Client(),
+            );
+            return (install: b.install, dispose: b.dispose);
+          },
+          windowsDll: () {
+            final d = PeclWindowsDll(
+              platform: deps.platform,
+              console: console,
+              processManager: deps.processManager,
+              client: http.Client(),
+            );
+            return (install: d.install, dispose: d.dispose);
+          },
+        ),
       ),
     )
     ..addCommand(PhpCommand(phpExecutor, os, console))

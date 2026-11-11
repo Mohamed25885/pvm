@@ -15,7 +15,10 @@ import 'extension_artifact.dart';
 import 'pecl_download.dart';
 
 export 'pecl_download.dart'
-    show ExtensionUnavailableException, SlotBrokenException;
+    show
+        ExtensionBuildException,
+        ExtensionUnavailableException,
+        SlotBrokenException;
 
 /// Linux/macOS: builds a PECL extension against one slot with that slot's
 /// own phpize and php-config, then installs it through [ExtensionInstallTxn].
@@ -49,7 +52,9 @@ class PeclSourceBuilder {
     final broken = SlotBrokenException(
       'Slot $x is broken (bin/php missing); reinstall it',
     );
-    final php = p.join(slot.path, 'bin', 'php');
+    // A linked slot's php-config reports the user's folder, not versions/X.Y.
+    final folder = VersionRegistry.slotFolder(slot.path);
+    final php = p.join(folder, 'bin', 'php');
     final record = slot.record;
     final phpConfig = record?.phpConfig;
     if (!await File(php).exists() ||
@@ -70,7 +75,7 @@ class PeclSourceBuilder {
     );
     final prefix = r.stdout.trim();
     if (r.exitCode != 0 ||
-        !p.equals(p.normalize(prefix), p.normalize(slot.path))) {
+        !p.equals(p.normalize(prefix), p.normalize(folder))) {
       throw SlotBrokenException(
         'Slot $x was built for $prefix; reinstall it with '
         'pvm install $x --from-source --force',
@@ -123,7 +128,9 @@ class PeclSourceBuilder {
 
       final built = File(p.join(src, 'modules', '$ext.so'));
       if (!await built.exists()) {
-        throw Exception('The build did not produce modules/$ext.so');
+        throw ExtensionBuildException(
+          'The build did not produce modules/$ext.so',
+        );
       }
       await ExtensionInstallTxn(_pm, php).commit(
         built,
@@ -160,7 +167,7 @@ class PeclSourceBuilder {
       ),
     );
     if (code != 0) {
-      throw Exception('${p.basename(exe)} failed (exit $code)');
+      throw ExtensionBuildException('${p.basename(exe)} failed (exit $code)');
     }
   }
 
